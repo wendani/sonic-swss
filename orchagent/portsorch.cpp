@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <tuple>
 #include <sstream>
+#include <unistd.h>
 
 #include <netinet/if_ether.h>
 #include "net/if.h"
@@ -32,6 +33,7 @@ extern CrmOrch *gCrmOrch;
 #define DEFAULT_VLAN_ID     1
 #define FLEX_STAT_COUNTER_POLL_MSECS "1000"
 #define STAT_COUNTER_FLEX_COUNTER_GROUP "STAT_COUNTER"
+#define CPU_TRAF_QUEUE_IDX   7
 
 static map<string, sai_port_fec_mode_t> fec_mode_map =
 {
@@ -1850,6 +1852,14 @@ bool PortsOrch::addHostIntfs(Port &port, string alias, sai_object_id_t &host_int
     attr.id = SAI_HOSTIF_ATTR_NAME;
     strncpy((char *)&attr.value.chardata, alias.c_str(), SAI_HOSTIF_NAME_SIZE);
     attrs.push_back(attr);
+
+    string platform = getenv("platform");
+    if (BRCM_PLATFORM_SUBSTRING == platform)
+    {
+        attr.id = SAI_HOSTIF_ATTR_QUEUE;
+        attr.value.u32 = CPU_TRAF_QUEUE_IDX;
+        attrs.push_back(attr);
+    }
 
     sai_status_t status = sai_hostif_api->create_hostif(&host_intfs_id, gSwitchId, (uint32_t)attrs.size(), attrs.data());
     if (status != SAI_STATUS_SUCCESS)
