@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <tuple>
 #include <sstream>
-#include <unistd.h>
 
 #include <netinet/if_ether.h>
 #include "net/if.h"
