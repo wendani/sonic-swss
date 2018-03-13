@@ -33,7 +33,7 @@ extern CrmOrch *gCrmOrch;
 #define DEFAULT_VLAN_ID     1
 #define FLEX_STAT_COUNTER_POLL_MSECS "1000"
 #define STAT_COUNTER_FLEX_COUNTER_GROUP "STAT_COUNTER"
-#define CPU_TRAF_QUEUE_IDX   7
+#define CPU_TRAF_QUEUE_IDX  7
 
 static map<string, sai_port_fec_mode_t> fec_mode_map =
 {
