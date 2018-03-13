@@ -1853,7 +1853,7 @@ bool PortsOrch::addHostIntfs(Port &port, string alias, sai_object_id_t &host_int
     strncpy((char *)&attr.value.chardata, alias.c_str(), SAI_HOSTIF_NAME_SIZE);
     attrs.push_back(attr);
 
-    string platform = getenv("platform");
+    string platform = getenv("platform") ? getenv("platform") : "";
     if (BRCM_PLATFORM_SUBSTRING == platform)
     {
         attr.id = SAI_HOSTIF_ATTR_QUEUE;
