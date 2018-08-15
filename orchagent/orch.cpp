@@ -284,7 +284,18 @@ bool Orch::parseReference(type_map &type_maps, string &ref_in, string &type_name
         tokens = tokenize(ref_content, config_db_key_delimiter);
         if (tokens.size() != 2)
         {
-            SWSS_LOG_ERROR("malformed reference:%s. Must contain 2 tokens\n", ref_content.c_str());
+            if (tokens.size() == 1)
+            {
+                auto type_it = type_maps.find(tokens[0]);
+                if (type_it != type_maps.end())
+                {
+                    type_name = tokens[0];
+                    SWSS_LOG_ERROR("Orch::parseReference: type_name:%s, object_name: missing\n", tokens[0].c_str());
+                    return false;
+                }
+            }
+
+            SWSS_LOG_ERROR("malformed reference:%s. Must contain 1 token or 2 tokens\n", ref_content.c_str());
             return false;
         }
     }
@@ -329,6 +340,10 @@ ref_resolve_status Orch::resolveFieldRefValue(
             string ref_type_name, object_name;
             if (!parseReference(type_maps, fvValue(*i), ref_type_name, object_name))
             {
+                if (!ref_type_name.empty())
+                {
+                    return ref_resolve_status::object_name_empty;
+                }
                 return ref_resolve_status::not_resolved;
             }
             sai_object = (*(type_maps[ref_type_name]))[object_name];
