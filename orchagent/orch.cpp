@@ -290,7 +290,7 @@ bool Orch::parseReference(type_map &type_maps, string &ref_in, string &type_name
                 if (type_it != type_maps.end())
                 {
                     type_name = tokens[0];
-                    SWSS_LOG_ERROR("Orch::parseReference: type_name:%s, object_name: missing\n", tokens[0].c_str());
+                    SWSS_LOG_INFO("Incomplete reference received: type_name:%s, object_name: missing\n", tokens[0].c_str());
                     return false;
                 }
             }

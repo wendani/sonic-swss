@@ -1191,7 +1191,7 @@ task_process_status QosOrch::handleQueueTable(Consumer& consumer)
             {
                 if (ref_resolve_status::object_name_empty == resolve_result)
                 {
-                    SWSS_LOG_ERROR("Missing wred reference. Unbind wred profile from queue");
+                    SWSS_LOG_INFO("Missing wred reference. Unbind wred profile from queue");
                     // NOTE: The wred profile is un-bound from the port. But the wred profile itself still exists
                     // and stays untouched.
                     result = applyWredProfileToQueue(port, queue_ind, SAI_NULL_OBJECT_ID);
@@ -1203,7 +1203,7 @@ task_process_status QosOrch::handleQueueTable(Consumer& consumer)
                 }
                 else if (ref_resolve_status::not_resolved == resolve_result)
                 {
-                    SWSS_LOG_ERROR("Invalid wred reference");
+                    SWSS_LOG_INFO("Invalid wred reference");
                     return task_process_status::task_need_retry;
                 }
                 else
