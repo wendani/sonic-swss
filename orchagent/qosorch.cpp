@@ -1189,7 +1189,7 @@ task_process_status QosOrch::handleQueueTable(Consumer& consumer)
             }
             else if (resolve_result != ref_resolve_status::field_not_found)
             {
-                if (ref_resolve_status::object_name_empty == resolve_result)
+                if (ref_resolve_status::empty == resolve_result)
                 {
                     SWSS_LOG_INFO("Missing wred reference. Unbind wred profile from queue");
                     // NOTE: The wred profile is un-bound from the port. But the wred profile itself still exists
