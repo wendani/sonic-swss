@@ -260,13 +260,18 @@ bool Orch::bake()
 - Validates reference has proper format which is [table_name:object_name]
 - validates table_name exists
 - validates object with object_name exists
+
+- Special case:
+- Deem reference format [] as valid, and return true. But in such a case,
+- both type_name and object_name are cleared to empty strings as an
+- indication to the caller of the special case
 */
 bool Orch::parseReference(type_map &type_maps, string &ref_in, string &type_name, string &object_name)
 {
     SWSS_LOG_ENTER();
 
     SWSS_LOG_DEBUG("input:%s", ref_in.c_str());
-    if (ref_in.size() < 3)
+    if (ref_in.size() < 2)
     {
         SWSS_LOG_ERROR("invalid reference received:%s\n", ref_in.c_str());
         return false;
@@ -276,6 +281,18 @@ bool Orch::parseReference(type_map &type_maps, string &ref_in, string &type_name
         SWSS_LOG_ERROR("malformed reference:%s. Must be surrounded by [ ]\n", ref_in.c_str());
         return false;
     }
+    if (ref_in.size() == 2)
+    {
+        // value set by user is "[]"
+        // Deem it as a valid format
+        // clear both type_name  and object_name
+        // as an indication to the caller that
+        // such a case has been encountered
+        SWSS_LOG_INFO("special reference:%s.", ref_in.c_str());
+        type_name.clear();
+        object_name.clear();
+        return true;
+    }
     string ref_content = ref_in.substr(1, ref_in.size() - 2);
     vector<string> tokens;
     tokens = tokenize(ref_content, delimiter);
@@ -284,18 +301,7 @@ bool Orch::parseReference(type_map &type_maps, string &ref_in, string &type_name
         tokens = tokenize(ref_content, config_db_key_delimiter);
         if (tokens.size() != 2)
         {
-            if (tokens.size() == 1)
-            {
-                auto type_it = type_maps.find(tokens[0]);
-                if (type_it != type_maps.end())
-                {
-                    type_name = tokens[0];
-                    SWSS_LOG_INFO("Incomplete reference received: type_name:%s, object_name: missing\n", tokens[0].c_str());
-                    return false;
-                }
-            }
-
-            SWSS_LOG_ERROR("malformed reference:%s. Must contain 1 token or 2 tokens\n", ref_content.c_str());
+            SWSS_LOG_ERROR("malformed reference:%s. Must contain 2 tokens\n", ref_content.c_str());
             return false;
         }
     }
@@ -340,19 +346,26 @@ ref_resolve_status Orch::resolveFieldRefValue(
             string ref_type_name, object_name;
             if (!parseReference(type_maps, fvValue(*i), ref_type_name, object_name))
             {
-                if (!ref_type_name.empty())
-                {
-                    return ref_resolve_status::object_name_empty;
-                }
                 return ref_resolve_status::not_resolved;
             }
-            sai_object = (*(type_maps[ref_type_name]))[object_name];
+            if (ref_type_name.empty() && object_name.empty())
+            {
+                sai_object = SAI_NULL_OBJECT_ID;
+            }
+            else
+            {
+                sai_object = (*(type_maps[ref_type_name]))[object_name];
+            }
             hit = true;
         }
     }
     if (!hit)
     {
         return ref_resolve_status::field_not_found;
+    }
+    if (SAI_NULL_OBJECT_ID == sai_object)
+    {
+        return ref_resolve_status::empty;
     }
     return ref_resolve_status::success;
 }
