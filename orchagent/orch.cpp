@@ -162,7 +162,7 @@ bool Orch::parseReference(type_map &type_maps, string &ref_in, string &type_name
     {
         // value set by user is "[]"
         // Deem it as a valid format
-        // clear both type_name  and object_name
+        // clear both type_name and object_name
         // as an indication to the caller that
         // such a case has been encountered
         SWSS_LOG_INFO("special reference:%s.", ref_in.c_str());

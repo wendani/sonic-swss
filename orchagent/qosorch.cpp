@@ -1155,7 +1155,6 @@ task_process_status QosOrch::handleQueueTable(Consumer& consumer)
                 return task_process_status::task_failed;
             }
 
-
             sai_object_id_t sai_wred_profile;
             resolve_result = resolveFieldRefValue(m_qos_maps, wred_profile_field_name, tuple, sai_wred_profile);
             if (ref_resolve_status::success == resolve_result)
