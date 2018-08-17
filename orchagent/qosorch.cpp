@@ -103,7 +103,6 @@ task_process_status QosMapHandler::processWorkItem(Consumer& consumer)
             }
             (*(QosOrch::getTypeMap()[qos_map_type_name]))[qos_object_name] = sai_object;
             SWSS_LOG_NOTICE("Created [%s:%s]", qos_map_type_name.c_str(), qos_object_name.c_str());
-            SWSS_LOG_ERROR("QosMapHandler::processWorkItem: Created object_map: %s: %lu", qos_object_name.c_str(), sai_object);
         }
         freeAttribResources(attributes);
     }
@@ -1086,7 +1085,6 @@ task_process_status QosOrch::handleQueueTable(Consumer& consumer)
     bool result;
     string key = kfvKey(tuple);
     string op = kfvOp(tuple);
-    vector<FieldValueTuple> &fvVec = kfvFieldsValues(tuple);
     size_t queue_ind = 0;
     vector<string> tokens;
 
@@ -1095,7 +1093,6 @@ task_process_status QosOrch::handleQueueTable(Consumer& consumer)
 
     ref_resolve_status  resolve_result;
     // sample "QUEUE: {Ethernet4|0-1}"
-    SWSS_LOG_ERROR("handleQueueTable: key: %s", key.c_str());
     tokens = tokenize(key, config_db_key_delimiter);
     if (tokens.size() != 2)
     {
@@ -1126,7 +1123,6 @@ task_process_status QosOrch::handleQueueTable(Consumer& consumer)
             resolve_result = resolveFieldRefValue(m_qos_maps, scheduler_field_name, tuple, sai_scheduler_profile);
             if (ref_resolve_status::success == resolve_result)
             {
-                SWSS_LOG_ERROR("handleQueueTable: resolved field: scheduler");
                 if (op == SET_COMMAND)
                 {
                     result = applySchedulerToQueueSchedulerGroup(port, queue_ind, sai_scheduler_profile);
@@ -1160,12 +1156,10 @@ task_process_status QosOrch::handleQueueTable(Consumer& consumer)
             }
 
 
-            SWSS_LOG_ERROR("handleQueueTable: size of FieldValueTuple vector: %lu", fvVec.size());
             sai_object_id_t sai_wred_profile;
             resolve_result = resolveFieldRefValue(m_qos_maps, wred_profile_field_name, tuple, sai_wred_profile);
             if (ref_resolve_status::success == resolve_result)
             {
-                SWSS_LOG_ERROR("handleQueueTable: resolved field: wred");
                 if (op == SET_COMMAND)
                 {
                     result = applyWredProfileToQueue(port, queue_ind, sai_wred_profile);
