@@ -288,7 +288,6 @@ bool Orch::parseReference(type_map &type_maps, string &ref_in, string &type_name
         // clear both type_name and object_name
         // as an indication to the caller that
         // such a case has been encountered
-        SWSS_LOG_INFO("special reference:%s.", ref_in.c_str());
         type_name.clear();
         object_name.clear();
         return true;
@@ -348,24 +347,17 @@ ref_resolve_status Orch::resolveFieldRefValue(
             {
                 return ref_resolve_status::not_resolved;
             }
-            if (ref_type_name.empty() && object_name.empty())
+            else if (ref_type_name.empty() && object_name.empty())
             {
-                sai_object = SAI_NULL_OBJECT_ID;
+                return ref_resolve_status::empty;
             }
-            else
-            {
-                sai_object = (*(type_maps[ref_type_name]))[object_name];
-            }
+            sai_object = (*(type_maps[ref_type_name]))[object_name];
             hit = true;
         }
     }
     if (!hit)
     {
         return ref_resolve_status::field_not_found;
-    }
-    if (SAI_NULL_OBJECT_ID == sai_object)
-    {
-        return ref_resolve_status::empty;
     }
     return ref_resolve_status::success;
 }
