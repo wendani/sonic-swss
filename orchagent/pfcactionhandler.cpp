@@ -14,13 +14,13 @@
 
 #define PFC_WD_QUEUE_STATS_TX_PACKETS "PFC_WD_QUEUE_STATS_TX_PACKETS"
 #define PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS "PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS"
-#define PFC_WD_QUEUE_STATS_RX_PACKETS "PFC_WD_QUEUE_STATS_RX_PACKETS"
-#define PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS "PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS"
+#define PFC_WD_PG_STATS_RX_PACKETS "PFC_WD_PG_STATS_RX_PACKETS"
+#define PFC_WD_PG_STATS_RX_DROPPED_PACKETS "PFC_WD_PG_STATS_RX_DROPPED_PACKETS"
 
 #define PFC_WD_QUEUE_STATS_TX_PACKETS_LAST "PFC_WD_QUEUE_STATS_TX_PACKETS_LAST"
 #define PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS_LAST "PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS_LAST"
-#define PFC_WD_QUEUE_STATS_RX_PACKETS_LAST "PFC_WD_QUEUE_STATS_RX_PACKETS_LAST"
-#define PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST "PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST"
+#define PFC_WD_PG_STATS_RX_PACKETS_LAST "PFC_WD_PG_STATS_RX_PACKETS_LAST"
+#define PFC_WD_PG_STATS_RX_DROPPED_PACKETS_LAST "PFC_WD_PG_STATS_RX_DROPPED_PACKETS_LAST"
 
 extern sai_object_id_t gSwitchId;
 extern PortsOrch *gPortsOrch;
@@ -139,11 +139,11 @@ PfcWdActionHandler::PfcWdQueueStats PfcWdActionHandler::getQueueStats(shared_ptr
         {
             stats.txDropPkt = stoul(value);
         }
-        else if (field == PFC_WD_QUEUE_STATS_RX_PACKETS)
+        else if (field == PFC_WD_PG_STATS_RX_PACKETS)
         {
             stats.rxPkt = stoul(value);
         }
-        else if (field == PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS)
+        else if (field == PFC_WD_PG_STATS_RX_DROPPED_PACKETS)
         {
             stats.rxDropPkt = stoul(value);
         }
@@ -155,11 +155,11 @@ PfcWdActionHandler::PfcWdQueueStats PfcWdActionHandler::getQueueStats(shared_ptr
         {
             stats.txDropPktLast = stoul(value);
         }
-        else if (field == PFC_WD_QUEUE_STATS_RX_PACKETS_LAST)
+        else if (field == PFC_WD_PG_STATS_RX_PACKETS_LAST)
         {
             stats.rxPktLast = stoul(value);
         }
-        else if (field == PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST)
+        else if (field == PFC_WD_PG_STATS_RX_DROPPED_PACKETS_LAST)
         {
             stats.rxDropPktLast = stoul(value);
         }
@@ -194,13 +194,13 @@ void PfcWdActionHandler::updateWdCounters(const string& queueIdStr, const PfcWdQ
 
     resultFvValues.emplace_back(PFC_WD_QUEUE_STATS_TX_PACKETS, to_string(stats.txPkt));
     resultFvValues.emplace_back(PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS, to_string(stats.txDropPkt));
-    resultFvValues.emplace_back(PFC_WD_QUEUE_STATS_RX_PACKETS, to_string(stats.rxPkt));
-    resultFvValues.emplace_back(PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS, to_string(stats.rxDropPkt));
+    resultFvValues.emplace_back(PFC_WD_PG_STATS_RX_PACKETS, to_string(stats.rxPkt));
+    resultFvValues.emplace_back(PFC_WD_PG_STATS_RX_DROPPED_PACKETS, to_string(stats.rxDropPkt));
 
     resultFvValues.emplace_back(PFC_WD_QUEUE_STATS_TX_PACKETS_LAST, to_string(stats.txPktLast));
     resultFvValues.emplace_back(PFC_WD_QUEUE_STATS_TX_DROPPED_PACKETS_LAST, to_string(stats.txDropPktLast));
-    resultFvValues.emplace_back(PFC_WD_QUEUE_STATS_RX_PACKETS_LAST, to_string(stats.rxPktLast));
-    resultFvValues.emplace_back(PFC_WD_QUEUE_STATS_RX_DROPPED_PACKETS_LAST, to_string(stats.rxDropPktLast));
+    resultFvValues.emplace_back(PFC_WD_PG_STATS_RX_PACKETS_LAST, to_string(stats.rxPktLast));
+    resultFvValues.emplace_back(PFC_WD_PG_STATS_RX_DROPPED_PACKETS_LAST, to_string(stats.rxDropPktLast));
 
     resultFvValues.emplace_back(PFC_WD_QUEUE_STATUS, stats.operational ?
                                                      PFC_WD_QUEUE_STATUS_OPERATIONAL :
