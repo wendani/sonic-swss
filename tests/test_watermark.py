@@ -58,7 +58,7 @@ class TestWatermark(object):
         self.populate_asic(dvs, "SAI_OBJECT_TYPE_QUEUE", SaiWmStats.queue_shared, val)
         self.populate_asic(dvs, "SAI_OBJECT_TYPE_INGRESS_PRIORITY_GROUP", SaiWmStats.pg_shared, val)
         self.populate_asic(dvs, "SAI_OBJECT_TYPE_INGRESS_PRIORITY_GROUP", SaiWmStats.pg_headroom, val)
-        time.sleep(DEFAULT_POLL_INTERVAL)
+        time.sleep(self.DEFAULT_POLL_INTERVAL)
 
     def verify_value(self, dvs, obj_ids, table_name, watermark_name, expected_value):
 
