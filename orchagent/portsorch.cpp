@@ -706,7 +706,7 @@ bool PortsOrch::setPortPfcAsym(Port &port, string pfc_asym)
     return true;
 }
 
-bool PortsOrch::bindAclTableGroup(sai_object_id_t id, sai_object_id_t &group_oid, acl_stage_type_t acl_stage)
+bool PortsOrch::createBindAclTableGroup(sai_object_id_t id, sai_object_id_t &group_oid, acl_stage_type_t acl_stage)
 {
     SWSS_LOG_ENTER();
 
@@ -864,7 +864,7 @@ bool PortsOrch::bindAclTable(sai_object_id_t id, sai_object_id_t table_oid, sai_
     sai_object_id_t groupOid;
 
     // Create an ACL table group and bind to port
-    if (!bindAclTableGroup(id, groupOid, acl_stage))
+    if (!createBindAclTableGroup(id, groupOid, acl_stage))
     {
         SWSS_LOG_ERROR("Fail to create or bind to port %lx ACL table group", id);
         return false;
