@@ -526,9 +526,9 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
                 sai_serialize_object_id(queueId));
     }
 
-    // Create egress table group for each port of pfcwd's interest
-    sai_object_id_t group_member_oid;
-    gPortsOrch->bindAclTable(port.m_port_id, SAI_NULL_OBJECT_ID, group_member_oid, ACL_STAGE_EGRESS);
+    // Create egress ACL table group for each port of pfcwd's interest
+    sai_object_id_t group_oid;
+    gPortsOrch->bindAclTableGroup(port.m_port_id, group_oid, ACL_STAGE_EGRESS);
 }
 
 template <typename DropHandler, typename ForwardHandler>
