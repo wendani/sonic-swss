@@ -851,6 +851,12 @@ bool PortsOrch::bindAclTable(sai_object_id_t id, sai_object_id_t table_oid, sai_
 {
     SWSS_LOG_ENTER();
 
+    if (table_oid == SAI_NULL_OBJECT_ID)
+    {
+        SWSS_LOG_ERROR("Invalid ACL table %lx", table_oid);
+        return false;
+    }
+
     sai_status_t status;
     sai_object_id_t groupOid;
 
