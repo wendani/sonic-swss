@@ -8,12 +8,15 @@
 #include "select.h"
 #include "notifier.h"
 #include "redisclient.h"
+#include "schema.h"
+#include "tokenize.h"
 
 #define PFC_WD_GLOBAL                   "GLOBAL"
 #define PFC_WD_ACTION                   "action"
 #define PFC_WD_DETECTION_TIME           "detection_time"
 #define PFC_WD_RESTORATION_TIME         "restoration_time"
 #define BIG_RED_SWITCH_FIELD            "BIG_RED_SWITCH"
+#define PFC_WD_IN_STORM                 "storm"
 
 #define PFC_WD_DETECTION_TIME_MAX       (5 * 1000)
 #define PFC_WD_DETECTION_TIME_MIN       100
@@ -154,6 +157,7 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
     uint32_t restorationTime = 0;
     // According to requirements, drop action is default
     PfcWdAction action = PfcWdAction::PFC_WD_ACTION_DROP;
+    vector<string> queues;
 
     Port port;
     if (!gPortsOrch->getPort(key, port))
@@ -197,6 +201,11 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
                     return;
                 }
             }
+            else if (field == PFC_WD_IN_STORM)
+            {
+                SWSS_LOG_NOTICE("In-storm queues %s on port %s", value.c_str(), key.c_str());
+                queues = tokenize(value, comma);
+            }
             else
             {
                 SWSS_LOG_ERROR(
@@ -239,6 +248,18 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
     }
 
     SWSS_LOG_NOTICE("Started PFC Watchdog on port %s", port.m_alias.c_str());
+
+    // Start PFC storm action on queues of port
+    if (!queues.empty())
+    {
+        for (const auto &q : queues)
+        {
+            if (!startWdActionOnQueue(PFC_WD_IN_STORM, port.m_queue_ids[stoi(q)]))
+            {
+                SWSS_LOG_NOTICE("Failed to start PFC watchdog %s event action on port %s queue %s", PFC_WD_IN_STORM, key.c_str(), q.c_str());
+            }
+        }
+    }
 }
 
 template <typename DropHandler, typename ForwardHandler>
@@ -624,7 +645,10 @@ PfcWdSwOrch<DropHandler, ForwardHandler>::PfcWdSwOrch(
     c_portStatIds(portStatIds),
     c_queueStatIds(queueStatIds),
     c_queueAttrIds(queueAttrIds),
-    m_pollInterval(pollInterval)
+    m_pollInterval(pollInterval),
+    m_applDb(make_shared<DBConnector>(APPL_DB, DBConnector::DEFAULT_UNIXSOCKET, 0)),
+    m_applTable(make_shared<Table>(m_applDb.get(), APP_PFC_WD_TABLE_NAME)),
+    m_applDbRedisClient(m_applDb.get())
 {
     SWSS_LOG_ENTER();
 
@@ -728,11 +752,35 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(swss::NotificationConsumer
     sai_object_id_t queueId = SAI_NULL_OBJECT_ID;
     sai_deserialize_object_id(queueIdStr, queueId);
 
+    if (!startWdActionOnQueue(event, queueId))
+    {
+        SWSS_LOG_ERROR("Failed to start PFC watchdog event %s action on queue %s", event.c_str(), queueIdStr.c_str());
+    }
+}
+
+template <typename DropHandler, typename ForwardHandler>
+void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(SelectableTimer &timer)
+{
+    SWSS_LOG_ENTER();
+
+    for (auto& handlerPair : m_entryMap)
+    {
+        if (handlerPair.second.handler != nullptr)
+        {
+            handlerPair.second.handler->commitCounters(true);
+        }
+    }
+
+}
+
+template <typename DropHandler, typename ForwardHandler>
+bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string &event, sai_object_id_t queueId)
+{
     auto entry = m_entryMap.find(queueId);
     if (entry == m_entryMap.end())
     {
-        SWSS_LOG_ERROR("Queue %s is not registered", queueIdStr.c_str());
-        return;
+        SWSS_LOG_ERROR("Queue 0x%lx is not registered", queueId);
+        return false;
     }
 
     SWSS_LOG_NOTICE("Receive notification, %s", event.c_str());
@@ -779,6 +827,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(swss::NotificationConsumer
                         entry->second.index,
                         PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
                 entry->second.handler->initCounters();
+                // Log storm event to APPL_DB for warm-reboot purpose
+                m_applTable->hset(entry->second.portAlias, to_string(entry->second.index), "storm");
             }
         }
         else if (entry->second.action == PfcWdAction::PFC_WD_ACTION_FORWARD)
@@ -803,6 +853,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(swss::NotificationConsumer
         else
         {
             SWSS_LOG_ERROR("Unknown PFC WD action");
+            return false;
         }
     }
     else if (event == "restore")
@@ -818,27 +869,89 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(swss::NotificationConsumer
 
             entry->second.handler->commitCounters();
             entry->second.handler = nullptr;
+            // Remove storm status in APPL_DB for warm-reboot purpose
+            string key = APP_PFC_WD_TABLE_NAME ":" + entry->second.portAlias;
+            m_applDbRedisClient.hdel(key, to_string(entry->second.index));
         }
     }
     else
     {
         SWSS_LOG_ERROR("Received unknown event from plugin, %s", event.c_str());
+        return false;
     }
+
+    return true;
 }
 
 template <typename DropHandler, typename ForwardHandler>
-void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(SelectableTimer &timer)
+bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
 {
-    SWSS_LOG_ENTER();
+    // clean all *_last fields in COUNTERS_TABLE
+    // to allow pfc detect & restore logic to enter the same init state as cold-reboot
+    RedisClient redisClient(PfcWdOrch<DropHandler, ForwardHandler>::getCountersDb().get());
 
-    for (auto& handlerPair : m_entryMap)
+    vector<string> cKeys;
+    PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getKeys(cKeys);
+    for (const auto &key : cKeys)
     {
-        if (handlerPair.second.handler != nullptr)
+        vector<FieldValueTuple> fvTuples;
+        PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->get(key, fvTuples);
+        for (const auto &fv : fvTuples)
         {
-            handlerPair.second.handler->commitCounters(true);
+            if (fvField(fv).find("_last") != string::npos)
+            {
+                redisClient.hdel(COUNTERS_TABLE ":" + key, fvField(fv));
+            }
         }
     }
 
+    // Re-organize the field-value to "storm" : <lossless queue list> (e.g., "3, 4")
+    Table table(m_applDb.get(), "_" APP_PFC_WD_TABLE_NAME);
+
+    vector<string> aKeys;
+    m_applTable->getKeys(aKeys);
+    for (const auto &key : aKeys)
+    {
+        vector<FieldValueTuple> oldFvTuples;
+        m_applTable->get(key, oldFvTuples);
+        string qList;
+        for (const auto &fv : oldFvTuples)
+        {
+            qList += (fvField(fv) + list_item_delimiter);
+            if (fvValue(fv) != "storm")
+            {
+                SWSS_LOG_ERROR("%s:%s, field %s value != \"storm\"", APP_PFC_WD_TABLE_NAME, key.c_str(), fvField(fv).c_str());
+            }
+        }
+        if (!qList.empty())
+        {
+            qList.pop_back();
+            SWSS_LOG_NOTICE("%s:%s, new value %s", APP_PFC_WD_TABLE_NAME, key.c_str(), qList.c_str());
+
+            vector<FieldValueTuple> newFvTuples;
+            newFvTuples.emplace_back("storm", qList);
+            table.set(key, newFvTuples);
+        }
+    }
+
+    Orch::bake();
+
+    // Piggyback in-storm queue info to the processing logic that handles pfcwd entries in CONFIG_DB
+    Consumer *consumer = dynamic_cast<Consumer *>(PfcWdSwOrch<DropHandler, ForwardHandler>::getExecutor(CFG_PFC_WD_TABLE_NAME));
+    if (consumer == NULL)
+    {
+        SWSS_LOG_ERROR("No consumer %s in Orch", CFG_PFC_WD_TABLE_NAME);
+        return false;
+    }
+
+    size_t refilled = consumer->refillToSync(&table);
+    SWSS_LOG_NOTICE("Add warm input PFC watchdog State: %s, %zd", APP_PFC_WD_TABLE_NAME, refilled);
+
+    for (const auto &key : aKeys)
+    {
+        table.del(key);
+    }
+    return true;
 }
 
 // Trick to keep member functions in a separate file
