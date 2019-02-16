@@ -927,7 +927,6 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
         if (!qList.empty())
         {
             qList.pop_back();
-            SWSS_LOG_NOTICE("%s:%s, new value %s", APP_PFC_WD_TABLE_NAME, key.c_str(), qList.c_str());
 
             vector<FieldValueTuple> newFvTuples;
             newFvTuples.emplace_back("storm", qList);
