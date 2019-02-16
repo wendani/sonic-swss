@@ -254,9 +254,15 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
     {
         for (const auto &q : queues)
         {
-            if (!startWdActionOnQueue(PFC_WD_IN_STORM, port.m_queue_ids[stoi(q)]))
+            size_t qIdx = stoi(q);
+            if (qIdx >= port.m_queue_ids.size())
             {
-                SWSS_LOG_NOTICE("Failed to start PFC watchdog %s event action on port %s queue %s", PFC_WD_IN_STORM, key.c_str(), q.c_str());
+                SWSS_LOG_ERROR("Invalid queue index %zd on port %s", qIdx, key.c_str());
+                continue;
+            }
+            if (!startWdActionOnQueue(PFC_WD_IN_STORM, port.m_queue_ids[qIdx]))
+            {
+                SWSS_LOG_ERROR("Failed to start PFC watchdog %s event action on port %s queue %zd", PFC_WD_IN_STORM, key.c_str(), qIdx);
             }
         }
     }
