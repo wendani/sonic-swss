@@ -760,7 +760,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(swss::NotificationConsumer
 
     if (!startWdActionOnQueue(event, queueId))
     {
-        SWSS_LOG_ERROR("Failed to start PFC watchdog event %s action on queue %s", event.c_str(), queueIdStr.c_str());
+        SWSS_LOG_ERROR("Failed to start PFC watchdog %s event action on queue %s", event.c_str(), queueIdStr.c_str());
     }
 }
 
