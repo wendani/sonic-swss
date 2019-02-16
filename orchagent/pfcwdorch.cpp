@@ -917,11 +917,12 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
         string qList;
         for (const auto &fv : oldFvTuples)
         {
-            qList += (fvField(fv) + list_item_delimiter);
             if (fvValue(fv) != "storm")
             {
                 SWSS_LOG_ERROR("%s:%s, field %s value != \"storm\"", APP_PFC_WD_TABLE_NAME, key.c_str(), fvField(fv).c_str());
+                continue;
             }
+            qList += (fvField(fv) + list_item_delimiter);
         }
         if (!qList.empty())
         {
