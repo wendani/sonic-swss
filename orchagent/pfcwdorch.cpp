@@ -814,6 +814,8 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
                         entry->second.index,
                         PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
                 entry->second.handler->initCounters();
+                // Log storm event to APPL_DB for warm-reboot purpose
+                m_applTable->hset(entry->second.portAlias, to_string(entry->second.index), "storm");
             }
         }
         else if (entry->second.action == PfcWdAction::PFC_WD_ACTION_DROP)
@@ -854,6 +856,8 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
                         entry->second.index,
                         PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
                 entry->second.handler->initCounters();
+                // Log storm event to APPL_DB for warm-reboot purpose
+                m_applTable->hset(entry->second.portAlias, to_string(entry->second.index), "storm");
             }
         }
         else
@@ -893,7 +897,7 @@ template <typename DropHandler, typename ForwardHandler>
 bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
 {
     // clean all *_last fields in COUNTERS_TABLE
-    // to allow pfc detect & restore logic to enter the same init state as cold-reboot
+    // to allow warm-reboot pfc detect & restore logic to enter the same init state as cold-reboot
     RedisClient redisClient(PfcWdOrch<DropHandler, ForwardHandler>::getCountersDb().get());
 
     vector<string> cKeys;
