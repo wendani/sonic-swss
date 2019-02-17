@@ -263,6 +263,7 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
             if (!startWdActionOnQueue(PFC_WD_IN_STORM, port.m_queue_ids[qIdx]))
             {
                 SWSS_LOG_ERROR("Failed to start PFC watchdog %s event action on port %s queue %zd", PFC_WD_IN_STORM, key.c_str(), qIdx);
+                continue;
             }
         }
     }
@@ -897,7 +898,7 @@ template <typename DropHandler, typename ForwardHandler>
 bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
 {
     // clean all *_last fields in COUNTERS_TABLE
-    // to allow warm-reboot pfc detect & restore logic to enter the same init state as cold-reboot
+    // to allow warm-reboot pfc detect & restore state machine to enter the same init state as cold-reboot
     RedisClient redisClient(PfcWdOrch<DropHandler, ForwardHandler>::getCountersDb().get());
 
     vector<string> cKeys;
