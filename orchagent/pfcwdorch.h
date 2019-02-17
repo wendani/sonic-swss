@@ -81,10 +81,10 @@ public:
     virtual void doTask(SelectableTimer &timer);
     //XXX Add port/queue state change event handlers
 
-    virtual bool bake() override;
+    bool bake() override;
 
 protected:
-    virtual bool startWdActionOnQueue(const string &event, sai_object_id_t queueId) override;
+    bool startWdActionOnQueue(const string &event, sai_object_id_t queueId) override;
 
 private:
     struct PfcWdQueueEntry
