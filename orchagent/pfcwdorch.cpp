@@ -469,6 +469,11 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
 
         losslessTc.insert(i);
     }
+    if (losslessTc.empty())
+    {
+        SWSS_LOG_ERROR("No lossless TC found on port %s", port.m_alias.c_str());
+        return;
+    }
 
     if (!c_portStatIds.empty())
     {
