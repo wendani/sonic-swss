@@ -254,15 +254,25 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
     {
         for (const auto &q : queues)
         {
-            size_t qIdx = stoi(q);
-            if (qIdx >= port.m_queue_ids.size())
+            int qIdx = -1;
+            try
             {
-                SWSS_LOG_ERROR("Invalid queue index %zd on port %s", qIdx, key.c_str());
+                qIdx = stoi(q);
+            }
+            catch (...)
+            {
+                SWSS_LOG_ERROR("Invalid conversion to int from string %s", q.c_str());
+                continue;
+            }
+
+            if ((qIdx < 0) || (static_cast<unsigned int>(qIdx) >= port.m_queue_ids.size()))
+            {
+                SWSS_LOG_ERROR("Invalid queue index %d on port %s", qIdx, key.c_str());
                 continue;
             }
             if (!startWdActionOnQueue(PFC_WD_IN_STORM, port.m_queue_ids[qIdx]))
             {
-                SWSS_LOG_ERROR("Failed to start PFC watchdog %s event action on port %s queue %zd", PFC_WD_IN_STORM, key.c_str(), qIdx);
+                SWSS_LOG_ERROR("Failed to start PFC watchdog %s event action on port %s queue %d", PFC_WD_IN_STORM, key.c_str(), qIdx);
                 continue;
             }
         }
