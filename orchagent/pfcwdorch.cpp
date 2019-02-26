@@ -259,9 +259,24 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
             {
                 qIdx = stoi(q);
             }
+            catch (const std::invalid_argument &e)
+            {
+                SWSS_LOG_ERROR("Invalid argument %s to %s()", q.c_str(), e.what());
+                continue;
+            }
+            catch (const std::out_of_range &e)
+            {
+                SWSS_LOG_ERROR("Out of range argument %s to %s()", q.c_str(), e.what());
+                continue;
+            }
+            catch (const std::exception &e)
+            {
+                SWSS_LOG_ERROR("Invalid conversion to int from string %s: %s", q.c_str(), e.what());
+                continue;
+            }
             catch (...)
             {
-                SWSS_LOG_ERROR("Invalid conversion to int from string %s", q.c_str());
+                SWSS_LOG_ERROR("Unknown exception caught in string to int conversion");
                 continue;
             }
 
