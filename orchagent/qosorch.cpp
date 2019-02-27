@@ -466,6 +466,7 @@ sai_object_id_t WredMapHandler::addQosItem(const vector<sai_attribute_t> &attrib
         SWSS_LOG_ERROR("Failed to create wred profile: %d", sai_status);
         return false;
     }
+    SWSS_LOG_NOTICE("Called create_wred() to create wred profile: oid:0x%lx", sai_object);
     return sai_object;
 }
 

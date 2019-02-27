@@ -723,6 +723,7 @@ PfcWdSwOrch<DropHandler, ForwardHandler>::PfcWdSwOrch(
             "PFC_WD");
     auto wdNotification = new Notifier(consumer, this, "PFC_WD");
     Orch::addExecutor(wdNotification);
+    SWSS_LOG_ERROR("Subscribe to COUNTER_DB channel \"PFC_WD\"");
 
     auto interv = timespec { .tv_sec = COUNTER_CHECK_POLL_TIMEOUT_SEC, .tv_nsec = 0 };
     auto timer = new SelectableTimer(interv);
