@@ -678,9 +678,9 @@ PfcWdSwOrch<DropHandler, ForwardHandler>::PfcWdSwOrch(
     c_queueStatIds(queueStatIds),
     c_queueAttrIds(queueAttrIds),
     m_pollInterval(pollInterval),
-    m_applDb(make_shared<DBConnector>(APPL_DB, DBConnector::DEFAULT_UNIXSOCKET, 0)),
-    m_applTable(make_shared<Table>(m_applDb.get(), APP_PFC_WD_TABLE_NAME)),
-    m_applDbRedisClient(m_applDb.get())
+    m_stateDb(make_shared<DBConnector>(STATE_DB, DBConnector::DEFAULT_UNIXSOCKET, 0)),
+    m_stateTable(make_shared<Table>(m_stateDb.get(), APP_PFC_WD_TABLE_NAME)),
+    m_stateDbRedisClient(m_stateDb.get())
 {
     SWSS_LOG_ENTER();
 
@@ -841,7 +841,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
                         PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
                 entry->second.handler->initCounters();
                 // Log storm event to APPL_DB for warm-reboot purpose
-                m_applTable->hset(entry->second.portAlias, to_string(entry->second.index), "storm");
+                m_stateTable->hset(entry->second.portAlias, to_string(entry->second.index), "storm");
             }
         }
         else if (entry->second.action == PfcWdAction::PFC_WD_ACTION_DROP)
@@ -862,7 +862,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
                         PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
                 entry->second.handler->initCounters();
                 // Log storm event to APPL_DB for warm-reboot purpose
-                m_applTable->hset(entry->second.portAlias, to_string(entry->second.index), "storm");
+                m_stateTable->hset(entry->second.portAlias, to_string(entry->second.index), "storm");
             }
         }
         else if (entry->second.action == PfcWdAction::PFC_WD_ACTION_FORWARD)
@@ -883,7 +883,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
                         PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
                 entry->second.handler->initCounters();
                 // Log storm event to APPL_DB for warm-reboot purpose
-                m_applTable->hset(entry->second.portAlias, to_string(entry->second.index), "storm");
+                m_stateTable->hset(entry->second.portAlias, to_string(entry->second.index), "storm");
             }
         }
         else
@@ -907,7 +907,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
             entry->second.handler = nullptr;
             // Remove storm status in APPL_DB for warm-reboot purpose
             string key = APP_PFC_WD_TABLE_NAME ":" + entry->second.portAlias;
-            m_applDbRedisClient.hdel(key, to_string(entry->second.index));
+            m_stateDbRedisClient.hdel(key, to_string(entry->second.index));
         }
     }
     else
@@ -942,14 +942,14 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
     }
 
     // Re-organize the field-value to "storm" : <lossless queue list> (e.g., "3, 4")
-    Table table(m_applDb.get(), "_" APP_PFC_WD_TABLE_NAME);
+    Table table(m_stateDb.get(), "_" APP_PFC_WD_TABLE_NAME);
 
     vector<string> aKeys;
-    m_applTable->getKeys(aKeys);
+    m_stateTable->getKeys(aKeys);
     for (const auto &key : aKeys)
     {
         vector<FieldValueTuple> oldFvTuples;
-        m_applTable->get(key, oldFvTuples);
+        m_stateTable->get(key, oldFvTuples);
         string qList;
         for (const auto &fv : oldFvTuples)
         {
