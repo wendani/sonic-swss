@@ -407,6 +407,7 @@ bool OrchDaemon::warmRestoreAndSyncUp()
 {
     WarmStart::setWarmStartState("orchagent", WarmStart::INITIALIZED);
 
+    SWSS_LOG_NOTICE("OrchDaemon::warmRestoreAndSyncUp: about to call bake()");
     for (Orch *o : m_orchList)
     {
         o->bake();
@@ -429,6 +430,7 @@ bool OrchDaemon::warmRestoreAndSyncUp()
      */
     for (auto it = 0; it < 3; it++)
     {
+        SWSS_LOG_NOTICE("OrchDaemon::warmRestoreAndSyncUp: doTask iteration #%d", it);
         for (Orch *o : m_orchList)
         {
             o->doTask();
@@ -447,7 +449,7 @@ bool OrchDaemon::warmRestoreAndSyncUp()
         return false;
     }
 
-    SWSS_LOG_NOTICE("Orchagent state restore done");
+    SWSS_LOG_NOTICE("Orchagent state restore done: about to call syncd_apply_view()");
 
     syncd_apply_view();
 

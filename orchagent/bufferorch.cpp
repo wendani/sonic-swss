@@ -345,6 +345,7 @@ task_process_status BufferOrch::processBufferProfile(Consumer &consumer)
                 SWSS_LOG_ERROR("Failed to create buffer profile %s with type %s, rv:%d", object_name.c_str(), map_type_name.c_str(), sai_status);
                 return task_process_status::task_failed;
             }
+            SWSS_LOG_NOTICE("called create_buffer_profile() to create buffer profile: oid:0x%lx", sai_object);
             (*(m_buffer_type_maps[map_type_name]))[object_name] = sai_object;
             SWSS_LOG_NOTICE("Created buffer profile %s with type %s", object_name.c_str(), map_type_name.c_str());
         }

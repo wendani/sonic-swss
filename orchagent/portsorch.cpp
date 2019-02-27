@@ -770,6 +770,7 @@ bool PortsOrch::createBindAclTableGroup(sai_object_id_t id, sai_object_id_t &gro
             SWSS_LOG_ERROR("Failed to create ACL table group, rv:%d", status);
             return false;
         }
+        SWSS_LOG_NOTICE("Called create_acl_table_group() to create %s ACL table group: oid:0x%lx", ingress ? "ingress" : "egress", group_oid);
 
         if (ingress)
         {
