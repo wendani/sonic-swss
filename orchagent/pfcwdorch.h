@@ -130,9 +130,9 @@ private:
     bool m_bigRedSwitchFlag = false;
     int m_pollInterval;
 
-    shared_ptr<DBConnector> m_stateDb = nullptr;
-    shared_ptr<Table> m_stateTable = nullptr;
-    RedisClient m_stateDbRedisClient;
+    shared_ptr<DBConnector> m_applDb = nullptr;
+    shared_ptr<Table> m_applTable = nullptr;
+    RedisClient m_applDbRedisClient;
 };
 
 #endif
