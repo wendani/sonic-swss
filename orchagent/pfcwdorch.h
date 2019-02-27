@@ -7,6 +7,7 @@
 #include "producertable.h"
 #include "notificationconsumer.h"
 #include "timer.h"
+#include "redisclient.h"
 
 extern "C" {
 #include "sai.h"
@@ -49,6 +50,10 @@ public:
 
     virtual void createEntry(const string& key, const vector<FieldValueTuple>& data);
     void deleteEntry(const string& name);
+
+protected:
+    virtual bool startWdActionOnQueue(const string &event, sai_object_id_t queueId) = 0;
+
 private:
 
     shared_ptr<DBConnector> m_countersDb = nullptr;
@@ -75,6 +80,12 @@ public:
     void createEntry(const string& key, const vector<FieldValueTuple>& data);
     virtual void doTask(SelectableTimer &timer);
     //XXX Add port/queue state change event handlers
+
+    bool bake() override;
+
+protected:
+    bool startWdActionOnQueue(const string &event, sai_object_id_t queueId) override;
+
 private:
     struct PfcWdQueueEntry
     {
@@ -118,6 +129,10 @@ private:
 
     bool m_bigRedSwitchFlag = false;
     int m_pollInterval;
+
+    shared_ptr<DBConnector> m_stateDb = nullptr;
+    shared_ptr<Table> m_stateTable = nullptr;
+    RedisClient m_stateDbRedisClient;
 };
 
 #endif
