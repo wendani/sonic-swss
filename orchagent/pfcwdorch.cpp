@@ -9,7 +9,6 @@
 #include "notifier.h"
 #include "redisclient.h"
 #include "schema.h"
-#include "tokenize.h"
 #include "subscriberstatetable.h"
 
 #define PFC_WD_GLOBAL                   "GLOBAL"
@@ -167,7 +166,6 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
     uint32_t restorationTime = 0;
     // According to requirements, drop action is default
     PfcWdAction action = PfcWdAction::PFC_WD_ACTION_DROP;
-    vector<string> queues;
 
     Port port;
     if (!gPortsOrch->getPort(key, port))
@@ -896,7 +894,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
                         PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
                 entry->second.handler->initCounters();
                 // Log storm event to APPL_DB for warm-reboot purpose
-                m_applTable->hset(entry->second.portAlias, to_string(entry->second.index), "storm");
+                m_applTable->hset(entry->second.portAlias, to_string(entry->second.index), PFC_WD_IN_STORM);
             }
         }
         else if (entry->second.action == PfcWdAction::PFC_WD_ACTION_DROP)
@@ -917,7 +915,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
                         PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
                 entry->second.handler->initCounters();
                 // Log storm event to APPL_DB for warm-reboot purpose
-                m_applTable->hset(entry->second.portAlias, to_string(entry->second.index), "storm");
+                m_applTable->hset(entry->second.portAlias, to_string(entry->second.index), PFC_WD_IN_STORM);
             }
         }
         else if (entry->second.action == PfcWdAction::PFC_WD_ACTION_FORWARD)
