@@ -32,6 +32,7 @@ AclOrch *gAclOrch;
 CrmOrch *gCrmOrch;
 BufferOrch *gBufferOrch;
 SwitchOrch *gSwitchOrch;
+QosOrch *gQosOrch;
 Directory<Orch*> gDirectory;
 
 OrchDaemon::OrchDaemon(DBConnector *applDb, DBConnector *configDb, DBConnector *stateDb) :
@@ -116,7 +117,7 @@ bool OrchDaemon::init()
         CFG_PFC_PRIORITY_TO_PRIORITY_GROUP_MAP_TABLE_NAME,
         CFG_PFC_PRIORITY_TO_QUEUE_MAP_TABLE_NAME
     };
-    QosOrch *qos_orch = new QosOrch(m_configDb, qos_tables);
+    gQosOrch = new QosOrch(m_configDb, qos_tables);
 
     vector<string> buffer_tables = {
         CFG_BUFFER_POOL_TABLE_NAME,
@@ -158,7 +159,7 @@ bool OrchDaemon::init()
      * when iterating ConsumerMap.
      * That is ensured implicitly by the order of map key, "LAG_TABLE" is smaller than "VLAN_TABLE" in lexicographic order.
      */
-    m_orchList = { gSwitchOrch, gCrmOrch, gBufferOrch, gPortsOrch, gIntfsOrch, gNeighOrch, gRouteOrch, copp_orch, tunnel_decap_orch, qos_orch, wm_orch };
+    m_orchList = { gSwitchOrch, gCrmOrch, gBufferOrch, gPortsOrch, gIntfsOrch, gNeighOrch, gRouteOrch, copp_orch, tunnel_decap_orch, gQosOrch, wm_orch };
 
 
     bool initialize_dtel = false;

@@ -8,6 +8,7 @@
 #include "select.h"
 #include "notifier.h"
 #include "redisclient.h"
+#include "qosorch.h"
 
 #define PFC_WD_GLOBAL                   "GLOBAL"
 #define PFC_WD_ACTION                   "action"
@@ -28,6 +29,7 @@ extern sai_port_api_t *sai_port_api;
 extern sai_queue_api_t *sai_queue_api;
 
 extern PortsOrch *gPortsOrch;
+extern QosOrch   *gQosOrch;
 
 template <typename DropHandler, typename ForwardHandler>
 PfcWdOrch<DropHandler, ForwardHandler>::PfcWdOrch(DBConnector *db, vector<string> &tableNames):
@@ -50,7 +52,7 @@ void PfcWdOrch<DropHandler, ForwardHandler>::doTask(Consumer& consumer)
 {
     SWSS_LOG_ENTER();
 
-    if (!gPortsOrch->isPortReady())
+    if ((!gPortsOrch->isPortReady()) || (!gQosOrch->isQosMapsApplied()))
     {
         return;
     }

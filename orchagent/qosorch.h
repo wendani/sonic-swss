@@ -113,6 +113,11 @@ public:
 
     static type_map& getTypeMap();
     static type_map m_qos_maps;
+
+    bool isQosMapsApplied(void)
+    {
+        return m_qosMapsApplied;
+    }
 private:
     virtual void doTask(Consumer& consumer);
 
@@ -155,5 +160,7 @@ private:
     };
 
     std::unordered_map<sai_object_id_t, SchedulerGroupPortInfo_t> m_scheduler_group_port_info;
+
+    bool m_qosMapsApplied = false;
 };
 #endif /* SWSS_QOSORCH_H */

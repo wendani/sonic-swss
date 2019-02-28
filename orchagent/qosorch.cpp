@@ -1357,6 +1357,7 @@ task_process_status QosOrch::handlePortQosMapTable(Consumer& consumer)
         }
     }
 
+    m_qosMapsApplied = true;
     SWSS_LOG_NOTICE("Applied QoS maps to ports");
     return task_process_status::task_success;
 }
