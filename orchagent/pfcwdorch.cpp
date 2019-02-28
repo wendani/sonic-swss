@@ -10,6 +10,7 @@
 #include "redisclient.h"
 #include "schema.h"
 #include "tokenize.h"
+#include "subscriberstatetable.h"
 
 #define PFC_WD_GLOBAL                   "GLOBAL"
 #define PFC_WD_ACTION                   "action"
@@ -679,7 +680,7 @@ PfcWdSwOrch<DropHandler, ForwardHandler>::PfcWdSwOrch(
     c_queueAttrIds(queueAttrIds),
     m_pollInterval(pollInterval),
     m_applDb(make_shared<DBConnector>(APPL_DB, DBConnector::DEFAULT_UNIXSOCKET, 0)),
-    m_applTable(make_shared<Table>(m_applDb.get(), APP_PFC_WD_TABLE_NAME)),
+    m_applTable(make_shared<Table>(m_applDb.get(), APP_PFC_WD_TABLE_NAME "_INSTORM")),
     m_applDbRedisClient(m_applDb.get())
 {
     SWSS_LOG_ENTER();
@@ -720,16 +721,21 @@ PfcWdSwOrch<DropHandler, ForwardHandler>::PfcWdSwOrch(
 
     auto consumer = new swss::NotificationConsumer(
             PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersDb().get(),
-            "PFC_WD");
-    auto wdNotification = new Notifier(consumer, this, "PFC_WD");
+            "PFC_WD_ACTION");
+    auto wdNotification = new Notifier(consumer, this, "PFC_WD_ACTION");
     Orch::addExecutor(wdNotification);
-    SWSS_LOG_ERROR("Subscribe to COUNTER_DB channel \"PFC_WD\"");
+    SWSS_LOG_ERROR("Subscribe to COUNTER_DB channel \"PFC_WD_ACTION\"");
 
     auto interv = timespec { .tv_sec = COUNTER_CHECK_POLL_TIMEOUT_SEC, .tv_nsec = 0 };
     auto timer = new SelectableTimer(interv);
     auto executor = new ExecutableTimer(timer, this, "PFC_WD_COUNTERS_POLL");
     Orch::addExecutor(executor);
     timer->start();
+
+    auto ssTable = new swss::SubscriberStateTable(
+            m_applDb.get(), APP_PFC_WD_TABLE_NAME, TableConsumable::DEFAULT_POP_BATCH_SIZE, default_orch_pri);
+    auto ssConsumer = new Consumer(ssTable, this, APP_PFC_WD_TABLE_NAME);
+    Orch::addExecutor(ssConsumer);
 }
 
 template <typename DropHandler, typename ForwardHandler>
