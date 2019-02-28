@@ -59,28 +59,37 @@ void PfcWdOrch<DropHandler, ForwardHandler>::doTask(Consumer& consumer)
         return;
     }
 
-    auto it = consumer.m_toSync.begin();
-    while (it != consumer.m_toSync.end())
+    if ((consumer.getDbId() == CONFIG_DB) && (consumer.getTableName() == CFG_PFC_WD_TABLE_NAME))
     {
-        KeyOpFieldsValuesTuple t = it->second;
-
-        string key = kfvKey(t);
-        string op = kfvOp(t);
-
-        if (op == SET_COMMAND)
+        auto it = consumer.m_toSync.begin();
+        while (it != consumer.m_toSync.end())
         {
-            createEntry(key, kfvFieldsValues(t));
-        }
-        else if (op == DEL_COMMAND)
-        {
-            deleteEntry(key);
-        }
-        else
-        {
-            SWSS_LOG_ERROR("Unknown operation type %s\n", op.c_str());
+            KeyOpFieldsValuesTuple t = it->second;
+
+            string key = kfvKey(t);
+            string op = kfvOp(t);
+
+            if (op == SET_COMMAND)
+            {
+                createEntry(key, kfvFieldsValues(t));
+            }
+            else if (op == DEL_COMMAND)
+            {
+                deleteEntry(key);
+            }
+            else
+            {
+                SWSS_LOG_ERROR("Unknown operation type %s\n", op.c_str());
+            }
+
+            consumer.m_toSync.erase(it++);
         }
 
-        consumer.m_toSync.erase(it++);
+        if (consumer.m_toSync.empty())
+        {
+            m_entriesCreated = true;
+            SWSS_LOG_NOTICE("PFC watchdog all entries created");
+        }
     }
 }
 
@@ -202,11 +211,6 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
                     return;
                 }
             }
-            else if (field == PFC_WD_IN_STORM)
-            {
-                SWSS_LOG_NOTICE("In-storm queues %s on port %s", value.c_str(), key.c_str());
-                queues = tokenize(value, comma);
-            }
             else
             {
                 SWSS_LOG_ERROR(
@@ -249,50 +253,6 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
     }
 
     SWSS_LOG_NOTICE("Started PFC Watchdog on port %s", port.m_alias.c_str());
-
-    // Start PFC storm action on queues of port
-    if (!queues.empty())
-    {
-        for (const auto &q : queues)
-        {
-            int qIdx = -1;
-            try
-            {
-                qIdx = stoi(q);
-            }
-            catch (const std::invalid_argument &e)
-            {
-                SWSS_LOG_ERROR("Invalid argument %s to %s()", q.c_str(), e.what());
-                continue;
-            }
-            catch (const std::out_of_range &e)
-            {
-                SWSS_LOG_ERROR("Out of range argument %s to %s()", q.c_str(), e.what());
-                continue;
-            }
-            catch (const std::exception &e)
-            {
-                SWSS_LOG_ERROR("Invalid conversion to int from string %s: %s", q.c_str(), e.what());
-                continue;
-            }
-            catch (...)
-            {
-                SWSS_LOG_ERROR("Unknown exception caught in string to int conversion");
-                continue;
-            }
-
-            if ((qIdx < 0) || (static_cast<unsigned int>(qIdx) >= port.m_queue_ids.size()))
-            {
-                SWSS_LOG_ERROR("Invalid queue index %d on port %s", qIdx, key.c_str());
-                continue;
-            }
-            if (!startWdActionOnQueue(PFC_WD_IN_STORM, port.m_queue_ids[qIdx]))
-            {
-                SWSS_LOG_ERROR("Failed to start PFC watchdog %s event action on port %s queue %d", PFC_WD_IN_STORM, key.c_str(), qIdx);
-                continue;
-            }
-        }
-    }
 }
 
 template <typename DropHandler, typename ForwardHandler>
@@ -778,6 +738,94 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::stopWdOnPort(const Port& port)
 }
 
 template <typename DropHandler, typename ForwardHandler>
+void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(Consumer& consumer)
+{
+    PfcWdOrch<DropHandler, ForwardHandler>::doTask(consumer);
+
+    if (!PfcWdSwOrch<DropHandler, ForwardHandler>::m_entriesCreated)
+    {
+        return;
+    }
+
+    if ((consumer.getDbId() == APPL_DB) && (consumer.getTableName() == APP_PFC_WD_TABLE_NAME))
+    {
+        auto it = consumer.m_toSync.begin();
+        while (it != consumer.m_toSync.end())
+        {
+            KeyOpFieldsValuesTuple &t = it->second;
+
+            string &key = kfvKey(t);
+            Port port;
+            if (!gPortsOrch->getPort(key, port))
+            {
+                SWSS_LOG_ERROR("Invalid port interface %s", key.c_str());
+                it = consumer.m_toSync.erase(it);
+                continue;
+            }
+            if (port.m_type != Port::PHY)
+            {
+                SWSS_LOG_ERROR("Interface %s is not physical port", key.c_str());
+                it = consumer.m_toSync.erase(it);
+                continue;
+            }
+
+            vector<FieldValueTuple> &fvTuples = kfvFieldsValues(t);
+            for (const auto &fv : fvTuples)
+            {
+                int qIdx = -1;
+                string q = fvField(fv);
+                try
+                {
+                    qIdx = stoi(q);
+                }
+                catch (const std::invalid_argument &e)
+                {
+                    SWSS_LOG_ERROR("Invalid argument %s to %s()", q.c_str(), e.what());
+                    continue;
+                }
+                catch (const std::out_of_range &e)
+                {
+                    SWSS_LOG_ERROR("Out of range argument %s to %s()", q.c_str(), e.what());
+                    continue;
+                }
+                catch (const std::exception &e)
+                {
+                    SWSS_LOG_ERROR("Invalid conversion to int from string %s: %s", q.c_str(), e.what());
+                    continue;
+                }
+                catch (...)
+                {
+                    SWSS_LOG_ERROR("Unknown exception caught in string to int conversion");
+                    continue;
+                }
+
+                if ((qIdx < 0) || (static_cast<unsigned int>(qIdx) >= port.m_queue_ids.size()))
+                {
+                    SWSS_LOG_ERROR("Invalid queue index %d on port %s", qIdx, key.c_str());
+                    continue;
+                }
+
+                string status = fvValue(fv);
+                if (status != PFC_WD_IN_STORM)
+                {
+                    SWSS_LOG_ERROR("Port %s queue %s not in %s", key.c_str(), q.c_str(), PFC_WD_IN_STORM);
+                    continue;
+                }
+
+                SWSS_LOG_NOTICE("Port %s queue %s in status %s ", key.c_str(), q.c_str(), status.c_str());
+                if (!startWdActionOnQueue(PFC_WD_IN_STORM, port.m_queue_ids[qIdx]))
+                {
+                    SWSS_LOG_ERROR("Failed to start PFC watchdog %s action on port %s queue %d", PFC_WD_IN_STORM, key.c_str(), qIdx);
+                    continue;
+                }
+            }
+
+            it = consumer.m_toSync.erase(it);
+        }
+    }
+}
+
+template <typename DropHandler, typename ForwardHandler>
 void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(swss::NotificationConsumer& wdNotification)
 {
     SWSS_LOG_ENTER();
@@ -913,7 +961,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
             entry->second.handler->commitCounters();
             entry->second.handler = nullptr;
             // Remove storm status in APPL_DB for warm-reboot purpose
-            string key = APP_PFC_WD_TABLE_NAME ":" + entry->second.portAlias;
+            string key = m_applTable->getTableName() + m_applTable->getTableNameSeparator() + entry->second.portAlias;
             m_applDbRedisClient.hdel(key, to_string(entry->second.index));
         }
     }
@@ -948,52 +996,18 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
         }
     }
 
-    // Re-organize the field-value to "storm" : <lossless queue list> (e.g., "3, 4")
-    Table table(m_applDb.get(), "_" APP_PFC_WD_TABLE_NAME);
-
-    vector<string> aKeys;
-    m_applTable->getKeys(aKeys);
-    for (const auto &key : aKeys)
-    {
-        vector<FieldValueTuple> oldFvTuples;
-        m_applTable->get(key, oldFvTuples);
-        string qList;
-        for (const auto &fv : oldFvTuples)
-        {
-            if (fvValue(fv) != "storm")
-            {
-                SWSS_LOG_ERROR("%s:%s, field %s value != \"storm\"", APP_PFC_WD_TABLE_NAME, key.c_str(), fvField(fv).c_str());
-                continue;
-            }
-            qList += (fvField(fv) + list_item_delimiter);
-        }
-        if (!qList.empty())
-        {
-            qList.pop_back();
-
-            vector<FieldValueTuple> newFvTuples;
-            newFvTuples.emplace_back("storm", qList);
-            table.set(key, newFvTuples);
-        }
-    }
-
     Orch::bake();
 
-    // Piggyback in-storm queue info to the processing logic that handles pfcwd entries in CONFIG_DB
-    Consumer *consumer = dynamic_cast<Consumer *>(PfcWdSwOrch<DropHandler, ForwardHandler>::getExecutor(CFG_PFC_WD_TABLE_NAME));
+    Consumer *consumer = dynamic_cast<Consumer *>(PfcWdSwOrch<DropHandler, ForwardHandler>::getExecutor(APP_PFC_WD_TABLE_NAME));
     if (consumer == NULL)
     {
-        SWSS_LOG_ERROR("No consumer %s in Orch", CFG_PFC_WD_TABLE_NAME);
+        SWSS_LOG_ERROR("No consumer %s in Orch", APP_PFC_WD_TABLE_NAME);
         return false;
     }
 
-    size_t refilled = consumer->refillToSync(&table);
+    size_t refilled = consumer->refillToSync(m_applTable.get());
     SWSS_LOG_NOTICE("Add warm input PFC watchdog State: %s, %zd", APP_PFC_WD_TABLE_NAME, refilled);
 
-    for (const auto &key : aKeys)
-    {
-        table.del(key);
-    }
     return true;
 }
 
