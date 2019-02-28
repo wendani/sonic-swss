@@ -54,6 +54,7 @@ public:
 protected:
     virtual bool startWdActionOnQueue(const string &event, sai_object_id_t queueId) = 0;
 
+    bool m_entriesCreated = false;
 private:
 
     shared_ptr<DBConnector> m_countersDb = nullptr;
@@ -73,6 +74,7 @@ public:
             int pollInterval);
     virtual ~PfcWdSwOrch(void);
 
+    void doTask(Consumer& consumer) override;
     virtual bool startWdOnPort(const Port& port,
             uint32_t detectionTime, uint32_t restorationTime, PfcWdAction action);
     virtual bool stopWdOnPort(const Port& port);
