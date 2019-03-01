@@ -348,7 +348,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::disableBigRedSwitchMode()
 
         auto queueId = entry.first;
         RedisClient redisClient(PfcWdOrch<DropHandler, ForwardHandler>::getCountersDb().get());
-        string countersKey = COUNTERS_TABLE ":" + sai_serialize_object_id(queueId);
+        string countersKey = PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableName() + PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
         redisClient.hdel(countersKey, "BIG_RED_SWITCH_MODE");
     }
 
@@ -612,7 +612,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterFromWdDb(const Port& po
 
         // Clean up
         RedisClient redisClient(PfcWdOrch<DropHandler, ForwardHandler>::getCountersDb().get());
-        string countersKey = COUNTERS_TABLE ":" + sai_serialize_object_id(queueId);
+        string countersKey = PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableName() + PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
         redisClient.hdel(countersKey, "PFC_WD_DETECTION_TIME");
         redisClient.hdel(countersKey, "PFC_WD_RESTORATION_TIME");
         redisClient.hdel(countersKey, "PFC_WD_ACTION");
@@ -985,12 +985,22 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
     {
         vector<FieldValueTuple> fvTuples;
         PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->get(key, fvTuples);
+        vector<string> wLasts;
         for (const auto &fv : fvTuples)
         {
             if (fvField(fv).find("_last") != string::npos)
             {
-                redisClient.hdel(COUNTERS_TABLE ":" + key, fvField(fv));
+                wLasts.push_back(fvField(fv));
             }
+        }
+        if (!wLasts.empty())
+        {
+            int64_t hdel_num = redisClient.hdel(
+                PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableName()
+                + PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableNameSeparator()
+                + key,
+                wLasts);
+            SWSS_LOG_NOTICE("# of hdels: %ld, table name: %s, separator: %s", hdel_num, PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableName().c_str(), PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableNameSeparator().c_str());
         }
     }
 
