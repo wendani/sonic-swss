@@ -613,10 +613,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterFromWdDb(const Port& po
         // Clean up
         RedisClient redisClient(PfcWdOrch<DropHandler, ForwardHandler>::getCountersDb().get());
         string countersKey = PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableName() + PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
-        redisClient.hdel(countersKey, "PFC_WD_DETECTION_TIME");
-        redisClient.hdel(countersKey, "PFC_WD_RESTORATION_TIME");
-        redisClient.hdel(countersKey, "PFC_WD_ACTION");
-        redisClient.hdel(countersKey, "PFC_WD_STATUS");
+        redisClient.hdel(countersKey, {"PFC_WD_DETECTION_TIME", "PFC_WD_RESTORATION_TIME", "PFC_WD_ACTION", "PFC_WD_STATUS"});
     }
 
 }
