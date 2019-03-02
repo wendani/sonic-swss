@@ -783,16 +783,6 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(Consumer& consumer)
                     SWSS_LOG_ERROR("Out of range argument %s to %s()", q.c_str(), e.what());
                     continue;
                 }
-                catch (const std::exception &e)
-                {
-                    SWSS_LOG_ERROR("Invalid conversion to int from string %s: %s", q.c_str(), e.what());
-                    continue;
-                }
-                catch (...)
-                {
-                    SWSS_LOG_ERROR("Unknown exception caught in string to int conversion");
-                    continue;
-                }
 
                 if ((qIdx < 0) || (static_cast<unsigned int>(qIdx) >= port.m_queue_ids.size()))
                 {
