@@ -881,7 +881,8 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
                         PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
                 entry->second.handler->initCounters();
                 // Log storm event to APPL_DB for warm-reboot purpose
-                m_applTable->hset(entry->second.portAlias, to_string(entry->second.index), PFC_WD_IN_STORM);
+                string key = m_applTable->getTableName() + m_applTable->getTableNameSeparator() + entry->second.portAlias;
+                m_applDbRedisClient.hset(key, to_string(entry->second.index), PFC_WD_IN_STORM);
             }
         }
         else if (entry->second.action == PfcWdAction::PFC_WD_ACTION_DROP)
@@ -902,7 +903,8 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
                         PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
                 entry->second.handler->initCounters();
                 // Log storm event to APPL_DB for warm-reboot purpose
-                m_applTable->hset(entry->second.portAlias, to_string(entry->second.index), PFC_WD_IN_STORM);
+                string key = m_applTable->getTableName() + m_applTable->getTableNameSeparator() + entry->second.portAlias;
+                m_applDbRedisClient.hset(key, to_string(entry->second.index), PFC_WD_IN_STORM);
             }
         }
         else if (entry->second.action == PfcWdAction::PFC_WD_ACTION_FORWARD)
@@ -923,7 +925,8 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
                         PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
                 entry->second.handler->initCounters();
                 // Log storm event to APPL_DB for warm-reboot purpose
-                m_applTable->hset(entry->second.portAlias, to_string(entry->second.index), "storm");
+                string key = m_applTable->getTableName() + m_applTable->getTableNameSeparator() + entry->second.portAlias;
+                m_applDbRedisClient.hset(key, to_string(entry->second.index), PFC_WD_IN_STORM);
             }
         }
         else
