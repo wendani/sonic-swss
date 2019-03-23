@@ -347,7 +347,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::disableBigRedSwitchMode()
 
         auto queueId = entry.first;
         RedisClient redisClient(PfcWdOrch<DropHandler, ForwardHandler>::getCountersDb().get());
-        string countersKey = PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableName() + PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
+        string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
         redisClient.hdel(countersKey, "BIG_RED_SWITCH_MODE");
     }
 
@@ -611,7 +611,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterFromWdDb(const Port& po
 
         // Clean up
         RedisClient redisClient(PfcWdOrch<DropHandler, ForwardHandler>::getCountersDb().get());
-        string countersKey = PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableName() + PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
+        string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
         redisClient.hdel(countersKey, {"PFC_WD_DETECTION_TIME", "PFC_WD_RESTORATION_TIME", "PFC_WD_ACTION", "PFC_WD_STATUS"});
     }
 
@@ -965,14 +965,14 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
 {
     // clean all *_last fields in COUNTERS_TABLE
     // to allow warm-reboot pfc detect & restore state machine to enter the same init state as cold-reboot
-    RedisClient redisClient(PfcWdOrch<DropHandler, ForwardHandler>::getCountersDb().get());
+    RedisClient redisClient(this->getCountersDb().get());
 
     vector<string> cKeys;
-    PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getKeys(cKeys);
+    this->getCountersTable()->getKeys(cKeys);
     for (const auto &key : cKeys)
     {
         vector<FieldValueTuple> fvTuples;
-        PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->get(key, fvTuples);
+        this->getCountersTable()->get(key, fvTuples);
         vector<string> wLasts;
         for (const auto &fv : fvTuples)
         {
@@ -983,9 +983,9 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
         }
         if (!wLasts.empty())
         {
-            redisClient.hdel(
-                PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableName()
-                + PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersTable()->getTableNameSeparator()
+            int64_t hdel_num = redisClient.hdel(
+                this->getCountersTable()->getTableName()
+                + this->getCountersTable()->getTableNameSeparator()
                 + key,
                 wLasts);
         }
@@ -993,7 +993,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
 
     Orch::bake();
 
-    Consumer *consumer = dynamic_cast<Consumer *>(PfcWdSwOrch<DropHandler, ForwardHandler>::getExecutor(APP_PFC_WD_TABLE_NAME));
+    Consumer *consumer = dynamic_cast<Consumer *>(this->getExecutor(APP_PFC_WD_TABLE_NAME));
     if (consumer == NULL)
     {
         SWSS_LOG_ERROR("No consumer %s in Orch", APP_PFC_WD_TABLE_NAME);
