@@ -346,7 +346,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::disableBigRedSwitchMode()
         }
 
         auto queueId = entry.first;
-        RedisClient redisClient(PfcWdOrch<DropHandler, ForwardHandler>::getCountersDb().get());
+        RedisClient redisClient(this->getCountersDb().get());
         string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
         redisClient.hdel(countersKey, "BIG_RED_SWITCH_MODE");
     }
@@ -392,7 +392,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
 
             vector<FieldValueTuple> countersFieldValues;
             countersFieldValues.emplace_back("BIG_RED_SWITCH_MODE", "enable");
-            PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable()->set(queueIdStr, countersFieldValues);
+            this->getCountersTable()->set(queueIdStr, countersFieldValues);
         }
     }
 
@@ -449,7 +449,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
                         entry->second.portId,
                         entry->first,
                         entry->second.index,
-                        PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
+                        this->getCountersTable());
                 entry->second.handler->initCounters();
             }
         }
@@ -508,7 +508,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
                 to_string(restorationTime * 1000));
         countersFieldValues.emplace_back("PFC_WD_ACTION", this->serializeAction(action));
 
-        PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable()->set(queueIdStr, countersFieldValues);
+        this->getCountersTable()->set(queueIdStr, countersFieldValues);
 
         // We register our queues in PFC_WD table so that syncd will know that it must poll them
         vector<FieldValueTuple> queueFieldValues;
@@ -533,7 +533,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
 
         // Initialize PFC WD related counters
         PfcWdActionHandler::initWdCounters(
-                PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable(),
+                this->getCountersTable(),
                 sai_serialize_object_id(queueId));
     }
 
@@ -610,7 +610,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterFromWdDb(const Port& po
         m_entryMap.erase(queueId);
 
         // Clean up
-        RedisClient redisClient(PfcWdOrch<DropHandler, ForwardHandler>::getCountersDb().get());
+        RedisClient redisClient(this->getCountersDb().get());
         string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
         redisClient.hdel(countersKey, {"PFC_WD_DETECTION_TIME", "PFC_WD_RESTORATION_TIME", "PFC_WD_ACTION", "PFC_WD_STATUS"});
     }
@@ -654,12 +654,12 @@ PfcWdSwOrch<DropHandler, ForwardHandler>::PfcWdSwOrch(
     {
         string detectLuaScript = swss::loadLuaScript(detectPluginName);
         detectSha = swss::loadRedisScript(
-                PfcWdOrch<DropHandler, ForwardHandler>::getCountersDb().get(),
+                this->getCountersDb().get(),
                 detectLuaScript);
 
         string restoreLuaScript = swss::loadLuaScript(restorePluginName);
         restoreSha = swss::loadRedisScript(
-                PfcWdOrch<DropHandler, ForwardHandler>::getCountersDb().get(),
+                this->getCountersDb().get(),
                 restoreLuaScript);
 
         vector<FieldValueTuple> fieldValues;
@@ -674,7 +674,7 @@ PfcWdSwOrch<DropHandler, ForwardHandler>::PfcWdSwOrch(
     }
 
     auto consumer = new swss::NotificationConsumer(
-            PfcWdSwOrch<DropHandler, ForwardHandler>::getCountersDb().get(),
+            this->getCountersDb().get(),
             "PFC_WD_ACTION");
     auto wdNotification = new Notifier(consumer, this, "PFC_WD_ACTION");
     Orch::addExecutor(wdNotification);
@@ -735,7 +735,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(Consumer& consumer)
 {
     PfcWdOrch<DropHandler, ForwardHandler>::doTask(consumer);
 
-    if (!PfcWdSwOrch<DropHandler, ForwardHandler>::m_entriesCreated)
+    if (!this->m_entriesCreated)
     {
         return;
     }
@@ -876,7 +876,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
                         entry->second.portId,
                         entry->first,
                         entry->second.index,
-                        PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
+                        this->getCountersTable());
                 entry->second.handler->initCounters();
                 // Log storm event to APPL_DB for warm-reboot purpose
                 string key = m_applTable->getTableName() + m_applTable->getTableNameSeparator() + entry->second.portAlias;
@@ -898,7 +898,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
                         entry->second.portId,
                         entry->first,
                         entry->second.index,
-                        PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
+                        this->getCountersTable());
                 entry->second.handler->initCounters();
                 // Log storm event to APPL_DB for warm-reboot purpose
                 string key = m_applTable->getTableName() + m_applTable->getTableNameSeparator() + entry->second.portAlias;
@@ -920,7 +920,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
                         entry->second.portId,
                         entry->first,
                         entry->second.index,
-                        PfcWdOrch<DropHandler, ForwardHandler>::getCountersTable());
+                        this->getCountersTable());
                 entry->second.handler->initCounters();
                 // Log storm event to APPL_DB for warm-reboot purpose
                 string key = m_applTable->getTableName() + m_applTable->getTableNameSeparator() + entry->second.portAlias;
