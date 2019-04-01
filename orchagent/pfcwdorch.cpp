@@ -983,7 +983,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
         }
         if (!wLasts.empty())
         {
-            int64_t hdel_num = redisClient.hdel(
+            redisClient.hdel(
                 this->getCountersTable()->getTableName()
                 + this->getCountersTable()->getTableNameSeparator()
                 + key,
