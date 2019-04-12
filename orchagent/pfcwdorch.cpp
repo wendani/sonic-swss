@@ -87,7 +87,6 @@ void PfcWdOrch<DropHandler, ForwardHandler>::doTask(Consumer& consumer)
         if (consumer.m_toSync.empty())
         {
             m_entriesCreated = true;
-            SWSS_LOG_NOTICE("PFC watchdog all entries created");
         }
     }
 }
@@ -798,7 +797,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(Consumer& consumer)
                     continue;
                 }
 
-                SWSS_LOG_NOTICE("Port %s queue %s in status %s ", key.c_str(), q.c_str(), status.c_str());
+                SWSS_LOG_INFO("Port %s queue %s in status %s ", key.c_str(), q.c_str(), status.c_str());
                 if (!startWdActionOnQueue(PFC_WD_IN_STORM, port.m_queue_ids[qIdx]))
                 {
                     SWSS_LOG_ERROR("Failed to start PFC watchdog %s action on port %s queue %d", PFC_WD_IN_STORM, key.c_str(), qIdx);
@@ -986,12 +985,11 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
         }
         if (!wLasts.empty())
         {
-            int64_t hdel_num = redisClient.hdel(
+            redisClient.hdel(
                 this->getCountersTable()->getTableName()
                 + this->getCountersTable()->getTableNameSeparator()
                 + key,
                 wLasts);
-            SWSS_LOG_NOTICE("# of hdels: %ld, table name: %s, separator: %s", hdel_num, this->getCountersTable()->getTableName().c_str(), this->getCountersTable()->getTableNameSeparator().c_str());
         }
     }
 
