@@ -14,6 +14,8 @@ extern sai_buffer_api_t *sai_buffer_api;
 extern PortsOrch *gPortsOrch;
 extern sai_object_id_t gSwitchId;
 
+#define BUFFER_POOL_WATERMARK_FLEX_STAT_COUNTER_POLL_MSECS  "10000"
+
 using namespace std;
 
 type_map BufferOrch::m_buffer_type_maps = {
@@ -25,11 +27,18 @@ type_map BufferOrch::m_buffer_type_maps = {
     {CFG_BUFFER_PORT_EGRESS_PROFILE_LIST_NAME, new object_map()}
 };
 
-BufferOrch::BufferOrch(DBConnector *db, vector<string> &tableNames) : Orch(db, tableNames)
+BufferOrch::BufferOrch(DBConnector *db, vector<string> &tableNames) :
+    Orch(db, tableNames),
+    m_flexCounterDb(new DBConnector(FLEX_COUNTER_DB, DBConnector::DEFAULT_UNIXSOCKET, 0)),
+    m_flexCounterTable(new ProducerTable(m_flexCounterDb.get(), FLEX_COUNTER_TABLE)),
+    m_flexCounterGroupTable(new ProducerTable(m_flexCounterDb.get(), FLEX_COUNTER_GROUP_TABLE)),
+    m_countersDb(new DBConnector(COUNTERS_DB, DBConnector::DEFAULT_UNIXSOCKET, 0)),
+    m_bufferPoolTable(new Table(m_countersDb.get(), COUNTERS_BUFFER_POOL_NAME_MAP))
 {
     SWSS_LOG_ENTER();
     initTableHandlers();
     initBufferReadyLists(db);
+    initFlexCounterGroupTable();
 };
 
 void BufferOrch::initTableHandlers()
@@ -79,6 +88,42 @@ void BufferOrch::initBufferReadyList(Table& table)
         {
             m_port_ready_list_ref[port_name].push_back(key);
         }
+    }
+}
+
+void BufferOrch::initFlexCounterGroupTable(void)
+{
+    string bufferPoolWmPluginName = "watermark_bufferpool.lua";
+
+    try
+    {
+        string bufferPoolLuaScript = swss::loadLuaScript(bufferPoolWmPluginName);
+        string bufferPoolWmSha = swss::loadRedisScript(m_countersDb.get(), bufferPoolLuaScript);
+
+        vector<FieldValueTuple> fvTuples;
+        fvTuples.emplace_back(BUFFER_POOL_PLUGIN_FIELD, bufferPoolWmSha);
+        fvTuples.emplace_back(POLL_INTERVAL_FIELD, BUFFER_POOL_WATERMARK_FLEX_STAT_COUNTER_POLL_MSECS);
+
+        string statsMode = STATS_MODE_READ_AND_CLEAR;
+        // Some platforms do not support buffer pool watermark clear operation
+        // Need the SAI API support to query the capability
+        // Before this capability is in place, we feed the platform info into the orchagent
+        // daemon and check against it
+        char *device = getenv("device");
+        if (device)
+        {
+            SWSS_LOG_ERROR("initFlexCounterGroupTable: device: %s", device);
+        }
+        if (device && strstr(device, "7050"))
+        {
+            statsMode = STATS_MODE_READ;
+        }
+        fvTuples.emplace_back(STATS_MODE_FIELD, statsMode);
+        m_flexCounterGroupTable->set(BUFFER_POOL_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP, fvTuples);
+    }
+    catch (...)
+    {
+        SWSS_LOG_WARN("Buffer pool watermark lua script and/or flex counter group not set successfully");
     }
 }
 
