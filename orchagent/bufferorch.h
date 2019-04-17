@@ -6,6 +6,9 @@
 #include <unordered_map>
 #include "orch.h"
 #include "portsorch.h"
+#include "redisapi.h"
+
+#define BUFFER_POOL_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP "BUFFER_POOL_WATERMARK_STAT_COUNTER"
 
 const string buffer_size_field_name         = "size";
 const string buffer_pool_type_field_name    = "type";
@@ -40,6 +43,7 @@ private:
     void initTableHandlers();
     void initBufferReadyLists(DBConnector *db);
     void initBufferReadyList(Table& table);
+    void initFlexCounterGroupTable(void);
     task_process_status processBufferPool(Consumer &consumer);
     task_process_status processBufferProfile(Consumer &consumer);
     task_process_status processQueue(Consumer &consumer);
@@ -50,6 +54,13 @@ private:
     buffer_table_handler_map m_bufferHandlerMap;
     std::unordered_map<std::string, bool> m_ready_list;
     std::unordered_map<std::string, std::vector<std::string>> m_port_ready_list_ref;
+
+    unique_ptr<DBConnector> m_flexCounterDb = nullptr;
+    unique_ptr<ProducerTable> m_flexCounterGroupTable = nullptr;
+    unique_ptr<ProducerTable> m_flexCounterTable = nullptr;
+
+    unique_ptr<DBConnector> m_countersDb = nullptr;
+    unique_ptr<Table> m_bufferPoolTable = nullptr;
 };
 #endif /* SWSS_BUFFORCH_H */
 
