@@ -60,7 +60,7 @@ private:
     unique_ptr<ProducerTable> m_flexCounterTable = nullptr;
 
     unique_ptr<DBConnector> m_countersDb = nullptr;
-    unique_ptr<Table> m_bufferPoolTable = nullptr;
+    RedisClient m_countersDbRedisClient;
 };
 #endif /* SWSS_BUFFORCH_H */
 
