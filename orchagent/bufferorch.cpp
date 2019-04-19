@@ -1,10 +1,12 @@
 #include "tokenize.h"
-
 #include "bufferorch.h"
 #include "logger.h"
+#include "sai_serialize.h"
 
 #include <sstream>
 #include <iostream>
+
+using namespace std;
 
 extern sai_port_api_t *sai_port_api;
 extern sai_queue_api_t *sai_queue_api;
@@ -16,7 +18,11 @@ extern sai_object_id_t gSwitchId;
 
 #define BUFFER_POOL_WATERMARK_FLEX_STAT_COUNTER_POLL_MSECS  "10000"
 
-using namespace std;
+
+static const vector<sai_buffer_pool_stat_t> bufferPoolWatermarkStatIds =
+{
+    SAI_BUFFER_POOL_STAT_WATERMARK_BYTES,
+};
 
 type_map BufferOrch::m_buffer_type_maps = {
     {CFG_BUFFER_POOL_TABLE_NAME, new object_map()},
@@ -148,6 +154,43 @@ bool BufferOrch::isPortReady(const std::string& port_name) const
     }
 
     return result;
+}
+
+void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
+{
+    // This function will be called in FlexCounterOrch when field:value "FLEX_COUNTER_STATUS":"enable"
+    // is received on buffer pool watermark key
+    // Because the SubscriberStateTable listens to the entire keyspace of "FLEX_COUNTER_TABLE", any update
+    // to "FLEX_COUNTER_TABLE" will cause this tuple to be received again
+    // To avoid resync the coutner ID list a second time, we introduce a data member variable to mark whether
+    // this operation has already been done or not yet
+    if (m_isBufferPoolWatermarkCounterIdListGenerated)
+    {
+        SWSS_LOG_ERROR("generateBufferPoolCounterIdList: Buffer pool COUNTER_ID_LIST already generated");
+        return;
+    }
+
+    // Detokenize the SAI watermark stats to a string, separated by comma
+    string statList;
+    for (const auto &it : bufferPoolWatermarkStatIds)
+    {
+        statList += (sai_serialize_buffer_pool_stat(it) + list_item_delimiter);
+    }
+    if (!statList.empty())
+    {
+        statList.pop_back();
+    }
+    SWSS_LOG_ERROR("generateBufferPoolCounterIdList: Buffer pool watermark COUNTER_ID_LIST value: %s", statList.c_str());
+
+    vector<FieldValueTuple> fvTuples;
+    fvTuples.emplace_back(BUFFER_POOL_COUNTER_ID_LIST, statList);
+
+    // Push buffer pool watermark COUNTER_ID_LIST to FLEX_COUNTER_TABLE on a per buffer pool basis
+    for (const auto &it : *(m_buffer_type_maps[CFG_BUFFER_POOL_TABLE_NAME]))
+    {
+        string key = BUFFER_POOL_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP ":" + sai_serialize_object_id(it.second);
+        m_flexCounterTable->set(key, fvTuples);
+    }
 }
 
 task_process_status BufferOrch::processBufferPool(Consumer &consumer)

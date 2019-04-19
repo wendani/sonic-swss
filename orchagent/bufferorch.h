@@ -7,6 +7,7 @@
 #include "orch.h"
 #include "portsorch.h"
 #include "redisapi.h"
+#include "redisclient.h"
 
 #define BUFFER_POOL_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP "BUFFER_POOL_WATERMARK_STAT_COUNTER"
 
@@ -33,6 +34,8 @@ public:
     BufferOrch(DBConnector *db, vector<string> &tableNames);
     bool isPortReady(const std::string& port_name) const;
     static type_map m_buffer_type_maps;
+    void generateBufferPoolWatermarkCounterIdList(void);
+
 private:
     typedef task_process_status (BufferOrch::*buffer_table_handler)(Consumer& consumer);
     typedef map<string, buffer_table_handler> buffer_table_handler_map;
@@ -61,6 +64,8 @@ private:
 
     unique_ptr<DBConnector> m_countersDb = nullptr;
     RedisClient m_countersDbRedisClient;
+
+    bool m_isBufferPoolWatermarkCounterIdListGenerated = false;
 };
 #endif /* SWSS_BUFFORCH_H */
 
