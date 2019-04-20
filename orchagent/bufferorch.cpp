@@ -158,10 +158,10 @@ bool BufferOrch::isPortReady(const std::string& port_name) const
 
 void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
 {
-    // This function will be called in FlexCounterOrch when field:value "FLEX_COUNTER_STATUS":"enable"
-    // is received on buffer pool watermark key
-    // Because the SubscriberStateTable listens to the entire keyspace of "FLEX_COUNTER_TABLE", any update
-    // to "FLEX_COUNTER_TABLE" will cause this tuple to be received again
+    // This function will be called in FlexCounterOrch when field:value tuple "FLEX_COUNTER_STATUS":"enable"
+    // is received on buffer pool watermark key under table "FLEX_COUNTER_GROUP_TABLE"
+    // Because the SubscriberStateTable listens to the entire keyspace of "BUFFER_POOL_WATERMARK", any update
+    // to field value tuples under key "BUFFER_POOL_WATERMARK" will cause this tuple to be heard again
     // To avoid resync the coutner ID list a second time, we introduce a data member variable to mark whether
     // this operation has already been done or not yet
     if (m_isBufferPoolWatermarkCounterIdListGenerated)
@@ -191,6 +191,14 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
         string key = BUFFER_POOL_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP ":" + sai_serialize_object_id(it.second);
         m_flexCounterTable->set(key, fvTuples);
     }
+}
+
+const object_map &BufferOrch::getBufferPoolNameOidMap(void)
+{
+    // In the case different Orches are running in
+    // different threads, caller may need to grab a read lock
+    // before calling this function
+    return *m_buffer_type_maps[CFG_BUFFER_POOL_TABLE_NAME];
 }
 
 task_process_status BufferOrch::processBufferPool(Consumer &consumer)

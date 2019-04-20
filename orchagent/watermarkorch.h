@@ -22,6 +22,7 @@ public:
     void init_queue_ids();
 
     void clearSingleWm(Table *table, string wm_name, vector<sai_object_id_t> &obj_ids);
+    void clearSingleWm(Table *table, string wm_name, const object_map &nameOidMap);
 
     shared_ptr<Table> getCountersTable(void)
     {
