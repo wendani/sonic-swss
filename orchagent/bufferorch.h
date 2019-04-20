@@ -35,6 +35,7 @@ public:
     bool isPortReady(const std::string& port_name) const;
     static type_map m_buffer_type_maps;
     void generateBufferPoolWatermarkCounterIdList(void);
+    const object_map &getBufferPoolNameOidMap(void);
 
 private:
     typedef task_process_status (BufferOrch::*buffer_table_handler)(Consumer& consumer);
