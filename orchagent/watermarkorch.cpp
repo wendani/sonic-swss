@@ -183,10 +183,16 @@ void WatermarkOrch::doTask(SelectableTimer &timer)
         m_telemetryTimer->setInterval(intervT);
         m_telemetryTimer->reset();
 
-        clearSingleWm(m_periodicWatermarkTable.get(), "SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES", m_pg_ids);
-        clearSingleWm(m_periodicWatermarkTable.get(), "SAI_INGRESS_PRIORITY_GROUP_STAT_SHARED_WATERMARK_BYTES", m_pg_ids);
-        clearSingleWm(m_periodicWatermarkTable.get(), "SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES", m_unicast_queue_ids);
-        clearSingleWm(m_periodicWatermarkTable.get(), "SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES", m_multicast_queue_ids);
+        clearSingleWm(m_periodicWatermarkTable.get(),
+            "SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES", m_pg_ids);
+        clearSingleWm(m_periodicWatermarkTable.get(),
+            "SAI_INGRESS_PRIORITY_GROUP_STAT_SHARED_WATERMARK_BYTES", m_pg_ids);
+        clearSingleWm(m_periodicWatermarkTable.get(),
+            "SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES", m_unicast_queue_ids);
+        clearSingleWm(m_periodicWatermarkTable.get(),
+            "SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES", m_multicast_queue_ids);
+        clearSingleWm(m_periodicWatermarkTable.get(),
+            "SAI_BUFFER_POOL_STAT_WATERMARK_BYTES", gBufferOrch->getBufferPoolNameOidMap());
         SWSS_LOG_INFO("Periodic watermark cleared by timer!");
     }
 }
