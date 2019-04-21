@@ -10,7 +10,8 @@ dist_swss_DATA = \
 		 pfc_detect_barefoot.lua \
 		 pfc_restore.lua \
 		 watermark_queue.lua \
-		 watermark_pg.lua
+		 watermark_pg.lua \
+		 watermark_bufferpool.lua
 
 bin_PROGRAMS = orchagent routeresync orchagent_restart_check
 
