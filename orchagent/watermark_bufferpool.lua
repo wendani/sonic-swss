@@ -27,8 +27,6 @@ for i = n, 1, -1 do
 
         -- Get last value from *_WATERMARKS
         local user_wm_last = redis.call('HGET', user_table_name .. ':' .. KEYS[i], sai_buffer_pool_watermark_stat_name)
-        local persistent_wm_last = redis.call('HGET', persistent_table_name .. ':' .. KEYS[i], sai_buffer_pool_watermark_stat_name)
-        local periodic_wm_last = redis.call('HGET', periodic_table_name .. ':' .. KEYS[i], sai_buffer_pool_watermark_stat_name)
 
         -- Set higher value to *_WATERMARKS
         if user_wm_last then
@@ -40,6 +38,7 @@ for i = n, 1, -1 do
             redis.call('HSET', user_table_name .. ':' .. KEYS[i], sai_buffer_pool_watermark_stat_name, wm)
         end
 
+        local persistent_wm_last = redis.call('HGET', persistent_table_name .. ':' .. KEYS[i], sai_buffer_pool_watermark_stat_name)
         if persistent_wm_last then
             persistent_wm_last = tonumber(persistent_wm_last)
             if wm > persistent_wm_last then
@@ -49,6 +48,7 @@ for i = n, 1, -1 do
             redis.call('HSET', persistent_table_name .. ':' .. KEYS[i], sai_buffer_pool_watermark_stat_name, wm)
         end
 
+        local periodic_wm_last = redis.call('HGET', periodic_table_name .. ':' .. KEYS[i], sai_buffer_pool_watermark_stat_name)
         if periodic_wm_last then
             periodic_wm_last = tonumber(periodic_wm_last)
             if wm > periodic_wm_last then
