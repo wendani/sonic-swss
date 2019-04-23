@@ -476,7 +476,7 @@ task_process_status BufferOrch::processBufferProfile(Consumer &consumer)
 }
 
 /*
-Input sample "BUFFER_QUEUE_TABLE:Ethernet4,Ethernet45:10-15"
+Input sample "BUFFER_QUEUE|Ethernet4,Ethernet45|10-15"
 */
 task_process_status BufferOrch::processQueue(Consumer &consumer)
 {
