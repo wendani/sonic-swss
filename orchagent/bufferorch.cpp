@@ -116,10 +116,6 @@ void BufferOrch::initFlexCounterGroupTable(void)
         // Before this capability is in place, we feed the platform info into the orchagent
         // daemon and check against it
         char *device = getenv("device");
-        if (device)
-        {
-            SWSS_LOG_ERROR("initFlexCounterGroupTable: device: %s", device);
-        }
         if (device && (strstr(device, "7050") || strstr(device, "6000")))
         {
             statsMode = STATS_MODE_READ;
@@ -166,7 +162,6 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
     // this operation has already been done or not yet
     if (m_isBufferPoolWatermarkCounterIdListGenerated)
     {
-        SWSS_LOG_ERROR("generateBufferPoolCounterIdList: Buffer pool COUNTER_ID_LIST already generated");
         return;
     }
 
@@ -180,7 +175,6 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
     {
         statList.pop_back();
     }
-    SWSS_LOG_ERROR("generateBufferPoolCounterIdList: Buffer pool watermark COUNTER_ID_LIST value: %s", statList.c_str());
 
     vector<FieldValueTuple> fvTuples;
     fvTuples.emplace_back(BUFFER_POOL_COUNTER_ID_LIST, statList);
