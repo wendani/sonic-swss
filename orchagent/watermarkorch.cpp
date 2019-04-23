@@ -3,6 +3,7 @@
 #include "portsorch.h"
 #include "notifier.h"
 #include "converter.h"
+#include "bufferorch.h"
 
 #define DEFAULT_TELEMETRY_INTERVAL 120
 
