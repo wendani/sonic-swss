@@ -120,7 +120,7 @@ void BufferOrch::initFlexCounterGroupTable(void)
         {
             SWSS_LOG_ERROR("initFlexCounterGroupTable: device: %s", device);
         }
-        if (device && strstr(device, "7050"))
+        if (device && (strstr(device, "7050") || strstr(device, "6000")))
         {
             statsMode = STATS_MODE_READ;
         }
