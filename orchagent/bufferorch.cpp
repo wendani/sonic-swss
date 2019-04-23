@@ -191,6 +191,8 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
         string key = BUFFER_POOL_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP ":" + sai_serialize_object_id(it.second);
         m_flexCounterTable->set(key, fvTuples);
     }
+
+    m_isBufferPoolWatermarkCounterIdListGenerated = true;
 }
 
 const object_map &BufferOrch::getBufferPoolNameOidMap(void)
