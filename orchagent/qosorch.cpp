@@ -232,7 +232,6 @@ bool Dot1pToTcMapHandler::convertFieldValuesToAttributes(KeyOpFieldsValuesTuple 
         {
             dot1p_map_list.list[i].key.dot1p = static_cast<sai_uint8_t>(stoi(fvField(fv)));
             dot1p_map_list.list[i].value.tc = static_cast<sai_cos_t>(stoi(fvValue(fv)));
-            SWSS_LOG_ERROR("key.dot1p:%u, value.tc:%u", dot1p_map_list.list[i].key.dot1p, dot1p_map_list.list[i].value.tc);
         }
         catch (const std::invalid_argument &e)
         {
@@ -248,7 +247,6 @@ bool Dot1pToTcMapHandler::convertFieldValuesToAttributes(KeyOpFieldsValuesTuple 
         i++;
     }
     dot1p_map_list.count = static_cast<uint32_t>(i);
-    SWSS_LOG_ERROR("dot1p map count: %u", dot1p_map_list.count);
 
     sai_attribute_t attr;
     attr.id = SAI_QOS_MAP_ATTR_MAP_TO_VALUE_LIST;
@@ -270,8 +268,6 @@ sai_object_id_t Dot1pToTcMapHandler::addQosItem(const vector<sai_attribute_t> &a
     attrs.push_back(attr);
 
     attrs.push_back(attributes[0]);
-    SWSS_LOG_ERROR("Dot1pToTcMapHandler::addQosItem: attributes[0] id %s SAI_QOS_MAP_ATTR_MAP_TO_VALUE_LIST",
-        (attributes[0].id == SAI_QOS_MAP_ATTR_MAP_TO_VALUE_LIST) ? "==" : "!=");
 
     sai_object_id_t object_id;
     sai_status_t sai_status = sai_qos_map_api->create_qos_map(&object_id, gSwitchId, (uint32_t)attrs.size(), attrs.data());
@@ -280,7 +276,6 @@ sai_object_id_t Dot1pToTcMapHandler::addQosItem(const vector<sai_attribute_t> &a
         SWSS_LOG_ERROR("Failed to create dot1p_to_tc map. status: %s", sai_serialize_status(sai_status).c_str());
         return SAI_NULL_OBJECT_ID;
     }
-    SWSS_LOG_ERROR("created QosMap object: 0x%lx", object_id);
     SWSS_LOG_DEBUG("created QosMap object: 0x%lx", object_id);
     return object_id;
 }
