@@ -70,7 +70,7 @@ class Dot1pToTcMapHandler : public QosMapHandler
 public:
     bool convertFieldValuesToAttributes(KeyOpFieldsValuesTuple &tuple, vector<sai_attribute_t> &attributes) override;
     sai_object_id_t addQosItem(const vector<sai_attribute_t> &attributes) override;
-}
+};
 
 class TcToQueueMapHandler : public QosMapHandler
 {

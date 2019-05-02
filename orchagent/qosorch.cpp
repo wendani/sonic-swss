@@ -2,6 +2,7 @@
 #include "qosorch.h"
 #include "logger.h"
 #include "crmorch.h"
+#include "sai_serialize.h"
 
 #include <stdlib.h>
 #include <sstream>
@@ -233,7 +234,7 @@ bool Dot1pToTcMapHandler::convertFieldValuesToAttributes(KeyOpFieldsValuesTuple 
             dot1p_map_list.list[i].value.tc = static_cast<sai_cos_t>(stoi(fvValue(fv)));
             SWSS_LOG_ERROR("key.dot1p:%u, value.tc:%u", dot1p_map_list.list[i].key.dot1p, dot1p_map_list.list[i].value.tc);
         }
-        catch (const std:invalid_argument &e)
+        catch (const std::invalid_argument &e)
         {
             SWSS_LOG_ERROR("Invalid dot1p to tc argument %s:%s to %s()", fvField(fv).c_str(), fvValue(fv).c_str(), e.what());
             continue;
@@ -276,7 +277,7 @@ sai_object_id_t Dot1pToTcMapHandler::addQosItem(const vector<sai_attribute_t> &a
     sai_status_t sai_status = sai_qos_map_api->create_qos_map(&object_id, gSwitchId, (uint32_t)attrs.size(), attrs.data());
     if (SAI_STATUS_SUCCESS != sai_status)
     {
-        SWSS_LOG_ERROR("Failed to create dot1p_to_tc map. status: %s", sai_serialize_status(sai_status));
+        SWSS_LOG_ERROR("Failed to create dot1p_to_tc map. status: %s", sai_serialize_status(sai_status).c_str());
         return SAI_NULL_OBJECT_ID;
     }
     SWSS_LOG_ERROR("created QosMap object: 0x%lx", object_id);
