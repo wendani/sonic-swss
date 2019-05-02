@@ -224,6 +224,7 @@ bool Dot1pToTcMapHandler::convertFieldValuesToAttributes(KeyOpFieldsValuesTuple 
     SWSS_LOG_ENTER();
     sai_qos_map_list_t dot1p_map_list;
 
+    // Allocated resources are freed in freeAttribResources() call
     dot1p_map_list.list = new sai_qos_map_t[kfvFieldsValues(tuple).size()];
     int i = 0;
     for (const auto &fv : kfvFieldsValues(tuple))
