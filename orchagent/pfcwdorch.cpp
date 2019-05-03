@@ -68,20 +68,40 @@ void PfcWdOrch<DropHandler, ForwardHandler>::doTask(Consumer& consumer)
             string key = kfvKey(t);
             string op = kfvOp(t);
 
+            task_process_status task_status = task_process_status::task_ignore;
             if (op == SET_COMMAND)
             {
-                createEntry(key, kfvFieldsValues(t));
+                task_status = createEntry(key, kfvFieldsValues(t));
             }
             else if (op == DEL_COMMAND)
             {
-                deleteEntry(key);
+                task_status = deleteEntry(key);
             }
             else
             {
+                task_status = task_process_status::task_invalid_entry;
                 SWSS_LOG_ERROR("Unknown operation type %s\n", op.c_str());
             }
-
-            consumer.m_toSync.erase(it++);
+            switch (task_status)
+            {
+                case task_process_status::task_success:
+                    SWSS_LOG_ERROR("Succeeded PFC watchdog %s task", op.c_str());
+                    consumer.m_toSync.erase(it++);
+                    break;
+                case task_process_status::task_need_retry:
+                    SWSS_LOG_ERROR("Failed to process PFC watchdog %s task, retry it", op.c_str());
+                    SWSS_LOG_INFO("Failed to process PFC watchdog %s task, retry it", op.c_str());
+                    ++it;
+                    break;
+                case task_process_status::task_invalid_entry:
+                    SWSS_LOG_ERROR("Failed to process PFC watchdog %s task, invalid entry", op.c_str());
+                    consumer.m_toSync.erase(it++);
+                    break;
+                default:
+                    SWSS_LOG_ERROR("Invalid task status %d", task_status);
+                    consumer.m_toSync.erase(it++);
+                    break;
+            }
         }
     }
 }
@@ -151,7 +171,7 @@ string PfcWdOrch<DropHandler, ForwardHandler>::serializeAction(const PfcWdAction
 
 
 template <typename DropHandler, typename ForwardHandler>
-void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
+task_process_status PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
         const vector<FieldValueTuple>& data)
 {
     SWSS_LOG_ENTER();
@@ -165,13 +185,13 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
     if (!gPortsOrch->getPort(key, port))
     {
         SWSS_LOG_ERROR("Invalid port interface %s", key.c_str());
-        return;
+        return task_process_status::task_invalid_entry;
     }
 
     if (port.m_type != Port::PHY)
     {
         SWSS_LOG_ERROR("Interface %s is not physical port", key.c_str());
-        return;
+        return task_process_status::task_invalid_entry;
     }
 
     for (auto i : data)
@@ -200,7 +220,7 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
                 if (action == PfcWdAction::PFC_WD_ACTION_UNKNOWN)
                 {
                     SWSS_LOG_ERROR("Invalid PFC Watchdog action %s", value.c_str());
-                    return;
+                    return task_process_status::task_invalid_entry;
                 }
             }
             else
@@ -209,7 +229,7 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
                         "Failed to parse PFC Watchdog %s configuration. Unknown attribute %s.\n",
                         key.c_str(),
                         field.c_str());
-                return;
+                return task_process_status::task_invalid_entry;
             }
         }
         catch (const exception& e)
@@ -219,7 +239,7 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
                     key.c_str(),
                     field.c_str(),
                     e.what());
-            return;
+            return task_process_status::task_invalid_entry;
         }
         catch (...)
         {
@@ -227,7 +247,7 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
                     "Failed to parse PFC Watchdog %s attribute %s. Unknown error has been occurred",
                     key.c_str(),
                     field.c_str());
-            return;
+            return task_process_status::task_invalid_entry;
         }
     }
 
@@ -235,20 +255,21 @@ void PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
     if (detectionTime == 0)
     {
         SWSS_LOG_ERROR("%s missing", PFC_WD_DETECTION_TIME);
-        return;
+        return task_process_status::task_invalid_entry;
     }
 
     if (!startWdOnPort(port, detectionTime, restorationTime, action))
     {
         SWSS_LOG_ERROR("Failed to start PFC Watchdog on port %s", port.m_alias.c_str());
-        return;
+        return task_process_status::task_need_retry;
     }
 
     SWSS_LOG_NOTICE("Started PFC Watchdog on port %s", port.m_alias.c_str());
+    return task_process_status::task_success;
 }
 
 template <typename DropHandler, typename ForwardHandler>
-void PfcWdOrch<DropHandler, ForwardHandler>::deleteEntry(const string& name)
+task_process_status PfcWdOrch<DropHandler, ForwardHandler>::deleteEntry(const string& name)
 {
     SWSS_LOG_ENTER();
 
@@ -258,14 +279,15 @@ void PfcWdOrch<DropHandler, ForwardHandler>::deleteEntry(const string& name)
     if (!stopWdOnPort(port))
     {
         SWSS_LOG_ERROR("Failed to stop PFC Watchdog on port %s", name.c_str());
-        return;
+        return task_process_status::task_failed;
     }
 
     SWSS_LOG_NOTICE("Stopped PFC Watchdog on port %s", name.c_str());
+    return task_process_status::task_success;
 }
 
 template <typename DropHandler, typename ForwardHandler>
-void PfcWdSwOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
+task_process_status PfcWdSwOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
         const vector<FieldValueTuple>& data)
 {
     SWSS_LOG_ENTER();
@@ -292,8 +314,10 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::createEntry(const string& key,
     }
     else
     {
-        PfcWdOrch<DropHandler, ForwardHandler>::createEntry(key, data);
+        return PfcWdOrch<DropHandler, ForwardHandler>::createEntry(key, data);
     }
+
+    return task_process_status::task_success;
 }
 
 template <typename DropHandler, typename ForwardHandler>
@@ -452,7 +476,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
 }
 
 template <typename DropHandler, typename ForwardHandler>
-void PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
+bool PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
         uint32_t detectionTime, uint32_t restorationTime, PfcWdAction action)
 {
     SWSS_LOG_ENTER();
@@ -462,7 +486,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
     if (!gPortsOrch->getPortPfc(port.m_port_id, &pfcMask))
     {
         SWSS_LOG_ERROR("Failed to get PFC mask on port %s", port.m_alias.c_str());
-        return;
+        return false;
     }
 
     set<uint8_t> losslessTc;
@@ -474,6 +498,11 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
         }
 
         losslessTc.insert(i);
+    }
+    if (losslessTc.empty())
+    {
+        SWSS_LOG_ERROR("No lossless TC found on port %s", port.m_alias.c_str());
+        return false;
     }
 
     if (!c_portStatIds.empty())
@@ -536,6 +565,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
     sai_object_id_t groupId;
     gPortsOrch->createBindAclTableGroup(port.m_port_id, groupId, ACL_STAGE_INGRESS);
     gPortsOrch->createBindAclTableGroup(port.m_port_id, groupId, ACL_STAGE_EGRESS);
+
+    return true;
 }
 
 template <typename DropHandler, typename ForwardHandler>
@@ -712,9 +743,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdOnPort(const Port& port,
 {
     SWSS_LOG_ENTER();
 
-    registerInWdDb(port, detectionTime, restorationTime, action);
-
-    return true;
+    return registerInWdDb(port, detectionTime, restorationTime, action);
 }
 
 template <typename DropHandler, typename ForwardHandler>
