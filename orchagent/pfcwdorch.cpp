@@ -85,11 +85,9 @@ void PfcWdOrch<DropHandler, ForwardHandler>::doTask(Consumer& consumer)
             switch (task_status)
             {
                 case task_process_status::task_success:
-                    SWSS_LOG_ERROR("Succeeded PFC watchdog %s task", op.c_str());
                     consumer.m_toSync.erase(it++);
                     break;
                 case task_process_status::task_need_retry:
-                    SWSS_LOG_ERROR("Failed to process PFC watchdog %s task, retry it", op.c_str());
                     SWSS_LOG_INFO("Failed to process PFC watchdog %s task, retry it", op.c_str());
                     ++it;
                     break;
