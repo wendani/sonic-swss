@@ -501,7 +501,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
     }
     if (losslessTc.empty())
     {
-        SWSS_LOG_ERROR("No lossless TC found on port %s", port.m_alias.c_str());
+        SWSS_LOG_NOTICE("No lossless TC found on port %s", port.m_alias.c_str());
         return false;
     }
 
