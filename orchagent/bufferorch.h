@@ -59,11 +59,11 @@ private:
     std::unordered_map<std::string, bool> m_ready_list;
     std::unordered_map<std::string, std::vector<std::string>> m_port_ready_list_ref;
 
-    unique_ptr<DBConnector> m_flexCounterDb = nullptr;
-    unique_ptr<ProducerTable> m_flexCounterGroupTable = nullptr;
-    unique_ptr<ProducerTable> m_flexCounterTable = nullptr;
+    unique_ptr<DBConnector> m_flexCounterDb;
+    unique_ptr<ProducerTable> m_flexCounterGroupTable;
+    unique_ptr<ProducerTable> m_flexCounterTable;
 
-    unique_ptr<DBConnector> m_countersDb = nullptr;
+    unique_ptr<DBConnector> m_countersDb;
     RedisClient m_countersDbRedisClient;
 
     bool m_isBufferPoolWatermarkCounterIdListGenerated = false;

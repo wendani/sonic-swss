@@ -110,26 +110,16 @@ void BufferOrch::initFlexCounterGroupTable(void)
         fvTuples.emplace_back(BUFFER_POOL_PLUGIN_FIELD, bufferPoolWmSha);
         fvTuples.emplace_back(POLL_INTERVAL_FIELD, BUFFER_POOL_WATERMARK_FLEX_STAT_COUNTER_POLL_MSECS);
 
-        string statsMode = STATS_MODE_READ_AND_CLEAR;
-        // Some platforms do not support buffer pool watermark clear operation
-        // Need the SAI API support to query the capability
-        // Before this capability is in place, we feed the platform info into the orchagent
-        // daemon and check against it
-        char *device = getenv("device");
-        if (device)
-        {
-            SWSS_LOG_ERROR("initFlexCounterGroupTable: device: %s", device);
-        }
-        if (device && (strstr(device, "7050") || strstr(device, "6000")))
-        {
-            statsMode = STATS_MODE_READ;
-        }
-        fvTuples.emplace_back(STATS_MODE_FIELD, statsMode);
+        // TODO (work in progress):
+        // Some platforms do not support buffer pool watermark clear operation on a particular pool
+        // Invoke the SAI clear_stats API per pool to query the capability from the API call return status
+        fvTuples.emplace_back(STATS_MODE_FIELD, STATS_MODE_READ_AND_CLEAR);
+
         m_flexCounterGroupTable->set(BUFFER_POOL_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP, fvTuples);
     }
-    catch (...)
+    catch (const exception &e)
     {
-        SWSS_LOG_WARN("Buffer pool watermark lua script and/or flex counter group not set successfully");
+        SWSS_LOG_WARN("Buffer pool watermark lua script and/or flex counter group not set successfully. Runtime error: %s", e.what());
     }
 }
 
