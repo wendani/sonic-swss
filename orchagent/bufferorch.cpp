@@ -117,9 +117,9 @@ void BufferOrch::initFlexCounterGroupTable(void)
 
         m_flexCounterGroupTable->set(BUFFER_POOL_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP, fvTuples);
     }
-    catch (const exception &e)
+    catch (const runtime_error &e)
     {
-        SWSS_LOG_WARN("Buffer pool watermark lua script and/or flex counter group not set successfully. Runtime error: %s", e.what());
+        SWSS_LOG_ERROR("Buffer pool watermark lua script and/or flex counter group not set successfully. Runtime error: %s", e.what());
     }
 }
 
