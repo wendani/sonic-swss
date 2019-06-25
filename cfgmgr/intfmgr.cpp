@@ -78,7 +78,7 @@ void IntfMgr::setHostSubIntfMtu(const string &subIntf, const uint32_t mtu)
     stringstream cmd;
     string res;
 
-    cmd << IP_CMD << " link set " << subIntf << " mtu " << str::to_string(mtu);
+    cmd << IP_CMD << " link set " << subIntf << " mtu " << std::to_string(mtu);
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 }
 
@@ -100,7 +100,7 @@ void IntfMgr::removeHostSubIntf(const string &subIntf)
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 }
 
-void setSubIntfStateOk(const string &alias)
+void IntfMgr::setSubIntfStateOk(const string &alias)
 {
     vector<FieldValueTuple> fvTuples = {{"state", "ok"}};
 
