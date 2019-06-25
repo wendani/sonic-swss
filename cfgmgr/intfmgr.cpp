@@ -64,6 +64,42 @@ void IntfMgr::setIntfVrf(const string &alias, const string vrfName)
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 }
 
+void IntfMgr::addHostSubIntf(const string&intf, const string &subIntf, const string &vlan)
+{
+    stringstream cmd;
+    string res;
+
+    cmd << IP_CMD << " link add link " << intf << " name " << subIntf << " type vlan id " << vlan;
+    EXEC_WITH_ERROR_THROW(cmd.str(), res);
+}
+
+void IntfMgr::setHostSubIntfMtu(const string &subIntf, const uint32_t mtu)
+{
+    stringstream cmd;
+    string res;
+
+    cmd << IP_CMD << " link set " << subIntf << " mtu " << str::to_string(mtu);
+    EXEC_WITH_ERROR_THROW(cmd.str(), res);
+}
+
+void IntfMgr::setHostSubIntfAdminStatus(const string &subIntf, const string &admin_status)
+{
+    stringstream cmd;
+    string res;
+
+    cmd << IP_CMD << " link set " << subIntf << admin_status;
+    EXEC_WITH_ERROR_THROW(cmd.str(), res);
+}
+
+void IntfMgr::removeHostSubIntf(const string &subIntf)
+{
+    stringstream cmd;
+    string res;
+
+    cmd << IP_CMD << " link del " << subIntf;
+    EXEC_WITH_ERROR_THROW(cmd.str(), res);
+}
+
 bool IntfMgr::isIntfStateOk(const string &alias)
 {
     vector<FieldValueTuple> temp;
@@ -112,16 +148,55 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
     SWSS_LOG_ENTER();
 
     string alias(keys[0]);
-    string vrf_name = "";
+    string vlanId;
+    string subIntfAlias;
+    size_t found = alias.find(".");
+    if (found != string::npos)
+    {
+        // This is a sub interface
+        // subIntfAlias holds the complete sub interface name
+        // while alias becomes the parent interface
+        subIntfAlias = alias;
+        vlanId = alias.substr(found + 1);
+        alias = alias.substr(0, found);
+        SWSS_LOG_ERROR("dot1q interface: sub interface %s, parent %s, vlan %s", subIntfAlias.c_str(), alias.c_str(), vlanId.c_str());
+    }
     bool is_lo = !alias.compare(0, strlen(LOOPBACK_PREFIX), LOOPBACK_PREFIX);
 
+    string vrf_name = "";
+    uint32_t mtu = 0;
+    string admin_status;
     for (auto idx : data)
     {
         const auto &field = fvField(idx);
         const auto &value = fvValue(idx);
+
         if (field == "vnet_name" || field == "vrf_name")
         {
             vrf_name = value;
+        }
+
+        if (field == "mtu")
+        {
+            try
+            {
+                mtu = static_cast<uint32_t>(stoul(value));
+            }
+            catch (const std::invalid_argument &e)
+            {
+                SWSS_LOG_ERROR("Invalid argument %s to %s()", value.c_str(), e.what());
+                continue;
+            }
+            catch (const std::out_of_range &e)
+            {
+                SWSS_LOG_ERROR("Out of range argument %s to %s()", value.c_str(), e.what());
+                continue;
+            }
+        }
+
+        if (field == "admin_status")
+        {
+            admin_status = value;
         }
     }
 
@@ -140,10 +215,32 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
         }
 
         // Set Interface VRF except for lo
+        // Set sub interface except for lo
         if (!is_lo)
         {
             setIntfVrf(alias, vrf_name);
-            m_appIntfTableProducer.set(alias, data);
+
+            if (!subIntfAlias.empty())
+            {
+                try
+                {
+                    addHostSubIntf(alias, subIntfAlias, vlanId);
+                    if (mtu)
+                    {
+                        setHostSubIntfMtu(subIntfAlias, mtu);
+                    }
+                    if (!admin_status.empty())
+                    {
+                        setHostSubIntfAdminStatus(subIntfAlias, vlanId);
+                    }
+                }
+                catch (const std::runtime_error &e)
+                {
+                    SWSS_LOG_ERROR("Sub interface ip link add/set failure. Runtime error: %s", e.what());
+                }
+            }
+
+            m_appIntfTableProducer.set(subIntfAlias.empty() ? alias : subIntfAlias, data);
         }
         else
         {
@@ -156,7 +253,13 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
         if (!is_lo)
         {
             setIntfVrf(alias, "");
-            m_appIntfTableProducer.del(alias);
+
+            if (!subIntfAlias.empty())
+            {
+                removeHostSubIntf(subIntfAlias);
+            }
+
+            m_appIntfTableProducer.del(subIntfAlias.empty() ? alias : subIntfAlias);
         }
         else
         {
