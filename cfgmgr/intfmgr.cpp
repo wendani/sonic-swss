@@ -100,6 +100,21 @@ void IntfMgr::removeHostSubIntf(const string &subIntf)
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 }
 
+void setSubIntfStateOk(const string &alias)
+{
+    vector<FieldValueTuple> fvTuples = {{"state", "ok"}};
+
+    if (!alias.compare(0, strlen(LAG_PREFIX), LAG_PREFIX))
+    {
+        m_stateLagTable.set(alias, fvTuples);
+    }
+    else
+    {
+        // EthernetX using PORT_TABLE
+        m_statePortTable.set(alias, fvTuples);
+    }
+}
+
 bool IntfMgr::isIntfStateOk(const string &alias)
 {
     vector<FieldValueTuple> temp;
@@ -241,6 +256,9 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
                 {
                     SWSS_LOG_ERROR("Sub interface ip link add/set failure. Runtime error: %s", e.what());
                 }
+
+                // set STATE_DB port state
+                setSubIntfStateOk(subIntfAlias);
             }
 
             m_appIntfTableProducer.set(subIntfAlias.empty() ? alias : subIntfAlias, data);
@@ -291,7 +309,7 @@ bool IntfMgr::doIntfAddrTask(const vector<string>& keys,
     if (op == SET_COMMAND)
     {
         /*
-         * Don't proceed if port/LAG/VLAN is not ready yet.
+         * Don't proceed if port/LAG/VLAN/subport is not ready yet.
          * The pending task will be checked periodically and retried.
          */
         if (!isIntfStateOk(alias))

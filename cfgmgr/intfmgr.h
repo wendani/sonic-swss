@@ -26,6 +26,12 @@ private:
     bool doIntfAddrTask(const vector<string>& keys, const vector<FieldValueTuple>& data, const string& op);
     void doTask(Consumer &consumer);
     bool isIntfStateOk(const string &alias);
+
+    void addHostSubIntf(const string&intf, const string &subIntf, const string &vlan);
+    void setHostSubIntfMtu(const string &subIntf, const uint32_t mtu);
+    void setHostSubIntfAdminStatus(const string &subIntf, const string &admin_status);
+    void removeHostSubIntf(const string &subIntf);
+    void setSubIntfStateOk(const string &alias);
 };
 
 }
