@@ -115,6 +115,19 @@ void IntfMgr::setSubIntfStateOk(const string &alias)
     }
 }
 
+void IntfMgr::removeSubIntfState(const string &alias)
+{
+    if (!alias.compare(0, strlen(LAG_PREFIX), LAG_PREFIX))
+    {
+        m_stateLagTable.del(alias);
+    }
+    else
+    {
+        // EthernetX using PORT_TABLE
+        m_statePortTable.del(alias);
+    }
+}
+
 bool IntfMgr::isIntfStateOk(const string &alias)
 {
     vector<FieldValueTuple> temp;
@@ -275,6 +288,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
             if (!subIntfAlias.empty())
             {
                 removeHostSubIntf(subIntfAlias);
+                removeSubIntfState(subIntfAlias);
             }
 
             m_appIntfTableProducer.del(subIntfAlias.empty() ? alias : subIntfAlias);
