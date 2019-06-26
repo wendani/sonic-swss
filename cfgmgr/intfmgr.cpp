@@ -87,7 +87,7 @@ void IntfMgr::setHostSubIntfAdminStatus(const string &subIntf, const string &adm
     stringstream cmd;
     string res;
 
-    cmd << IP_CMD << " link set " << subIntf << admin_status;
+    cmd << IP_CMD << " link set " << subIntf << " " << admin_status;
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 }
 
@@ -250,21 +250,45 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
 
             if (!subIntfAlias.empty())
             {
-                try
+                if (m_subIntfList.find(subIntfAlias) == m_subIntfList.end())
                 {
-                    addHostSubIntf(alias, subIntfAlias, vlanId);
-                    if (mtu)
+                    try
+                    {
+                        addHostSubIntf(alias, subIntfAlias, vlanId);
+                    }
+                    catch (const std::runtime_error &e)
+                    {
+                        SWSS_LOG_NOTICE("Sub interface ip link add failure. Runtime error: %s", e.what());
+                        return false;
+                    }
+
+                    m_subIntfList.insert(subIntfAlias);
+                }
+
+                if (mtu)
+                {
+                    try
                     {
                         setHostSubIntfMtu(subIntfAlias, mtu);
                     }
-                    if (!admin_status.empty())
+                    catch (const std::runtime_error &e)
                     {
-                        setHostSubIntfAdminStatus(subIntfAlias, vlanId);
+                        SWSS_LOG_NOTICE("Sub interface ip link set mtu failure. Runtime error: %s", e.what());
+                        return false;
                     }
                 }
-                catch (const std::runtime_error &e)
+
+                if (!admin_status.empty())
                 {
-                    SWSS_LOG_ERROR("Sub interface ip link add/set failure. Runtime error: %s", e.what());
+                    try
+                    {
+                        setHostSubIntfAdminStatus(subIntfAlias, admin_status);
+                    }
+                    catch (const std::runtime_error &e)
+                    {
+                        SWSS_LOG_NOTICE("Sub interface ip link set admin status failure. Runtime error: %s", e.what());
+                        return false;
+                    }
                 }
 
                 // set STATE_DB port state

@@ -20,6 +20,8 @@ private:
     ProducerStateTable m_appIntfTableProducer;
     Table m_statePortTable, m_stateLagTable, m_stateVlanTable, m_stateVrfTable, m_stateIntfTable;
 
+    set<string> m_subIntfList;
+
     void setIntfIp(const string &alias, const string &opCmd, const string &ipPrefixStr, const bool ipv4 = true);
     void setIntfVrf(const string &alias, const string vrfName);
     bool doIntfGeneralTask(const vector<string>& keys, const vector<FieldValueTuple>& data, const string& op);
@@ -32,6 +34,7 @@ private:
     void setHostSubIntfAdminStatus(const string &subIntf, const string &admin_status);
     void removeHostSubIntf(const string &subIntf);
     void setSubIntfStateOk(const string &alias);
+    void removeSubIntfState(const string &alias);
 };
 
 }
