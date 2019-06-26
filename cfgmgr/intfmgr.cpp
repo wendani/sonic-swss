@@ -82,12 +82,12 @@ void IntfMgr::setHostSubIntfMtu(const string &subIntf, const uint32_t mtu)
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 }
 
-void IntfMgr::setHostSubIntfAdminStatus(const string &subIntf, const string &admin_status)
+void IntfMgr::setHostSubIntfAdminStatus(const string &subIntf, const string &adminStatus)
 {
     stringstream cmd;
     string res;
 
-    cmd << IP_CMD << " link set " << subIntf << " " << admin_status;
+    cmd << IP_CMD << " link set " << subIntf << " " << adminStatus;
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 }
 
@@ -193,7 +193,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
 
     string vrf_name = "";
     uint32_t mtu = 0;
-    string admin_status;
+    string adminStatus;
     for (auto idx : data)
     {
         const auto &field = fvField(idx);
@@ -224,7 +224,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
 
         if (field == "admin_status")
         {
-            admin_status = value;
+            adminStatus = value;
         }
     }
 
@@ -281,11 +281,11 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
                     }
                 }
 
-                if (!admin_status.empty())
+                if (!adminStatus.empty())
                 {
                     try
                     {
-                        setHostSubIntfAdminStatus(subIntfAlias, admin_status);
+                        setHostSubIntfAdminStatus(subIntfAlias, adminStatus);
                     }
                     catch (const std::runtime_error &e)
                     {
