@@ -264,11 +264,13 @@ void IntfsOrch::doTask(Consumer &consumer)
         string alias(keys[0]);
 
         bool isSubIntf = false;
+        string parentAlias;
         string vlanId;
         size_t found = alias.find(".");
         if (found != string::npos)
         {
             isSubIntf = true;
+            parentAlias = alias.substr(0, found);
             vlanId = alias.substr(found + 1);
             SWSS_LOG_ERROR("sub interface: %s, vlan %s", alias.c_str(), vlanId.c_str());
         }
@@ -391,6 +393,14 @@ void IntfsOrch::doTask(Consumer &consumer)
             {
                 if (isSubIntf)
                 {
+                    Port parentPort;
+                    if (!gPortsOrch->getPort(parentAlias, parentPort))
+                    {
+                        SWSS_LOG_NOTICE("Sub interface %s Port object creation: parent port %s is not ready", alias.c_str(), parentAlias.c_str());
+                        it++;
+                        continue;
+                    }
+
                     string vlanAlias = VLAN_PREFIX + vlanId;
                     Port vlanPort;
                     if (!gPortsOrch->getPort(vlanAlias, vlanPort))
@@ -415,6 +425,7 @@ void IntfsOrch::doTask(Consumer &consumer)
                         p.m_oper_status = SAI_PORT_OPER_STATUS_DOWN;
                     }
 
+                    p.m_parent_port_id = parentPort.m_port_id;
                     p.m_vlan_info = vlanPort.m_vlan_info;
 
                     gPortsOrch->setPort(alias, p);
