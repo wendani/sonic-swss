@@ -465,35 +465,51 @@ bool IntfsOrch::addRouterIntfs(sai_object_id_t vrf_id, Port &port)
         case Port::PHY:
         case Port::LAG:
             attr.value.s32 = SAI_ROUTER_INTERFACE_TYPE_PORT;
+            attrs.push_back(attr);
             break;
         case Port::VLAN:
             attr.value.s32 = SAI_ROUTER_INTERFACE_TYPE_VLAN;
+            attrs.push_back(attr);
+            break;
+        case Port::SUBPORT:
+            attr.value.s32 = SAI_ROUTER_INTERFACE_TYPE_SUB_PORT;
+            attrs.push_back(attr);
             break;
         default:
             SWSS_LOG_ERROR("Unsupported port type: %d", port.m_type);
             break;
     }
-    attrs.push_back(attr);
 
     switch(port.m_type)
     {
         case Port::PHY:
             attr.id = SAI_ROUTER_INTERFACE_ATTR_PORT_ID;
             attr.value.oid = port.m_port_id;
+            attrs.push_back(attr);
             break;
         case Port::LAG:
             attr.id = SAI_ROUTER_INTERFACE_ATTR_PORT_ID;
             attr.value.oid = port.m_lag_id;
+            attrs.push_back(attr);
             break;
         case Port::VLAN:
             attr.id = SAI_ROUTER_INTERFACE_ATTR_VLAN_ID;
             attr.value.oid = port.m_vlan_info.vlan_oid;
+            attrs.push_back(attr);
+            break;
+        case Port::SUBPORT:
+            attr.id = SAI_ROUTER_INTERFACE_ATTR_PORT_ID;
+            attr.value.oid = port.m_parent_port_id;
+            attrs.push_back(attr);
+
+            attr.id = SAI_ROUTER_INTERFACE_ATTR_VLAN_ID;
+            attr.value.oid = port.m_vlan_info.vlan_oid;
+            attrs.push_back(attr);
             break;
         default:
             SWSS_LOG_ERROR("Unsupported port type: %d", port.m_type);
             break;
     }
-    attrs.push_back(attr);
 
     attr.id = SAI_ROUTER_INTERFACE_ATTR_MTU;
     attr.value.u32 = port.m_mtu;
