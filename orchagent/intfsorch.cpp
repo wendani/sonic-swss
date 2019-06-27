@@ -262,9 +262,19 @@ void IntfsOrch::doTask(Consumer &consumer)
 
         vector<string> keys = tokenize(kfvKey(t), ':');
         string alias(keys[0]);
+
+        bool isSubIntf = false;
+        string vlanId;
+        size_t found = alias.find(".");
+        if (found != string::npos)
+        {
+            isSubIntf = true;
+            vlanId = alias.substr(found + 1);
+            SWSS_LOG_ERROR("sub interface: %s, vlan %s", alias.c_str(), vlanId.c_str());
+        }
+
         IpPrefix ip_prefix;
         bool ip_prefix_in_key = false;
-
         if (keys.size() > 1)
         {
             ip_prefix = kfvKey(t).substr(kfvKey(t).find(':')+1);
@@ -273,7 +283,8 @@ void IntfsOrch::doTask(Consumer &consumer)
 
         const vector<FieldValueTuple>& data = kfvFieldsValues(t);
         string vrf_name = "", vnet_name = "";
-
+        uint32_t mtu = 0;
+        string adminStatus;
         for (auto idx : data)
         {
             const auto &field = fvField(idx);
@@ -285,6 +296,27 @@ void IntfsOrch::doTask(Consumer &consumer)
             else if (field == "vnet_name")
             {
                 vnet_name = value;
+            }
+            else if (field == "mtu")
+            {
+                try
+                {
+                    mtu = static_cast<uint32_t>(stoul(value));
+                }
+                catch (const std::invalid_argument &e)
+                {
+                    SWSS_LOG_ERROR("Invalid argument %s to %s()", value.c_str(), e.what());
+                    continue;
+                }
+                catch (const std::out_of_range &e)
+                {
+                    SWSS_LOG_ERROR("Out of range argument %s to %s()", value.c_str(), e.what());
+                    continue;
+                }
+            }
+            else if (field == "admin_status")
+            {
+                adminStatus = value;
             }
         }
 
@@ -357,9 +389,43 @@ void IntfsOrch::doTask(Consumer &consumer)
             Port port;
             if (!gPortsOrch->getPort(alias, port))
             {
-                /* TODO: Resolve the dependency relationship and add ref_count to port */
-                it++;
-                continue;
+                if (isSubIntf)
+                {
+                    string vlanAlias = VLAN_PREFIX + vlanId;
+                    Port vlanPort;
+                    if (!gPortsOrch->getPort(vlanAlias, vlanPort))
+                    {
+                        SWSS_LOG_NOTICE("Sub interface %s Port object creation: vlan %s is not ready", alias.c_str(), vlanAlias.c_str());
+                        it++;
+                        continue;
+                    }
+
+                    Port p(alias, Port::SUBPORT);
+                    if (mtu)
+                    {
+                        p.m_mtu = mtu;
+                    }
+
+                    if (adminStatus == "up")
+                    {
+                        p.m_oper_status = SAI_PORT_OPER_STATUS_UP;
+                    }
+                    else if ((adminStatus == "down") || (adminStatus.empty()))
+                    {
+                        p.m_oper_status = SAI_PORT_OPER_STATUS_DOWN;
+                    }
+
+                    p.m_vlan_info = vlanPort.m_vlan_info;
+
+                    gPortsOrch->setPort(alias, p);
+                    port = p;
+                }
+                else
+                {
+                    /* TODO: Resolve the dependency relationship and add ref_count to port */
+                    it++;
+                    continue;
+                }
             }
 
             if (m_vnetInfses.find(alias) != m_vnetInfses.end())
