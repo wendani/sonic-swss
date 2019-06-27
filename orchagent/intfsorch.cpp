@@ -428,6 +428,8 @@ void IntfsOrch::doTask(Consumer &consumer)
                     p.m_parent_port_id = parentPort.m_port_id;
                     p.m_vlan_info = vlanPort.m_vlan_info;
 
+                    parentPort.m_child_ports.insert(p.m_alias);
+
                     gPortsOrch->setPort(alias, p);
                     port = p;
                 }
