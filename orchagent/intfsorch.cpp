@@ -426,7 +426,7 @@ void IntfsOrch::doTask(Consumer &consumer)
                     }
                     else
                     {
-                        SWSS_LOG_NOTICE("Sub interface %s inherits mtu size %u from parent port %s", alias.c_str(), parentPort.m_mtu, parentPort.c_str());
+                        SWSS_LOG_NOTICE("Sub interface %s inherits mtu size %u from parent port %s", alias.c_str(), parentPort.m_mtu, parentAlias.c_str());
                         p.m_mtu = parentPort.m_mtu;
                     }
 
