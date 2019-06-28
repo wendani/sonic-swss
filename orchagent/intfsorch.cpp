@@ -138,7 +138,7 @@ set<IpPrefix> IntfsOrch:: getSubnetRoutes()
     return subnet_routes;
 }
 
-bool IntfsOrch::setIntf(const string& alias, sai_object_id_t vrf_id, const IpPrefix *ip_prefix)
+bool IntfsOrch::setIntf(const string& alias, sai_object_id_t vrf_id, const IpPrefix *ip_prefix, mtu)
 {
     SWSS_LOG_ENTER();
 
@@ -157,6 +157,19 @@ bool IntfsOrch::setIntf(const string& alias, sai_object_id_t vrf_id, const IpPre
         else
         {
             return false;
+        }
+    }
+    else
+    {
+        // port represents a sub interface
+        // Change sub interface config at run time
+        if (port.m_type == PORT::SUBPORT)
+        {
+            // TODO: Check if sub interface mtu is no greater than the parent interface mtu
+            if (mtu)
+            {
+                setRouterIntfsMtu(port);
+            }
         }
     }
 
@@ -286,7 +299,6 @@ void IntfsOrch::doTask(Consumer &consumer)
         const vector<FieldValueTuple>& data = kfvFieldsValues(t);
         string vrf_name = "", vnet_name = "";
         uint32_t mtu = 0;
-        string adminStatus;
         for (auto idx : data)
         {
             const auto &field = fvField(idx);
@@ -315,10 +327,6 @@ void IntfsOrch::doTask(Consumer &consumer)
                     SWSS_LOG_ERROR("Out of range argument %s to %s()", value.c_str(), e.what());
                     continue;
                 }
-            }
-            else if (field == "admin_status")
-            {
-                adminStatus = value;
             }
         }
 
@@ -413,16 +421,13 @@ void IntfsOrch::doTask(Consumer &consumer)
                     Port p(alias, Port::SUBPORT);
                     if (mtu)
                     {
+                        // TODO: Check if mtu is no greater than the parent interface mtu
                         p.m_mtu = mtu;
                     }
-
-                    if (adminStatus == "up")
+                    else
                     {
-                        p.m_oper_status = SAI_PORT_OPER_STATUS_UP;
-                    }
-                    else if ((adminStatus == "down") || (adminStatus.empty()))
-                    {
-                        p.m_oper_status = SAI_PORT_OPER_STATUS_DOWN;
+                        SWSS_LOG_NOTICE("Sub interface %s inherits mtu size %u from parent port %s", alias.c_str(), parentPort.m_mtu, parentPort.c_str());
+                        p.m_mtu = parentPort.m_mtu;
                     }
 
                     p.m_parent_port_id = parentPort.m_port_id;
@@ -454,7 +459,7 @@ void IntfsOrch::doTask(Consumer &consumer)
                     it++;
                     continue;
                 }
-                if (!vnet_orch->setIntf(alias, vnet_name, ip_prefix_in_key ? &ip_prefix : nullptr))
+                if (!vnet_orch->setIntf(alias, vnet_name, ip_prefix_in_key ? &ip_prefix : nullptr, mtu))
                 {
                     it++;
                     continue;
@@ -467,7 +472,7 @@ void IntfsOrch::doTask(Consumer &consumer)
             }
             else
             {
-                if (!setIntf(alias, vrf_id, ip_prefix_in_key ? &ip_prefix : nullptr))
+                if (!setIntf(alias, vrf_id, ip_prefix_in_key ? &ip_prefix : nullptr, mtu))
                 {
                     it++;
                     continue;
