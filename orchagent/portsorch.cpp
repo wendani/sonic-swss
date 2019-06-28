@@ -512,6 +512,92 @@ bool PortsOrch::getAclBindPortId(string alias, sai_object_id_t &port_id)
     }
 }
 
+bool PortsOrch::addSubPort(const string &alias, uint32_t mtu, Port &port)
+{
+    string parentAlias;
+    string vlanId;
+    size_t found = alias.find(".");
+    if (found == string::npos)
+    {
+        SWSS_LOG_ERROR("%s is not a sub interface", alias.c_str());
+        return false;
+    }
+    parentAlias = alias.substr(0, found);
+    vlanId = alias.substr(found + 1);
+    SWSS_LOG_ERROR("sub interface %s: parent interface %s, , vlan %s", alias.c_str(), parentAlias.c_str(), vlanId.c_str());
+
+    auto it = m_portList.find(parentAlias);
+    if (it == m_portList.end())
+    {
+        SWSS_LOG_NOTICE("Sub interface %s Port object creation: parent port %s is not ready", alias.c_str(), parentAlias.c_str());
+        return false;
+    }
+    Port &parentPort = it->second;
+
+    string vlanAlias = VLAN_PREFIX + vlanId;
+    it = m_portList.find(vlanAlias);
+    if (it == m_portList.end())
+    {
+        SWSS_LOG_NOTICE("Sub interface %s Port object creation: vlan %s is not ready", alias.c_str(), vlanAlias.c_str());
+        return false;
+    }
+    Port &vlanPort = it->second;
+
+    Port p(alias, Port::SUBPORT);
+    if (mtu)
+    {
+        // TODO: Check if mtu is no greater than the parent interface mtu
+        p.m_mtu = mtu;
+    }
+    else
+    {
+        SWSS_LOG_NOTICE("Sub interface %s inherits mtu size %u from parent port %s", alias.c_str(), parentPort.m_mtu, parentAlias.c_str());
+        p.m_mtu = parentPort.m_mtu;
+    }
+
+    p.m_parent_port_id = parentPort.m_port_id;
+    p.m_vlan_info = vlanPort.m_vlan_info;
+
+    parentPort.m_child_ports.insert(p.m_alias);
+
+    m_portList[alias] = p;
+    port = p;
+    return true;
+}
+
+bool PortsOrch::removeSubPort(const string &alias)
+{
+    auto it = m_portList.find(alias);
+    if (it == m_portList.end())
+    {
+        SWSS_LOG_WARN("Sub interface %s Port object not found", alias.c_str());
+        return false;
+    }
+    Port &port = it->second;
+
+    if (port.m_type != Port::SUBPORT)
+    {
+        SWSS_LOG_ERROR("Sub interface %s not of type sub port", alias.c_str());
+        return false;
+    }
+
+    Port parentPort;
+    if (!getPort(port.m_parent_port_id, parentPort))
+    {
+        SWSS_LOG_WARN("Sub interface %s: parent Port object not found", alias.c_str());
+    }
+
+    if (!parentPort.m_child_ports.erase(alias))
+    {
+        SWSS_LOG_WARN("Sub interface %s not associated to parent port %s", alias.c_str(), parentPort.m_alias.c_str());
+    }
+    m_portList[parentPort.m_alias] = parentPort;
+
+    m_portList.erase(it);
+    SWSS_LOG_ERROR("Sub interface %s Port object removed successfully", alias.c_str());
+    return true;
+}
+
 void PortsOrch::setPort(string alias, Port p)
 {
     m_portList[alias] = p;

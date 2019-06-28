@@ -253,6 +253,15 @@ bool IntfsOrch::removeIntf(const string& alias, sai_object_id_t vrf_id, const Ip
         if (removeRouterIntfs(port))
         {
             m_syncdIntfses.erase(alias);
+
+            if (port.m_type == Port::SUBPORT)
+            {
+                if (!gPortsOrch->removeSubPort(alias))
+                {
+                    return false;
+                }
+            }
+
             return true;
         }
         else
@@ -282,15 +291,11 @@ void IntfsOrch::doTask(Consumer &consumer)
         string alias(keys[0]);
 
         bool isSubIntf = false;
-        string parentAlias;
-        string vlanId;
         size_t found = alias.find(".");
         if (found != string::npos)
         {
             isSubIntf = true;
-            parentAlias = alias.substr(0, found);
-            vlanId = alias.substr(found + 1);
-            SWSS_LOG_ERROR("sub interface: %s, vlan %s", alias.c_str(), vlanId.c_str());
+            SWSS_LOG_ERROR("sub interface: %s", alias.c_str());
         }
 
         IpPrefix ip_prefix;
@@ -406,42 +411,11 @@ void IntfsOrch::doTask(Consumer &consumer)
             {
                 if (isSubIntf)
                 {
-                    Port parentPort;
-                    if (!gPortsOrch->getPort(parentAlias, parentPort))
+                    if (!gPortsOrch->addSubPort(alias, mtu, port))
                     {
-                        SWSS_LOG_NOTICE("Sub interface %s Port object creation: parent port %s is not ready", alias.c_str(), parentAlias.c_str());
                         it++;
                         continue;
                     }
-
-                    string vlanAlias = VLAN_PREFIX + vlanId;
-                    Port vlanPort;
-                    if (!gPortsOrch->getPort(vlanAlias, vlanPort))
-                    {
-                        SWSS_LOG_NOTICE("Sub interface %s Port object creation: vlan %s is not ready", alias.c_str(), vlanAlias.c_str());
-                        it++;
-                        continue;
-                    }
-
-                    Port p(alias, Port::SUBPORT);
-                    if (mtu)
-                    {
-                        // TODO: Check if mtu is no greater than the parent interface mtu
-                        p.m_mtu = mtu;
-                    }
-                    else
-                    {
-                        SWSS_LOG_NOTICE("Sub interface %s inherits mtu size %u from parent port %s", alias.c_str(), parentPort.m_mtu, parentAlias.c_str());
-                        p.m_mtu = parentPort.m_mtu;
-                    }
-
-                    p.m_parent_port_id = parentPort.m_port_id;
-                    p.m_vlan_info = vlanPort.m_vlan_info;
-
-                    parentPort.m_child_ports.insert(p.m_alias);
-
-                    gPortsOrch->setPort(alias, p);
-                    port = p;
                 }
                 else
                 {
@@ -978,6 +952,9 @@ void IntfsOrch::doTask(SelectableTimer &timer)
                 break;
             case Port::VLAN:
                 type = "SAI_ROUTER_INTERFACE_TYPE_VLAN";
+                break;
+            case Port::SUBPORT:
+                type = "SAI_ROUTER_INTERFACE_TYPE_SUB_PORT";
                 break;
             default:
                 SWSS_LOG_ERROR("Unsupported port type: %d", it->m_type);

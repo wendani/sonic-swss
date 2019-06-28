@@ -275,6 +275,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
                     }
                 }
 
+                // Always have sub interface to be admin up
                 try
                 {
                     setHostSubIntfAdminStatus(subIntfAlias, "up");
