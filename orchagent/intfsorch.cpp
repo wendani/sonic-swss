@@ -138,7 +138,7 @@ set<IpPrefix> IntfsOrch:: getSubnetRoutes()
     return subnet_routes;
 }
 
-bool IntfsOrch::setIntf(const string& alias, sai_object_id_t vrf_id, const IpPrefix *ip_prefix, mtu)
+bool IntfsOrch::setIntf(const string& alias, sai_object_id_t vrf_id, const IpPrefix *ip_prefix, uint32_t mtu)
 {
     SWSS_LOG_ENTER();
 
@@ -163,11 +163,16 @@ bool IntfsOrch::setIntf(const string& alias, sai_object_id_t vrf_id, const IpPre
     {
         // port represents a sub interface
         // Change sub interface config at run time
-        if (port.m_type == PORT::SUBPORT)
+        if (port.m_type == Port::SUBPORT)
         {
-            // TODO: Check if sub interface mtu is no greater than the parent interface mtu
             if (mtu)
             {
+                // TODO: Check if sub interface mtu is no greater than the parent interface mtu
+                SWSS_LOG_ERROR("Sub interface %s set mtu to %u", alias.c_str(), mtu);
+
+                port.m_mtu = mtu;
+                gPortsOrch->setPort(alias, port);
+
                 setRouterIntfsMtu(port);
             }
         }
