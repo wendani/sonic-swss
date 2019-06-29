@@ -524,7 +524,7 @@ bool PortsOrch::addSubPort(const string &alias, uint32_t mtu, Port &port)
     }
     parentAlias = alias.substr(0, found);
     vlanId = alias.substr(found + 1);
-    SWSS_LOG_ERROR("sub interface %s: parent interface %s, , vlan %s", alias.c_str(), parentAlias.c_str(), vlanId.c_str());
+    SWSS_LOG_ERROR("sub interface %s: parent interface %s, vlan %s", alias.c_str(), parentAlias.c_str(), vlanId.c_str());
 
     auto it = m_portList.find(parentAlias);
     if (it == m_portList.end())
