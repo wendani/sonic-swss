@@ -307,6 +307,8 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
             if (!subIntfAlias.empty())
             {
                 removeHostSubIntf(subIntfAlias);
+                m_subIntfList.erase(subIntfAlias);
+
                 removeSubIntfState(subIntfAlias);
             }
 
