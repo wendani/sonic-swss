@@ -110,11 +110,6 @@ void BufferOrch::initFlexCounterGroupTable(void)
         fvTuples.emplace_back(BUFFER_POOL_PLUGIN_FIELD, bufferPoolWmSha);
         fvTuples.emplace_back(POLL_INTERVAL_FIELD, BUFFER_POOL_WATERMARK_FLEX_STAT_COUNTER_POLL_MSECS);
 
-        // TODO (work in progress):
-        // Some platforms do not support buffer pool watermark clear operation on a particular pool
-        // Invoke the SAI clear_stats API per pool to query the capability from the API call return status
-        fvTuples.emplace_back(STATS_MODE_FIELD, STATS_MODE_READ_AND_CLEAR);
-
         m_flexCounterGroupTable->set(BUFFER_POOL_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP, fvTuples);
     }
     catch (const runtime_error &e)
@@ -170,17 +165,62 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
         statList.pop_back();
     }
 
-    vector<FieldValueTuple> fvTuples;
-    fvTuples.emplace_back(BUFFER_POOL_COUNTER_ID_LIST, statList);
+    // Some platforms do not support buffer pool watermark clear operation on a particular pool
+    // Invoke the SAI clear_stats API per pool to query the capability from the API call return status
+    uint8_t noWmClrCapability = 0;
+    int cnt = 0;
+    for (const auto &it : *(m_buffer_type_maps[CFG_BUFFER_POOL_TABLE_NAME]))
+    {
+        sai_status_t status = sai_buffer_api->clear_buffer_pool_stats(
+                it.second,
+                static_cast<uint32_t>(bufferPoolWatermarkStatIds.size()),
+                bufferPoolWatermarkStatIds.data());
+        if (status !=  SAI_STATUS_SUCCESS)
+        {
+            SWSS_LOG_NOTICE("Clear watermark failed on %s, rv: %s", it.first.c_str(), sai_serialize_status(status).c_str());
+            noWmClrCapability |= (1 << cnt);
+        }
+        SWSS_LOG_ERROR("%s clear_buffer_pool_stats(): %s", it.first.c_str(), sai_serialize_status(status).c_str());
+
+        cnt++;
+    }
+
+    if (!noWmClrCapability)
+    {
+        vector<FieldValueTuple> fvs;
+
+        fvs.emplace_back(STATS_MODE_FIELD, STATS_MODE_READ_AND_CLEAR);
+        m_flexCounterGroupTable->set(BUFFER_POOL_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP, fvs);
+    }
 
     // Push buffer pool watermark COUNTER_ID_LIST to FLEX_COUNTER_TABLE on a per buffer pool basis
+    vector<FieldValueTuple> fvTuples;
+    fvTuples.emplace_back(BUFFER_POOL_COUNTER_ID_LIST, statList);
+    cnt = 0;
     for (const auto &it : *(m_buffer_type_maps[CFG_BUFFER_POOL_TABLE_NAME]))
     {
         string key = BUFFER_POOL_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP ":" + sai_serialize_object_id(it.second);
-        m_flexCounterTable->set(key, fvTuples);
+
+        if (noWmClrCapability)
+        {
+            string stats_mode = STATS_MODE_READ_AND_CLEAR;
+            if (noWmClrCapability & (1 << cnt))
+            {
+                stats_mode = STATS_MODE_READ;
+            }
+            fvTuples.emplace_back(STATS_MODE_FIELD, stats_mode);
+
+            m_flexCounterTable->set(key, fvTuples);
+            fvTuples.pop_back();
+            cnt++;
+        }
+        else
+        {
+            m_flexCounterTable->set(key, fvTuples);
+        }
     }
 
-    m_isBufferPoolWatermarkCounterIdListGenerated = true;
+    // m_isBufferPoolWatermarkCounterIdListGenerated = true;
 }
 
 const object_map &BufferOrch::getBufferPoolNameOidMap(void)
