@@ -168,21 +168,21 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
     // Some platforms do not support buffer pool watermark clear operation on a particular pool
     // Invoke the SAI clear_stats API per pool to query the capability from the API call return status
     uint8_t noWmClrCapability = 0;
-    int cnt = 0;
+    uint8_t bitMask = 1;
     for (const auto &it : *(m_buffer_type_maps[CFG_BUFFER_POOL_TABLE_NAME]))
     {
         sai_status_t status = sai_buffer_api->clear_buffer_pool_stats(
                 it.second,
                 static_cast<uint32_t>(bufferPoolWatermarkStatIds.size()),
-                bufferPoolWatermarkStatIds.data());
+                reinterpret_cast<const sai_stat_id_t *>(bufferPoolWatermarkStatIds.data()));
         if (status !=  SAI_STATUS_SUCCESS)
         {
             SWSS_LOG_NOTICE("Clear watermark failed on %s, rv: %s", it.first.c_str(), sai_serialize_status(status).c_str());
-            noWmClrCapability |= (1 << cnt);
+            noWmClrCapability |= bitMask;
         }
         SWSS_LOG_ERROR("%s clear_buffer_pool_stats(): %s", it.first.c_str(), sai_serialize_status(status).c_str());
 
-        cnt++;
+        bitMask <<= 1;
     }
 
     if (!noWmClrCapability)
@@ -196,7 +196,7 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
     // Push buffer pool watermark COUNTER_ID_LIST to FLEX_COUNTER_TABLE on a per buffer pool basis
     vector<FieldValueTuple> fvTuples;
     fvTuples.emplace_back(BUFFER_POOL_COUNTER_ID_LIST, statList);
-    cnt = 0;
+    bitMask = 1;
     for (const auto &it : *(m_buffer_type_maps[CFG_BUFFER_POOL_TABLE_NAME]))
     {
         string key = BUFFER_POOL_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP ":" + sai_serialize_object_id(it.second);
@@ -204,7 +204,7 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
         if (noWmClrCapability)
         {
             string stats_mode = STATS_MODE_READ_AND_CLEAR;
-            if (noWmClrCapability & (1 << cnt))
+            if (noWmClrCapability & bitMask)
             {
                 stats_mode = STATS_MODE_READ;
             }
@@ -212,7 +212,7 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
 
             m_flexCounterTable->set(key, fvTuples);
             fvTuples.pop_back();
-            cnt++;
+            bitMask <<= 1;
         }
         else
         {
