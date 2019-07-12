@@ -167,8 +167,8 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
 
     // Some platforms do not support buffer pool watermark clear operation on a particular pool
     // Invoke the SAI clear_stats API per pool to query the capability from the API call return status
-    uint8_t noWmClrCapability = 0;
-    uint8_t bitMask = 1;
+    unsigned int noWmClrCapability = 0;
+    unsigned int bitMask = 1;
     for (const auto &it : *(m_buffer_type_maps[CFG_BUFFER_POOL_TABLE_NAME]))
     {
         sai_status_t status = sai_buffer_api->clear_buffer_pool_stats(
