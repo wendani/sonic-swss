@@ -180,7 +180,6 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
             SWSS_LOG_NOTICE("Clear watermark failed on %s, rv: %s", it.first.c_str(), sai_serialize_status(status).c_str());
             noWmClrCapability |= bitMask;
         }
-        SWSS_LOG_ERROR("%s clear_buffer_pool_stats(): %s", it.first.c_str(), sai_serialize_status(status).c_str());
 
         bitMask <<= 1;
     }
@@ -220,7 +219,7 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
         }
     }
 
-    // m_isBufferPoolWatermarkCounterIdListGenerated = true;
+    m_isBufferPoolWatermarkCounterIdListGenerated = true;
 }
 
 const object_map &BufferOrch::getBufferPoolNameOidMap(void)
