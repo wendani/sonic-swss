@@ -167,6 +167,8 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
 
     // Some platforms do not support buffer pool watermark clear operation on a particular pool
     // Invoke the SAI clear_stats API per pool to query the capability from the API call return status
+    // We use bit mask to mark the clear watermark capability of each buffer pool. We use an unsigned int to place hold
+    // these bits. This assumes the total number of buffer pools to be no greater than 32, which should satisfy all use cases.
     unsigned int noWmClrCapability = 0;
     unsigned int bitMask = 1;
     for (const auto &it : *(m_buffer_type_maps[CFG_BUFFER_POOL_TABLE_NAME]))
@@ -175,7 +177,7 @@ void BufferOrch::generateBufferPoolWatermarkCounterIdList(void)
                 it.second,
                 static_cast<uint32_t>(bufferPoolWatermarkStatIds.size()),
                 reinterpret_cast<const sai_stat_id_t *>(bufferPoolWatermarkStatIds.data()));
-        if (status !=  SAI_STATUS_SUCCESS)
+        if (status ==  SAI_STATUS_NOT_SUPPORTED || status == SAI_STATUS_NOT_IMPLEMENTED)
         {
             SWSS_LOG_NOTICE("Clear watermark failed on %s, rv: %s", it.first.c_str(), sai_serialize_status(status).c_str());
             noWmClrCapability |= bitMask;
