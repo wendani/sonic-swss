@@ -101,5 +101,5 @@ class TestDot1p(object):
                     cnt += 1
                     assert fv[1] == oid
 
-        portCnt = len(swsscommon.Table(self.config_db, CFG_PORT_TABLE_NAME).getKeys())
-        assert portCnt == cnt
+        port_cnt = len(swsscommon.Table(self.config_db, CFG_PORT_TABLE_NAME).getKeys())
+        assert port_cnt == cnt
