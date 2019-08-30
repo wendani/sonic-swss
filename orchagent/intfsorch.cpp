@@ -677,6 +677,14 @@ bool IntfsOrch::addRouterIntfs(sai_object_id_t vrf_id, Port &port)
             attr.id = SAI_ROUTER_INTERFACE_ATTR_VLAN_ID;
             attr.value.oid = port.m_vlan_info.vlan_oid;
             attrs.push_back(attr);
+
+            attr.id = SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE;
+            attr.value.booldata = port.m_admin_state_up;
+            attrs.push_back(attr);
+
+            attr.id = SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE;
+            attr.value.booldata = port.m_admin_state_up;
+            attrs.push_back(attr);
             break;
         default:
             SWSS_LOG_ERROR("Unsupported port type: %d", port.m_type);
