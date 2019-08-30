@@ -101,7 +101,7 @@ void IntfsOrch::decreaseRouterIntfsRefCount(const string &alias)
                   alias.c_str(), m_syncdIntfses[alias].ref_count);
 }
 
-bool IntfsOrch::setRouterIntfsMtu(Port &port)
+bool IntfsOrch::setRouterIntfsMtu(const Port &port)
 {
     SWSS_LOG_ENTER();
 
@@ -326,6 +326,7 @@ void IntfsOrch::doTask(Consumer &consumer)
             }
             else if (field == "mtu")
             {
+                SWSS_LOG_ERROR("sub interface: field: mtu");
                 try
                 {
                     mtu = static_cast<uint32_t>(stoul(value));

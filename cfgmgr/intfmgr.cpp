@@ -227,6 +227,14 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
                 SWSS_LOG_ERROR("Out of range argument %s to %s()", value.c_str(), e.what());
                 continue;
             }
+
+            // Inherit mtu from parent port or port channel
+            mtu = 0;
+        }
+
+        if (field == "admin_status")
+        {
+            adminStatus = value;
         }
     }
 
