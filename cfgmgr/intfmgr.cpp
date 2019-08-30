@@ -201,6 +201,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
 
     string vrf_name = "";
     uint32_t mtu = 0;
+    string adminStatus;
     for (auto idx : data)
     {
         const auto &field = fvField(idx);
@@ -291,15 +292,17 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
                     }
                 }
 
-                // Always have sub interface to be admin up
-                try
+                if (!adminStatus.empty())
                 {
-                    setHostSubIntfAdminStatus(subIntfAlias, "up");
-                }
-                catch (const std::runtime_error &e)
-                {
-                    SWSS_LOG_NOTICE("Sub interface ip link set admin status up failure. Runtime error: %s", e.what());
-                    return false;
+                    try
+                    {
+                        setHostSubIntfAdminStatus(subIntfAlias, adminStatus);
+                    }
+                    catch (const std::runtime_error &e)
+                    {
+                        SWSS_LOG_NOTICE("Sub interface ip link set admin status up failure. Runtime error: %s", e.what());
+                        return false;
+                    }
                 }
 
                 // set STATE_DB port state

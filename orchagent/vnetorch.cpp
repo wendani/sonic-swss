@@ -1337,7 +1337,7 @@ VNetOrch::VNetOrch(DBConnector *db, const std::string& tableName, VNET_EXEC op)
     }
 }
 
-bool VNetOrch::setIntf(const string& alias, const string name, const IpPrefix *prefix, uint32_t mtu)
+bool VNetOrch::setIntf(const string& alias, const string name, const IpPrefix *prefix, const bool &adminUp, const uint32_t &mtu)
 {
     SWSS_LOG_ENTER();
 
@@ -1352,7 +1352,7 @@ bool VNetOrch::setIntf(const string& alias, const string name, const IpPrefix *p
         auto *vnet_obj = getTypePtr<VNetVrfObject>(name);
         sai_object_id_t vrf_id = vnet_obj->getVRidIngress();
 
-        return gIntfsOrch->setIntf(alias, vrf_id, prefix, mtu);
+        return gIntfsOrch->setIntf(alias, vrf_id, prefix, adminUp, mtu);
     }
     else
     {

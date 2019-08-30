@@ -526,7 +526,7 @@ bool PortsOrch::getAclBindPortId(string alias, sai_object_id_t &port_id)
     }
 }
 
-bool PortsOrch::addSubPort(const string &alias, uint32_t mtu, Port &port)
+bool PortsOrch::addSubPort(Port &port, const string &alias, const bool &adminUp, const uint32_t &mtu)
 {
     string parentAlias;
     string vlanId;
@@ -558,6 +558,9 @@ bool PortsOrch::addSubPort(const string &alias, uint32_t mtu, Port &port)
     Port &vlanPort = it->second;
 
     Port p(alias, Port::SUBPORT);
+
+    p.m_admin_state_up = adminUp;
+
     if (mtu)
     {
         // TODO: Check if mtu is no greater than the parent interface mtu

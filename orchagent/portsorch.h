@@ -87,7 +87,7 @@ public:
     void refreshPortStatus();
     bool removeAclTableGroup(const Port &p);
 
-    bool addSubPort(const string &alias, uint32_t mtu, Port &port);
+    bool addSubPort(Port &port, const string &alias, const bool &adminUp = true, const uint32_t &mtu = 0);
     bool removeSubPort(const string &alias);
 private:
     unique_ptr<Table> m_counterTable;

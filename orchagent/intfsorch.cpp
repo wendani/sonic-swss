@@ -122,6 +122,36 @@ bool IntfsOrch::setRouterIntfsMtu(const Port &port)
     return true;
 }
 
+bool IntfsOrch::setRouterIntfsAdminStatus(const Port &port)
+{
+    SWSS_LOG_ENTER();
+
+    sai_attribute_t attr;
+    attr.value.booldata = port.m_admin_state_up;
+
+    attr.id = SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE;
+    sai_status_t status = sai_router_intfs_api->
+            set_router_interface_attribute(port.m_rif_id, &attr);
+    if (status != SAI_STATUS_SUCCESS)
+    {
+        SWSS_LOG_ERROR("Failed to set router interface %s V4 admin status to %s, rv:%d",
+                port.m_alias.c_str(), port.m_admin_state_up == true ? "up" : "down", status);
+        return false;
+    }
+
+    attr.id = SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE;
+    status = sai_router_intfs_api->
+            set_router_interface_attribute(port.m_rif_id, &attr);
+    if (status != SAI_STATUS_SUCCESS)
+    {
+        SWSS_LOG_ERROR("Failed to set router interface %s V6 admin status to %s, rv:%d",
+                port.m_alias.c_str(), port.m_admin_state_up == true ? "up" : "down", status);
+        return false;
+    }
+
+    return true;
+}
+
 set<IpPrefix> IntfsOrch:: getSubnetRoutes()
 {
     SWSS_LOG_ENTER();
@@ -139,7 +169,7 @@ set<IpPrefix> IntfsOrch:: getSubnetRoutes()
     return subnet_routes;
 }
 
-bool IntfsOrch::setIntf(const string& alias, sai_object_id_t vrf_id, const IpPrefix *ip_prefix, uint32_t mtu)
+bool IntfsOrch::setIntf(const string& alias, sai_object_id_t vrf_id, const IpPrefix *ip_prefix, const bool &adminUp, const uint32_t &mtu)
 {
     SWSS_LOG_ENTER();
 
@@ -163,19 +193,33 @@ bool IntfsOrch::setIntf(const string& alias, sai_object_id_t vrf_id, const IpPre
     }
     else
     {
-        // port represents a sub interface
-        // Change sub interface config at run time
         if (port.m_type == Port::SUBPORT)
         {
+            // port represents a sub interface
+            // Change sub interface config at run time
+            bool attrChanged = false;
             if (mtu)
             {
                 // TODO: Check if sub interface mtu is no greater than the parent interface mtu
                 SWSS_LOG_ERROR("Sub interface %s set mtu to %u", alias.c_str(), mtu);
 
                 port.m_mtu = mtu;
-                gPortsOrch->setPort(alias, port);
+                attrChanged = true;
 
                 setRouterIntfsMtu(port);
+            }
+
+            if (port.m_admin_state_up != adminUp)
+            {
+                port.m_admin_state_up = adminUp;
+                attrChanged = true;
+
+                setRouterIntfsAdminStatus(port);
+            }
+
+            if (attrChanged)
+            {
+                gPortsOrch->setPort(alias, port);
             }
         }
     }
@@ -312,6 +356,7 @@ void IntfsOrch::doTask(Consumer &consumer)
         const vector<FieldValueTuple>& data = kfvFieldsValues(t);
         string vrf_name = "", vnet_name = "";
         uint32_t mtu = 0;
+        bool adminUp = true;
         for (auto idx : data)
         {
             const auto &field = fvField(idx);
@@ -340,6 +385,26 @@ void IntfsOrch::doTask(Consumer &consumer)
                 {
                     SWSS_LOG_ERROR("Out of range argument %s to %s()", value.c_str(), e.what());
                     continue;
+                }
+
+                // Inherit mtu from parent port or port channel
+                mtu = 0;
+            }
+            else if (field == "admin_status")
+            {
+                SWSS_LOG_ERROR("sub interface: field: admin_status");
+                if (value == "up")
+                {
+                    adminUp = true;
+                }
+                else
+                {
+                    adminUp = false;
+
+                    if (value != "down")
+                    {
+                        SWSS_LOG_WARN("Sub interface %s unknown admin status %s", alias.c_str(), value.c_str());
+                    }
                 }
             }
         }
@@ -415,7 +480,7 @@ void IntfsOrch::doTask(Consumer &consumer)
             {
                 if (isSubIntf)
                 {
-                    if (!gPortsOrch->addSubPort(alias, mtu, port))
+                    if (!gPortsOrch->addSubPort(port, alias, adminUp, mtu))
                     {
                         it++;
                         continue;
@@ -442,7 +507,7 @@ void IntfsOrch::doTask(Consumer &consumer)
                     it++;
                     continue;
                 }
-                if (!vnet_orch->setIntf(alias, vnet_name, ip_prefix_in_key ? &ip_prefix : nullptr, mtu))
+                if (!vnet_orch->setIntf(alias, vnet_name, ip_prefix_in_key ? &ip_prefix : nullptr, adminUp, mtu))
                 {
                     it++;
                     continue;
@@ -455,7 +520,7 @@ void IntfsOrch::doTask(Consumer &consumer)
             }
             else
             {
-                if (!setIntf(alias, vrf_id, ip_prefix_in_key ? &ip_prefix : nullptr, mtu))
+                if (!setIntf(alias, vrf_id, ip_prefix_in_key ? &ip_prefix : nullptr, adminUp, mtu))
                 {
                     it++;
                     continue;
