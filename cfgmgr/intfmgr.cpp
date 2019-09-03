@@ -81,7 +81,7 @@ void IntfMgr::addHostSubIntf(const string&intf, const string &subIntf, const str
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 }
 
-void IntfMgr::setHostSubIntfMtu(const string &subIntf, const uint32_t mtu)
+void IntfMgr::setHostSubIntfMtu(const string &subIntf, const uint32_t &mtu)
 {
     stringstream cmd;
     string res;
@@ -201,7 +201,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
 
     string vrf_name = "";
     uint32_t mtu = 0;
-    string adminStatus;
+    string adminStatus = "up";
     for (auto idx : data)
     {
         const auto &field = fvField(idx);
@@ -292,17 +292,14 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
                     }
                 }
 
-                if (!adminStatus.empty())
+                try
                 {
-                    try
-                    {
-                        setHostSubIntfAdminStatus(subIntfAlias, adminStatus);
-                    }
-                    catch (const std::runtime_error &e)
-                    {
-                        SWSS_LOG_NOTICE("Sub interface ip link set admin status up failure. Runtime error: %s", e.what());
-                        return false;
-                    }
+                    setHostSubIntfAdminStatus(subIntfAlias, adminStatus);
+                }
+                catch (const std::runtime_error &e)
+                {
+                    SWSS_LOG_NOTICE("Sub interface ip link set admin status %s failure. Runtime error: %s", adminStatus.c_str(), e.what());
+                    return false;
                 }
 
                 // set STATE_DB port state
