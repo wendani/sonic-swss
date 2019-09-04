@@ -538,7 +538,6 @@ bool PortsOrch::addSubPort(Port &port, const string &alias, const bool &adminUp,
     }
     parentAlias = alias.substr(0, found);
     vlanId = alias.substr(found + 1);
-    SWSS_LOG_ERROR("sub interface %s: parent interface %s, vlan %s", alias.c_str(), parentAlias.c_str(), vlanId.c_str());
 
     auto it = m_portList.find(parentAlias);
     if (it == m_portList.end())
@@ -563,7 +562,6 @@ bool PortsOrch::addSubPort(Port &port, const string &alias, const bool &adminUp,
 
     if (mtu)
     {
-        // TODO: Check if mtu is no greater than the parent interface mtu
         p.m_mtu = mtu;
     }
     else
@@ -611,7 +609,6 @@ bool PortsOrch::removeSubPort(const string &alias)
     m_portList[parentPort.m_alias] = parentPort;
 
     m_portList.erase(it);
-    SWSS_LOG_ERROR("Sub interface %s Port object removed successfully", alias.c_str());
     return true;
 }
 

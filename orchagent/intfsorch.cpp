@@ -200,9 +200,6 @@ bool IntfsOrch::setIntf(const string& alias, sai_object_id_t vrf_id, const IpPre
             bool attrChanged = false;
             if (mtu && port.m_mtu != mtu)
             {
-                // TODO: Check if sub interface mtu is no greater than the parent interface mtu
-                SWSS_LOG_ERROR("Sub interface %s set mtu to %u", alias.c_str(), mtu);
-
                 port.m_mtu = mtu;
                 attrChanged = true;
 
@@ -342,7 +339,6 @@ void IntfsOrch::doTask(Consumer &consumer)
         if (found != string::npos)
         {
             isSubIntf = true;
-            SWSS_LOG_ERROR("sub interface: %s", alias.c_str());
         }
 
         IpPrefix ip_prefix;
@@ -371,7 +367,6 @@ void IntfsOrch::doTask(Consumer &consumer)
             }
             else if (field == "mtu")
             {
-                SWSS_LOG_ERROR("sub interface: field: mtu");
                 try
                 {
                     mtu = static_cast<uint32_t>(stoul(value));
@@ -392,7 +387,6 @@ void IntfsOrch::doTask(Consumer &consumer)
             }
             else if (field == "admin_status")
             {
-                SWSS_LOG_ERROR("sub interface: field: admin_status");
                 if (value == "up")
                 {
                     adminUp = true;

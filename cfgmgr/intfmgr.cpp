@@ -195,7 +195,6 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
         subIntfAlias = alias;
         vlanId = alias.substr(found + 1);
         alias = alias.substr(0, found);
-        SWSS_LOG_ERROR("dot1q interface: sub interface %s, parent %s, vlan %s", subIntfAlias.c_str(), alias.c_str(), vlanId.c_str());
     }
     bool is_lo = !alias.compare(0, strlen(LOOPBACK_PREFIX), LOOPBACK_PREFIX);
 
