@@ -186,7 +186,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
     string alias(keys[0]);
     string vlanId;
     string subIntfAlias;
-    size_t found = alias.find(".");
+    size_t found = alias.find(VLAN_SUB_INTERFACE_SEPARATOR);
     if (found != string::npos)
     {
         // This is a sub interface

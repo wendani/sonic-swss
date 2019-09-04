@@ -530,7 +530,7 @@ bool PortsOrch::addSubPort(Port &port, const string &alias, const bool &adminUp,
 {
     string parentAlias;
     string vlanId;
-    size_t found = alias.find(".");
+    size_t found = alias.find(VLAN_SUB_INTERFACE_SEPARATOR);
     if (found == string::npos)
     {
         SWSS_LOG_ERROR("%s is not a sub interface", alias.c_str());

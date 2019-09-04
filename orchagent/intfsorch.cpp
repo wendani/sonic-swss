@@ -335,7 +335,7 @@ void IntfsOrch::doTask(Consumer &consumer)
         string alias(keys[0]);
 
         bool isSubIntf = false;
-        size_t found = alias.find(".");
+        size_t found = alias.find(VLAN_SUB_INTERFACE_SEPARATOR);
         if (found != string::npos)
         {
             isSubIntf = true;
