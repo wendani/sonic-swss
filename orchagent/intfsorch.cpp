@@ -668,8 +668,8 @@ bool IntfsOrch::addRouterIntfs(sai_object_id_t vrf_id, Port &port)
             attr.value.oid = port.m_parent_port_id;
             attrs.push_back(attr);
 
-            attr.id = SAI_ROUTER_INTERFACE_ATTR_VLAN_ID;
-            attr.value.oid = port.m_vlan_info.vlan_oid;
+            attr.id = SAI_ROUTER_INTERFACE_ATTR_OUTER_VLAN_ID;
+            attr.value.u16 = port.m_vlan_info.vlan_id;
             attrs.push_back(attr);
 
             attr.id = SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE;

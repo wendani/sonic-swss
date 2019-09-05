@@ -40,6 +40,7 @@ extern BufferOrch *gBufferOrch;
 
 #define VLAN_PREFIX         "Vlan"
 #define DEFAULT_VLAN_ID     1
+#define MAX_VALID_VLAN_ID   4094
 #define PORT_FLEX_STAT_COUNTER_POLL_MSECS "1000"
 #define QUEUE_FLEX_STAT_COUNTER_POLL_MSECS "10000"
 #define QUEUE_WATERMARK_FLEX_STAT_COUNTER_POLL_MSECS "10000"
@@ -528,16 +529,34 @@ bool PortsOrch::getAclBindPortId(string alias, sai_object_id_t &port_id)
 
 bool PortsOrch::addSubPort(Port &port, const string &alias, const bool &adminUp, const uint32_t &mtu)
 {
-    string parentAlias;
-    string vlanId;
     size_t found = alias.find(VLAN_SUB_INTERFACE_SEPARATOR);
     if (found == string::npos)
     {
         SWSS_LOG_ERROR("%s is not a sub interface", alias.c_str());
         return false;
     }
-    parentAlias = alias.substr(0, found);
-    vlanId = alias.substr(found + 1);
+    string parentAlias = alias.substr(0, found);
+    string vlanId = alias.substr(found + 1);
+    sai_vlan_id_t vlan_id;
+    try
+    {
+        vlan_id = static_cast<sai_vlan_id_t>(stoul(vlanId));
+    }
+    catch (const std::invalid_argument &e)
+    {
+        SWSS_LOG_ERROR("Invalid argument %s to %s()", vlanId.c_str(), e.what());
+        return false;
+    }
+    catch (const std::out_of_range &e)
+    {
+        SWSS_LOG_ERROR("Out of range argument %s to %s()", vlanId.c_str(), e.what());
+        return false;
+    }
+    if (vlan_id > MAX_VALID_VLAN_ID)
+    {
+        SWSS_LOG_ERROR("sub interface %s Port object creation: invalid VLAN id %u", alias.c_str(), vlan_id);
+        return false;
+    }
 
     auto it = m_portList.find(parentAlias);
     if (it == m_portList.end())
@@ -546,15 +565,6 @@ bool PortsOrch::addSubPort(Port &port, const string &alias, const bool &adminUp,
         return false;
     }
     Port &parentPort = it->second;
-
-    string vlanAlias = VLAN_PREFIX + vlanId;
-    it = m_portList.find(vlanAlias);
-    if (it == m_portList.end())
-    {
-        SWSS_LOG_NOTICE("Sub interface %s Port object creation: vlan %s is not ready", alias.c_str(), vlanAlias.c_str());
-        return false;
-    }
-    Port &vlanPort = it->second;
 
     Port p(alias, Port::SUBPORT);
 
@@ -571,7 +581,7 @@ bool PortsOrch::addSubPort(Port &port, const string &alias, const bool &adminUp,
     }
 
     p.m_parent_port_id = parentPort.m_port_id;
-    p.m_vlan_info = vlanPort.m_vlan_info;
+    p.m_vlan_info.vlan_id = vlan_id;
 
     parentPort.m_child_ports.insert(p.m_alias);
 
