@@ -59,34 +59,7 @@ class TestSubPortIntf(object):
         assert len(fvs) == len(fv_dict)
 
         for field, value in fvs:
-            assert fv_dict[field] == value, \
-                "Wrong value %s for field %s, expected value: %s" % (value, field, fv_dict[field])
-
-    def check_state_db_sub_port_intf_profile(self, table_name, sub_port_intf_name):
-        tbl = swsscommon.Table(self.state_db, table_name)
-
-        keys = tbl.getKeys()
-        assert sub_port_intf_name in keys
-
-        (status, fvs) = tbl.get(sub_port_intf_name)
-        assert status == True
-        assert len(fvs) == 1
-
-        assert fvs[0][0] == "state"
-        assert fvs[0][1] == "ok"
-
-    def check_appl_db_sub_port_intf_profile(self, sub_port_intf_name):
-        tbl = swsscommon.Table(self.appl_db, APP_INTF_TABLE_NAME)
-
-        keys = tbl.getKeys()
-        assert sub_port_intf_name in keys
-
-        (status, fvs) = tbl.get(sub_port_intf_name)
-        assert status == True
-        assert len(fvs) == 1
-
-        assert fvs[0][0] == ADMIN_STATUS
-        assert fvs[0][1] == "up"
+            assert fv_dict[field] == value, "Wrong value for field %s: %s, expected value: %s" % (field, value, fv_dict[field])
 
     def test_sub_port_intf_creation(self, dvs):
         self.connect_dbs(dvs)
@@ -100,11 +73,8 @@ class TestSubPortIntf(object):
         }
         self.check_sub_port_intf_fvs(self.state_db, STATE_PORT_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST, fv_dict)
 
+        # Verify that sub port interface configuration is synced to APPL_DB INTF_TABLE by Intfmgrd
         fv_dict = {
             ADMIN_STATUS : "down",
         }
-        # Verify that sub port interface configuration is synced to APPL_DB INTF_TABLE by Intfmgrd
         self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST, fv_dict)
-
-
-    #check_object(asic_db, self.ASIC_RIF_TABLE,
