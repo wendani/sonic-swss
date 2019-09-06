@@ -28,14 +28,14 @@ class TestDot1p(object):
         self.config_db = swsscommon.DBConnector(4, dvs.redis_sock, 0)
 
 
-    def create_dot1p_profile(self, dvs):
+    def create_dot1p_profile(self):
         tbl = swsscommon.Table(self.config_db, CFG_DOT1P_TO_TC_MAP_TABLE_NAME)
         fvs = swsscommon.FieldValuePairs(DOT1P_TO_TC_MAP.items())
         tbl.set(CFG_DOT1P_TO_TC_MAP_KEY, fvs)
         time.sleep(1)
 
 
-    def find_dot1p_profile(self, dvs):
+    def find_dot1p_profile(self):
         found = False
         dot1p_tc_map_raw = None
         dot1p_tc_map_key = None
@@ -60,7 +60,7 @@ class TestDot1p(object):
         return (key, dot1p_tc_map_raw)
 
 
-    def apply_dot1p_profile_on_all_ports(self, dvs):
+    def apply_dot1p_profile_on_all_ports(self):
         tbl = swsscommon.Table(self.config_db, CFG_PORT_QOS_MAP_TABLE_NAME)
         fvs = swsscommon.FieldValuePairs([(CFG_PORT_QOS_MAP_FIELD, "[" + CFG_DOT1P_TO_TC_MAP_TABLE_NAME + "|" + CFG_DOT1P_TO_TC_MAP_KEY + "]")])
         ports = swsscommon.Table(self.config_db, CFG_PORT_TABLE_NAME).getKeys()
@@ -72,8 +72,8 @@ class TestDot1p(object):
 
     def test_dot1p_cfg(self, dvs):
         self.connect_dbs(dvs)
-        self.create_dot1p_profile(dvs)
-        oid, dot1p_tc_map_raw = self.find_dot1p_profile(dvs)
+        self.create_dot1p_profile()
+        oid, dot1p_tc_map_raw = self.find_dot1p_profile()
 
         dot1p_tc_map = json.loads(dot1p_tc_map_raw);
         for dot1p2tc in dot1p_tc_map['list']:
@@ -84,10 +84,10 @@ class TestDot1p(object):
 
     def test_port_dot1p(self, dvs):
         self.connect_dbs(dvs)
-        self.create_dot1p_profile(dvs)
-        oid, dot1p_tc_map_raw = self.find_dot1p_profile(dvs)
+        self.create_dot1p_profile()
+        oid, dot1p_tc_map_raw = self.find_dot1p_profile()
 
-        self.apply_dot1p_profile_on_all_ports(dvs)
+        self.apply_dot1p_profile_on_all_ports()
 
         cnt = 0
         tbl = swsscommon.Table(self.asic_db, "ASIC_STATE:SAI_OBJECT_TYPE_PORT")
