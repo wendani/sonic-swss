@@ -59,6 +59,14 @@ class TestSubPortIntf(object):
 
         time.sleep(2)
 
+    def set_sub_port_intf_admin_status(self, sub_port_intf_name, status):
+        fvs = swsscommon.FieldValuePairs([(ADMIN_STATUS, status)])
+
+        tbl = swsscommon.Table(self.config_db, CFG_VLAN_SUB_INTF_TABLE_NAME)
+        tbl.set(sub_port_intf_name, fvs)
+
+        time.sleep(1)
+
     def get_oids(self, table):
         tbl = swsscommon.Table(self.asic_db, table)
         return set(tbl.getKeys())
@@ -166,3 +174,63 @@ class TestSubPortIntf(object):
         # Verify that an IPv6 ip2me route entry is created in ASIC_DB
         # Verify that an IPv6 subnet route entry is created in ASIC_DB
         self.check_sub_port_intf_route_entries()
+
+    def test_sub_port_intf_admin_status_change(self, dvs):
+        self.connect_dbs(dvs)
+
+        old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
+
+        self.set_parent_port_admin_status(self.PHYSICAL_PORT_UNDER_TEST, "up")
+        self.create_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
+
+        self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
+        self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
+
+        fv_dict = {
+            ADMIN_STATUS: "up",
+        }
+        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST, fv_dict)
+
+        fv_dict = {
+            "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE": "true",
+            "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE": "true",
+            "SAI_ROUTER_INTERFACE_ATTR_MTU": "9100",
+        }
+        rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
+        self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
+
+        # Change sub port interface admin status to down
+        self.set_sub_port_intf_admin_status(self.SUB_PORT_INTERFACE_UNDER_TEST, "down")
+
+        # Verify that sub port interface admin status change is synced to APPL_DB INTF_TABLE by Intfmgrd
+        fv_dict = {
+            ADMIN_STATUS: "down",
+        }
+        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST, fv_dict)
+
+        # Verify that sub port router interface entry in ASIC_DB has the updated admin status
+        fv_dict = {
+            "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE": "false",
+            "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE": "false",
+            "SAI_ROUTER_INTERFACE_ATTR_MTU": "9100",
+        }
+        rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
+        self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
+
+        # Change sub port interface admin status to up
+        self.set_sub_port_intf_admin_status(self.SUB_PORT_INTERFACE_UNDER_TEST, "up")
+
+        # Verify that sub port interface admin status change is synced to APPL_DB INTF_TABLE by Intfmgrd
+        fv_dict = {
+            ADMIN_STATUS: "up",
+        }
+        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST, fv_dict)
+
+        # Verify that sub port router interface entry in ASIC_DB has the updated admin status
+        fv_dict = {
+            "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE": "true",
+            "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE": "true",
+            "SAI_ROUTER_INTERFACE_ATTR_MTU": "9100",
+        }
+        rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
+        self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
