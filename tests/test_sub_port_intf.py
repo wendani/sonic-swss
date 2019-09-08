@@ -67,6 +67,12 @@ class TestSubPortIntf(object):
 
         time.sleep(1)
 
+    def remove_sub_port_intf_profile(self, sub_port_intf_name):
+        tbl = swsscommon.Table(self.config_db, CFG_VLAN_SUB_INTF_TABLE_NAME)
+        tbl._del(sub_port_intf_name)
+
+        time.sleep(1)
+
     def remove_sub_port_intf_ip_addr(self, sub_port_intf_name, ip_addr):
         tbl = swsscommon.Table(self.config_db, CFG_VLAN_SUB_INTF_TABLE_NAME)
         tbl._del(sub_port_intf_name + "|" + ip_addr)
@@ -302,3 +308,34 @@ class TestSubPortIntf(object):
 
         # Verify that sub port router interface entry is removed from ASIC_DB
         self.check_sub_port_intf_key_removal(self.asic_db, ASIC_RIF_TABLE, rif_oid)
+
+    def test_sub_port_intf_removal(self, dvs):
+        self.connect_dbs(dvs)
+
+        self.set_parent_port_admin_status(self.PHYSICAL_PORT_UNDER_TEST, "up")
+        self.create_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
+
+        self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
+        self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
+
+        fv_dict = {
+            "state": "ok",
+        }
+        self.check_sub_port_intf_fvs(self.state_db, STATE_PORT_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST, fv_dict)
+
+        fv_dict = {
+            ADMIN_STATUS: "up",
+        }
+        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST, fv_dict)
+
+        self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
+        self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
+
+        # Remove a sub port interface
+        self.remove_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
+
+        # Verify that sub port interface state ok is removed from STATE_DB by Intfmgrd
+        self.check_sub_port_intf_key_removal(self.state_db, STATE_PORT_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST)
+
+        # Verify that sub port interface configuration is removed from APPL_DB INTF_TABLE by Intfmgrd
+        self.check_sub_port_intf_key_removal(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST)
