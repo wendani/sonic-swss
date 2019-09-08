@@ -95,7 +95,8 @@ class TestSubPortIntf(object):
 
         for field, value in fvs:
             if field in fv_dict:
-                assert fv_dict[field] == value, "Wrong value for field %s: %s, expected value: %s" % (field, value, fv_dict[field])
+                assert fv_dict[field] == value, \
+                    "Wrong value for field %s: %s, expected value: %s" % (field, value, fv_dict[field])
 
     def check_sub_port_intf_route_entries(self):
         ipv4_ip2me_found = False
@@ -180,17 +181,21 @@ class TestSubPortIntf(object):
         fv_dict = {
             "state": "ok",
         }
-        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST + "|" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
-        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST + "|" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
+        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, \
+                self.SUB_PORT_INTERFACE_UNDER_TEST + "|" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
+        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, \
+                self.SUB_PORT_INTERFACE_UNDER_TEST + "|" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
 
         # Verify that ip address configuration is synced to APPL_DB INTF_TABLE by Intfmgrd
         fv_dict = {
             "scope": "global",
             "family": "IPv4",
         }
-        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST + ":" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
+        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, \
+                self.SUB_PORT_INTERFACE_UNDER_TEST + ":" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
         fv_dict["family"] = "IPv6"
-        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST + ":" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
+        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, \
+                self.SUB_PORT_INTERFACE_UNDER_TEST + ":" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
 
         # Verify that an IPv4 ip2me route entry is created in ASIC_DB
         # Verify that an IPv4 subnet route entry is created in ASIC_DB
@@ -267,10 +272,12 @@ class TestSubPortIntf(object):
         self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
 
         # Verify that IPv4 address state ok is removed from STATE_DB INTERFACE_TABLE by Intfmgrd
-        self.check_sub_port_intf_key_removal(self.state_db, STATE_INTERFACE_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST + "|" + self.IPV4_ADDR_UNDER_TEST)
+        self.check_sub_port_intf_key_removal(self.state_db, STATE_INTERFACE_TABLE_NAME, \
+                self.SUB_PORT_INTERFACE_UNDER_TEST + "|" + self.IPV4_ADDR_UNDER_TEST)
 
         # Verify that IPv4 address configuration is removed from APPL_DB INTF_TABLE by Intfmgrd
-        self.check_sub_port_intf_key_removal(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST + ":" + self.IPV4_ADDR_UNDER_TEST)
+        self.check_sub_port_intf_key_removal(self.appl_db, APP_INTF_TABLE_NAME, \
+                self.SUB_PORT_INTERFACE_UNDER_TEST + ":" + self.IPV4_ADDR_UNDER_TEST)
 
         # Verify that IPv4 subnet route entry is removed from ASIC_DB
         # Verify that IPv4 ip2me route entry is removed from ASIC_DB
@@ -281,10 +288,12 @@ class TestSubPortIntf(object):
         self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
 
         # Verify that IPv6 address state ok is removed from STATE_DB INTERFACE_TABLE by Intfmgrd
-        self.check_sub_port_intf_key_removal(self.state_db, STATE_INTERFACE_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST + "|" + self.IPV6_ADDR_UNDER_TEST)
+        self.check_sub_port_intf_key_removal(self.state_db, STATE_INTERFACE_TABLE_NAME, \
+                self.SUB_PORT_INTERFACE_UNDER_TEST + "|" + self.IPV6_ADDR_UNDER_TEST)
 
         # Verify that IPv6 address configuration is removed from APPL_DB INTF_TABLE by Intfmgrd
-        self.check_sub_port_intf_key_removal(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST + ":" + self.IPV6_ADDR_UNDER_TEST)
+        self.check_sub_port_intf_key_removal(self.appl_db, APP_INTF_TABLE_NAME, \
+                self.SUB_PORT_INTERFACE_UNDER_TEST + ":" + self.IPV6_ADDR_UNDER_TEST)
 
         # Verify that IPv6 subnet route entry is removed from ASIC_DB
         # Verify that IPv6 ip2me route entry is removed from ASIC_DB
