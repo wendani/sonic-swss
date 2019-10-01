@@ -74,6 +74,23 @@ void IntfMgr::setIntfVrf(const string &alias, const string vrfName)
 
 void IntfMgr::addHostSubIntf(const string&intf, const string &subIntf, const string &vlan)
 {
+    size_t found = subIntf.find(VLAN_SUB_INTERFACE_SEPARATOR);
+    if (found == string::npos)
+    {
+        SWSS_LOG_ERROR("Invalid host sub interface name: %s", subIntf.c_str());
+        return;
+    }
+    if (intf != subIntf.substr(0, found))
+    {
+        SWSS_LOG_ERROR("Invalid parent port %s associated with host sub interface %s", intf.c_str(), subIntf.c_str());
+        return;
+    }
+    if (vlan != subIntf.substr(found + 1))
+    {
+        SWSS_LOG_ERROR("Invalid vlan id %s associated with host sub interface %s", vlan.c_str(), subIntf.c_str());
+        return;
+    }
+
     stringstream cmd;
     string res;
 
