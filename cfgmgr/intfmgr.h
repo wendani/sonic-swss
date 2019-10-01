@@ -7,6 +7,7 @@
 
 #include <map>
 #include <string>
+#include <set>
 
 namespace swss {
 
@@ -20,7 +21,7 @@ private:
     ProducerStateTable m_appIntfTableProducer;
     Table m_statePortTable, m_stateLagTable, m_stateVlanTable, m_stateVrfTable, m_stateIntfTable;
 
-    set<string> m_subIntfList;
+    std::set<string> m_subIntfList;
 
     void setIntfIp(const string &alias, const string &opCmd, const IpPrefix &ipPrefix);
     void setIntfVrf(const string &alias, const string vrfName);
