@@ -20,9 +20,6 @@ extern "C" {
 #include "selectabletimer.h"
 #include "macaddress.h"
 
-using namespace std;
-using namespace swss;
-
 const char delimiter           = ':';
 const char list_item_delimiter = ',';
 const char ref_start           = '[';
