@@ -74,6 +74,15 @@ void IntfMgr::setIntfVrf(const string &alias, const string vrfName)
 
 void IntfMgr::addHostSubIntf(const string&intf, const string &subIntf, const string &vlan)
 {
+    for (const auto &c :intf)
+    {
+        if (!isalnum(c))
+        {
+            SWSS_LOG_ERROR("Invalid parent port name %s for host sub interface %s", intf.c_str(), subIntf.c_str());
+            return;
+        }
+    }
+
     stringstream cmd;
     string res;
 
