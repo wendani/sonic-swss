@@ -579,7 +579,7 @@ task_process_status BufferOrch::processQueue(Consumer &consumer)
     }
     else
     {
-        SWSS_LOG_ERROR("Queue profile '%s' was inserted after BufferOrch init", key.c_str());
+        SWSS_LOG_NOTICE("Queue profile '%s' was inserted after BufferOrch init", key.c_str());
     }
 
     return task_process_status::task_success;
@@ -666,7 +666,7 @@ task_process_status BufferOrch::processPriorityGroup(Consumer &consumer)
     }
     else
     {
-        SWSS_LOG_ERROR("PG profile '%s' was inserted after BufferOrch init", key.c_str());
+        SWSS_LOG_NOTICE("PG profile '%s' was inserted after BufferOrch init", key.c_str());
     }
 
     return task_process_status::task_success;
