@@ -409,7 +409,7 @@ bool PortsOrch::isPortAdminUp(const string &alias)
         return false;
     }
 
-    return p->second.m_admin_state_up;
+    return it->second.m_admin_state_up;
 }
 
 map<string, Port>& PortsOrch::getAllPorts()
