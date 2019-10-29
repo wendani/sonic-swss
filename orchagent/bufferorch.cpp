@@ -588,7 +588,7 @@ task_process_status BufferOrch::processQueue(Consumer &consumer)
         // set order is detected.
         for (const auto &port_name : port_names)
         {
-            if (!gPortsOrch->isPortAdminUp(port_name)) {
+            if (gPortsOrch->isPortAdminUp(port_name)) {
                 SWSS_LOG_ERROR("Queue profile '%s' applied after port %s is up", key.c_str(), port_name.c_str());
             }
         }
@@ -687,7 +687,7 @@ task_process_status BufferOrch::processPriorityGroup(Consumer &consumer)
         // set order is detected.
         for (const auto &port_name : port_names)
         {
-            if (!gPortsOrch->isPortAdminUp(port_name)) {
+            if (gPortsOrch->isPortAdminUp(port_name)) {
                 SWSS_LOG_ERROR("PG profile '%s' applied after port %s is up", key.c_str(), port_name.c_str());
             }
         }
