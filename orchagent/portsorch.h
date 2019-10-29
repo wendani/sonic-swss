@@ -58,6 +58,7 @@ public:
     bool allPortsReady();
     bool isInitDone();
     bool isConfigDone();
+    bool isPortAdminUp(const string &alias);
 
     map<string, Port>& getAllPorts();
     bool bake() override;
