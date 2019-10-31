@@ -108,8 +108,8 @@ void IntfMgr::setHostSubIntfMtu(const string &subIntf, const uint32_t &mtu)
         SWSS_LOG_ERROR("Invalid host sub interface name: %s", subIntf.c_str());
         return;
     }
-    int i = 0;
-    for (const auto &c :intf)
+    size_t i = 0;
+    for (const auto &c : subIntf)
     {
         if (i < found && !isalnum(c))
         {
@@ -140,8 +140,8 @@ void IntfMgr::setHostSubIntfAdminStatus(const string &subIntf, const string &adm
         SWSS_LOG_ERROR("Invalid host sub interface name: %s", subIntf.c_str());
         return;
     }
-    int i = 0;
-    for (const auto &c :intf)
+    size_t i = 0;
+    for (const auto &c : subIntf)
     {
         if (i < found && !isalnum(c))
         {
@@ -172,8 +172,8 @@ void IntfMgr::removeHostSubIntf(const string &subIntf)
         SWSS_LOG_ERROR("Invalid host sub interface name: %s", subIntf.c_str());
         return;
     }
-    int i = 0;
-    for (const auto &c :intf)
+    size_t i = 0;
+    for (const auto &c : subIntf)
     {
         if (i < found && !isalnum(c))
         {
