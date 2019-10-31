@@ -68,9 +68,7 @@ for i = n, 1, -1 do
 
                     -- Check actual condition of queue being in PFC storm
                     if (pfc_rx_packets - pfc_rx_packets_last > 0 and pfc_on2off - pfc_on2off_last == 0 and queue_pause_status_last == 'true' and queue_pause_status == 'true') or
-                        -- DEBUG CODE START. Uncomment to enable
                         (debug_storm == "enabled") then
-                        -- DEBUG CODE END.
                         if time_left <= poll_time then
                             redis.call('PUBLISH', 'PFC_WD_ACTION', '["' .. KEYS[i] .. '","storm"]')
                             is_deadlock = true
