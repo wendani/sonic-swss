@@ -170,6 +170,9 @@ class TestSubPortIntf(object):
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
 
+        # Remove a sub port interface
+        self.remove_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
+
     def test_sub_port_intf_add_ip_addrs(self, dvs):
         self.connect_dbs(dvs)
 
@@ -209,7 +212,11 @@ class TestSubPortIntf(object):
         # Verify that an IPv6 subnet route entry is created in ASIC_DB
         self.check_sub_port_intf_route_entries()
 
-        return rif_oid
+        # Remove IP addresses
+        self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
+        self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
+        # Remove a sub port interface
+        self.remove_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
 
     def test_sub_port_intf_admin_status_change(self, dvs):
         self.connect_dbs(dvs)
@@ -271,8 +278,24 @@ class TestSubPortIntf(object):
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
 
+        # Remove IP addresses
+        self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
+        self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
+        # Remove a sub port interface
+        self.remove_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
+
     def test_sub_port_intf_remove_ip_addrs(self, dvs):
-        rif_oid = self.test_sub_port_intf_add_ip_addrs(dvs)
+        self.connect_dbs(dvs)
+
+        old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
+
+        self.set_parent_port_admin_status(self.PHYSICAL_PORT_UNDER_TEST, "up")
+        self.create_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
+
+        self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
+        self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
+
+        rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
 
         # Remove IPv4 address
         self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
@@ -309,6 +332,9 @@ class TestSubPortIntf(object):
         # Verify that sub port router interface entry is removed from ASIC_DB
         self.check_sub_port_intf_key_removal(self.asic_db, ASIC_RIF_TABLE, rif_oid)
 
+        # Remove a sub port interface
+        self.remove_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
+
     def test_sub_port_intf_removal(self, dvs):
         self.connect_dbs(dvs)
 
@@ -328,6 +354,7 @@ class TestSubPortIntf(object):
         }
         self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST, fv_dict)
 
+        # Remove IP addresses
         self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
         self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
 
