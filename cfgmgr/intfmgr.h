@@ -24,11 +24,16 @@ private:
     std::set<std::string> m_subIntfList;
 
     void setIntfIp(const std::string &alias, const std::string &opCmd, const IpPrefix &ipPrefix);
-    void setIntfVrf(const std::string &alias, const std::string vrfName);
+    void setIntfVrf(const std::string &alias, const std::string &vrfName);
     bool doIntfGeneralTask(const std::vector<std::string>& keys, std::vector<FieldValueTuple> data, const std::string& op);
     bool doIntfAddrTask(const std::vector<std::string>& keys, const std::vector<FieldValueTuple>& data, const std::string& op);
     void doTask(Consumer &consumer);
     bool isIntfStateOk(const std::string &alias);
+    bool isIntfCreated(const std::string &alias);
+    bool isIntfChangeVrf(const std::string &alias, const std::string &vrfName);
+    int getIntfIpCount(const std::string &alias);
+    void addLoopbackIntf(const std::string &alias);
+    void delLoopbackIntf(const std::string &alias);
 
     void addHostSubIntf(const std::string&intf, const std::string &subIntf, const std::string &vlan);
     void setHostSubIntfMtu(const std::string &subIntf, const std::string &mtu);
