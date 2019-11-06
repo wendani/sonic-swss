@@ -219,7 +219,7 @@ bool IntfsOrch::setIntf(const string& alias, sai_object_id_t vrf_id, const IpPre
     }
     else
     {
-        if (port.m_type == Port::SUBPORT)
+        if (!ip_prefix && port.m_type == Port::SUBPORT)
         {
             // port represents a sub interface
             // Change sub interface config at run time
