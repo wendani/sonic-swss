@@ -25,13 +25,13 @@ private:
 
     void setIntfIp(const std::string &alias, const std::string &opCmd, const IpPrefix &ipPrefix);
     void setIntfVrf(const std::string &alias, const std::string vrfName);
-    bool doIntfGeneralTask(const std::vector<std::string>& keys, const std::vector<FieldValueTuple>& data, const std::string& op);
+    bool doIntfGeneralTask(const std::vector<std::string>& keys, std::vector<FieldValueTuple> data, const std::string& op);
     bool doIntfAddrTask(const std::vector<std::string>& keys, const std::vector<FieldValueTuple>& data, const std::string& op);
     void doTask(Consumer &consumer);
     bool isIntfStateOk(const std::string &alias);
 
     void addHostSubIntf(const std::string&intf, const std::string &subIntf, const std::string &vlan);
-    void setHostSubIntfMtu(const std::string &subIntf, const uint32_t &mtu);
+    void setHostSubIntfMtu(const std::string &subIntf, const std::string &mtu);
     void setHostSubIntfAdminStatus(const std::string &subIntf, const std::string &admin_status);
     void removeHostSubIntf(const std::string &subIntf);
     void setSubIntfStateOk(const std::string &alias);

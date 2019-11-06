@@ -15,6 +15,7 @@ using namespace swss;
 #define LAG_PREFIX          "PortChannel"
 #define LOOPBACK_PREFIX     "Loopback"
 #define VNET_PREFIX         "Vnet"
+#define MTU_INHERITANCE     "0"
 
 IntfMgr::IntfMgr(DBConnector *cfgDb, DBConnector *appDb, DBConnector *stateDb, const vector<string> &tableNames) :
         Orch(cfgDb, tableNames),
@@ -99,7 +100,7 @@ void IntfMgr::addHostSubIntf(const string&intf, const string &subIntf, const str
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 }
 
-void IntfMgr::setHostSubIntfMtu(const string &subIntf, const uint32_t &mtu)
+void IntfMgr::setHostSubIntfMtu(const string &subIntf, const string &mtu)
 {
     // TODO: remove when validation check at mgmt is in place
     size_t found = subIntf.find(VLAN_SUB_INTERFACE_SEPARATOR);
@@ -127,7 +128,7 @@ void IntfMgr::setHostSubIntfMtu(const string &subIntf, const uint32_t &mtu)
     stringstream cmd;
     string res;
 
-    cmd << IP_CMD << " link set " << subIntf << " mtu " << std::to_string(mtu);
+    cmd << IP_CMD << " link set " << subIntf << " mtu " << mtu;
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 }
 
@@ -265,7 +266,7 @@ bool IntfMgr::isIntfStateOk(const string &alias)
 }
 
 bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
-        const vector<FieldValueTuple>& data,
+        vector<FieldValueTuple> data,
         const string& op)
 {
     SWSS_LOG_ENTER();
@@ -286,7 +287,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
     bool is_lo = !alias.compare(0, strlen(LOOPBACK_PREFIX), LOOPBACK_PREFIX);
 
     string vrf_name = "";
-    uint32_t mtu = 0;
+    string mtu = "";
     string adminStatus = "";
     for (auto idx : data)
     {
@@ -344,7 +345,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
                     m_subIntfList.insert(subIntfAlias);
                 }
 
-                if (mtu)
+                if (!mtu.empty())
                 {
                     try
                     {
@@ -358,7 +359,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
                 }
                 else
                 {
-                    FieldValueTuple fvTuple("mtu", std::to_string(mtu));
+                    FieldValueTuple fvTuple("mtu", MTU_INHERITANCE);
                     data.push_back(fvTuple);
                 }
 
