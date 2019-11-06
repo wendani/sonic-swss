@@ -287,7 +287,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
 
     string vrf_name = "";
     uint32_t mtu = 0;
-    string adminStatus = "up";
+    string adminStatus = "";
     for (auto idx : data)
     {
         const auto &field = fvField(idx);
@@ -356,7 +356,18 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
                         return false;
                     }
                 }
+                else
+                {
+                    FieldValueTuple fvTuple("mtu", std::to_string(mtu));
+                    data.push_back(fvTuple);
+                }
 
+                if (adminStatus.empty())
+                {
+                    adminStatus = "up";
+                    FieldValueTuple fvTuple("admin_status", adminStatus);
+                    data.push_back(fvTuple);
+                }
                 try
                 {
                     setHostSubIntfAdminStatus(subIntfAlias, adminStatus);

@@ -377,8 +377,8 @@ void IntfsOrch::doTask(Consumer &consumer)
 
         const vector<FieldValueTuple>& data = kfvFieldsValues(t);
         string vrf_name = "", vnet_name = "";
-        uint32_t mtu = 0;
-        bool adminUp = true;
+        uint32_t mtu;
+        bool adminUp;
         for (auto idx : data)
         {
             const auto &field = fvField(idx);
@@ -407,9 +407,6 @@ void IntfsOrch::doTask(Consumer &consumer)
                     SWSS_LOG_ERROR("Out of range argument %s to %s()", value.c_str(), e.what());
                     continue;
                 }
-
-                // Inherit mtu from parent port or port channel
-                mtu = 0;
             }
             else if (field == "admin_status")
             {
