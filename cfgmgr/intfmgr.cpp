@@ -492,7 +492,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
             setSubIntfStateOk(subIntfAlias);
         }
         m_appIntfTableProducer.set(subIntfAlias.empty() ? alias : subIntfAlias, data);
-        m_stateIntfTable.hset(alias, "vrf", vrf_name);
+        m_stateIntfTable.hset(subIntfAlias.empty() ? alias : subIntfAlias, "vrf", vrf_name);
     }
     else if (op == DEL_COMMAND)
     {
@@ -519,7 +519,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
         }
 
         m_appIntfTableProducer.del(subIntfAlias.empty() ? alias : subIntfAlias);
-        m_stateIntfTable.del(alias);
+        m_stateIntfTable.del(subIntfAlias.empty() ? alias : subIntfAlias);
     }
     else
     {

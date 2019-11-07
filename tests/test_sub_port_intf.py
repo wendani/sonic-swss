@@ -89,6 +89,12 @@ class TestSubPortIntf(object):
         assert len(oid) == 1, "Wrong # of newly created oids: %d, expected #: 1." % (len(oid))
         return oid[0]
 
+    def check_sub_port_intf_key_existence(self, db, table_name, key):
+        tbl = swsscommon.Table(db, table_name)
+
+        keys = tbl.getKeys()
+        assert key in keys, "Key %s not exist" % (key)
+
     def check_sub_port_intf_fvs(self, db, table_name, key, fv_dict):
         tbl = swsscommon.Table(db, table_name)
 
@@ -329,8 +335,8 @@ class TestSubPortIntf(object):
         removed_route_entries.update([self.IPV6_TOME_UNDER_TEST, self.IPV6_SUBNET_UNDER_TEST])
         self.check_sub_port_intf_route_entries_removal(removed_route_entries)
 
-        # Verify that sub port router interface entry is removed from ASIC_DB
-        self.check_sub_port_intf_key_removal(self.asic_db, ASIC_RIF_TABLE, rif_oid)
+        # Verify that sub port router interface entry still exists in ASIC_DB
+        self.check_sub_port_intf_key_existence(self.asic_db, ASIC_RIF_TABLE, rif_oid)
 
         # Remove a sub port interface
         self.remove_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
@@ -338,11 +344,15 @@ class TestSubPortIntf(object):
     def test_sub_port_intf_removal(self, dvs):
         self.connect_dbs(dvs)
 
+        old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
+
         self.set_parent_port_admin_status(self.PHYSICAL_PORT_UNDER_TEST, "up")
         self.create_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
 
         self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
         self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
+
+        rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
 
         fv_dict = {
             "state": "ok",
@@ -366,3 +376,6 @@ class TestSubPortIntf(object):
 
         # Verify that sub port interface configuration is removed from APPL_DB INTF_TABLE by Intfmgrd
         self.check_sub_port_intf_key_removal(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST)
+
+        # Verify that sub port router interface entry is removed from ASIC_DB
+        self.check_sub_port_intf_key_removal(self.asic_db, ASIC_RIF_TABLE, rif_oid)
