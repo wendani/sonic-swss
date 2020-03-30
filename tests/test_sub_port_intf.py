@@ -48,16 +48,22 @@ class TestSubPortIntf(object):
         self.appl_db = swsscommon.DBConnector(swsscommon.APPL_DB, dvs.redis_sock, 0)
         self.asic_db = swsscommon.DBConnector(swsscommon.ASIC_DB, dvs.redis_sock, 0)
 
-    def set_parent_port_admin_status(self, port_name, status):
+    def set_parent_port_admin_status(self, dvs, port_name, status):
         fvs = swsscommon.FieldValuePairs([(ADMIN_STATUS, status)])
 
-        tbl_name = CFG_PORT_TABLE_NAME
-        if port_name.startswith('PortChannel'):
-            tbl_name = CFG_LAG_TABLE_NAME
+        if port_name.startswith(ETHERNET_PREFIX):
+            tbl_name = CFG_PORT_TABLE_NAME
         else:
-            assert port_name.startswith('Ethernet')
+            assert port_name.startswith(LAG_PREFIX)
+            tbl_name = CFG_LAG_TABLE_NAME
         tbl = swsscommon.Table(self.config_db, tbl_name)
         tbl.set(port_name, fvs)
+        time.sleep(1)
+
+        # follow the treatment in TestSubPortIntf::set_admin_status
+        if tbl_name == CFG_LAG_TABLE_NAME:
+            dvs.runcmd("bash -c 'echo " + ("1" if status == "up" else "0") + \
+                    " > /sys/class/net/" + port_name + "/carrier'")
         time.sleep(1)
 
         #if tbl_name == CFG_LAG_MEMBER_TABLE_NAME
@@ -180,7 +186,7 @@ class TestSubPortIntf(object):
 
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
-        self.set_parent_port_admin_status(parent_port, "up")
+        self.set_parent_port_admin_status(dvs, parent_port, "up")
         self.create_sub_port_intf_profile(sub_port_intf_name)
 
         # Verify that sub port interface state ok is pushed to STATE_DB by Intfmgrd
@@ -215,16 +221,18 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_creation(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_creation(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
-    def test_sub_port_intf_add_ip_addrs(self, dvs):
-        self.connect_dbs(dvs)
+    def _test_sub_port_intf_add_ip_addrs(self, dvs, sub_port_intf_name):
+        substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
+        parent_port = substrs[0]
+        vlan_id = substrs[1]
 
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
-        self.set_parent_port_admin_status(self.PHYSICAL_PORT_UNDER_TEST, "up")
-        self.create_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
+        self.set_parent_port_admin_status(dvs, parent_port, "up")
+        self.create_sub_port_intf_profile(sub_port_intf_name)
 
-        self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
-        self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
+        self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
+        self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
 
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
 
@@ -233,9 +241,9 @@ class TestSubPortIntf(object):
             "state": "ok",
         }
         self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, \
-                self.SUB_PORT_INTERFACE_UNDER_TEST + "|" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
+                sub_port_intf_name + "|" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
         self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, \
-                self.SUB_PORT_INTERFACE_UNDER_TEST + "|" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
+                sub_port_intf_name + "|" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
 
         # Verify that ip address configuration is synced to APPL_DB INTF_TABLE by Intfmgrd
         fv_dict = {
@@ -243,10 +251,10 @@ class TestSubPortIntf(object):
             "family": "IPv4",
         }
         self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, \
-                self.SUB_PORT_INTERFACE_UNDER_TEST + ":" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
+                sub_port_intf_name + ":" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
         fv_dict["family"] = "IPv6"
         self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, \
-                self.SUB_PORT_INTERFACE_UNDER_TEST + ":" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
+                sub_port_intf_name + ":" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
 
         # Verify that an IPv4 ip2me route entry is created in ASIC_DB
         # Verify that an IPv4 subnet route entry is created in ASIC_DB
@@ -255,17 +263,23 @@ class TestSubPortIntf(object):
         self.check_sub_port_intf_route_entries()
 
         # Remove IP addresses
-        self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
-        self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
+        self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
+        self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
         # Remove a sub port interface
-        self.remove_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
+        self.remove_sub_port_intf_profile(sub_port_intf_name)
+
+    def test_sub_port_intf_add_ip_addrs(self, dvs):
+        self.connect_dbs(dvs)
+
+        self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
+        self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
     def test_sub_port_intf_admin_status_change(self, dvs):
         self.connect_dbs(dvs)
 
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
-        self.set_parent_port_admin_status(self.PHYSICAL_PORT_UNDER_TEST, "up")
+        self.set_parent_port_admin_status(dvs, self.PHYSICAL_PORT_UNDER_TEST, "up")
         self.create_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
 
         self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
@@ -331,7 +345,7 @@ class TestSubPortIntf(object):
 
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
-        self.set_parent_port_admin_status(self.PHYSICAL_PORT_UNDER_TEST, "up")
+        self.set_parent_port_admin_status(dvs, self.PHYSICAL_PORT_UNDER_TEST, "up")
         self.create_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
 
         self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
@@ -382,7 +396,7 @@ class TestSubPortIntf(object):
 
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
-        self.set_parent_port_admin_status(self.PHYSICAL_PORT_UNDER_TEST, "up")
+        self.set_parent_port_admin_status(dvs, self.PHYSICAL_PORT_UNDER_TEST, "up")
         self.create_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
 
         self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
