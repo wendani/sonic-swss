@@ -348,29 +348,31 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_admin_status_change(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_admin_status_change(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
-    def test_sub_port_intf_remove_ip_addrs(self, dvs):
-        self.connect_dbs(dvs)
+    def _test_sub_port_intf_remove_ip_addrs(self, dvs, sub_port_intf_name):
+        substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
+        parent_port = substrs[0]
+        vlan_id = substrs[1]
 
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
-        self.set_parent_port_admin_status(dvs, self.PHYSICAL_PORT_UNDER_TEST, "up")
-        self.create_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
+        self.set_parent_port_admin_status(dvs, parent_port, "up")
+        self.create_sub_port_intf_profile(sub_port_intf_name)
 
-        self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
-        self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
+        self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
+        self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
 
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
 
         # Remove IPv4 address
-        self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
+        self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
 
         # Verify that IPv4 address state ok is removed from STATE_DB INTERFACE_TABLE by Intfmgrd
         self.check_sub_port_intf_key_removal(self.state_db, STATE_INTERFACE_TABLE_NAME, \
-                self.SUB_PORT_INTERFACE_UNDER_TEST + "|" + self.IPV4_ADDR_UNDER_TEST)
+                sub_port_intf_name + "|" + self.IPV4_ADDR_UNDER_TEST)
 
         # Verify that IPv4 address configuration is removed from APPL_DB INTF_TABLE by Intfmgrd
         self.check_sub_port_intf_key_removal(self.appl_db, APP_INTF_TABLE_NAME, \
-                self.SUB_PORT_INTERFACE_UNDER_TEST + ":" + self.IPV4_ADDR_UNDER_TEST)
+                sub_port_intf_name + ":" + self.IPV4_ADDR_UNDER_TEST)
 
         # Verify that IPv4 subnet route entry is removed from ASIC_DB
         # Verify that IPv4 ip2me route entry is removed from ASIC_DB
@@ -378,15 +380,15 @@ class TestSubPortIntf(object):
         self.check_sub_port_intf_route_entries_removal(removed_route_entries)
 
         # Remove IPv6 address
-        self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
+        self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
 
         # Verify that IPv6 address state ok is removed from STATE_DB INTERFACE_TABLE by Intfmgrd
         self.check_sub_port_intf_key_removal(self.state_db, STATE_INTERFACE_TABLE_NAME, \
-                self.SUB_PORT_INTERFACE_UNDER_TEST + "|" + self.IPV6_ADDR_UNDER_TEST)
+                sub_port_intf_name + "|" + self.IPV6_ADDR_UNDER_TEST)
 
         # Verify that IPv6 address configuration is removed from APPL_DB INTF_TABLE by Intfmgrd
         self.check_sub_port_intf_key_removal(self.appl_db, APP_INTF_TABLE_NAME, \
-                self.SUB_PORT_INTERFACE_UNDER_TEST + ":" + self.IPV6_ADDR_UNDER_TEST)
+                sub_port_intf_name + ":" + self.IPV6_ADDR_UNDER_TEST)
 
         # Verify that IPv6 subnet route entry is removed from ASIC_DB
         # Verify that IPv6 ip2me route entry is removed from ASIC_DB
@@ -397,7 +399,13 @@ class TestSubPortIntf(object):
         self.check_sub_port_intf_key_existence(self.asic_db, ASIC_RIF_TABLE, rif_oid)
 
         # Remove a sub port interface
-        self.remove_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
+        self.remove_sub_port_intf_profile(sub_port_intf_name)
+
+    def test_sub_port_intf_remove_ip_addrs(self, dvs):
+        self.connect_dbs(dvs)
+
+        self._test_sub_port_intf_remove_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
+        self._test_sub_port_intf_remove_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
     def test_sub_port_intf_removal(self, dvs):
         self.connect_dbs(dvs)
