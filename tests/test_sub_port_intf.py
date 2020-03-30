@@ -3,12 +3,10 @@ import time
 import json
 
 from swsscommon import swsscommon
-import sys
 
 CFG_VLAN_SUB_INTF_TABLE_NAME = "VLAN_SUB_INTERFACE"
 CFG_PORT_TABLE_NAME = "PORT"
 CFG_LAG_TABLE_NAME = "PORTCHANNEL"
-CFG_LAG_MEMBER_TABLE_NAME = "PORTCHANNEL_MEMBER"
 
 STATE_PORT_TABLE_NAME = "PORT_TABLE"
 STATE_LAG_TABLE_NAME = "LAG_TABLE"
@@ -29,10 +27,7 @@ VLAN_SUB_INTERFACE_SEPARATOR = "."
 
 class TestSubPortIntf(object):
     SUB_PORT_INTERFACE_UNDER_TEST = "Ethernet64.10"
-    PHYSICAL_PORT_UNDER_TEST = SUB_PORT_INTERFACE_UNDER_TEST.split('.')[0]
-
     LAG_SUB_PORT_INTERFACE_UNDER_TEST = "PortChannel1.20"
-    LAG_UNDER_TEST = LAG_SUB_PORT_INTERFACE_UNDER_TEST.split('.')[0]
 
     IPV4_ADDR_UNDER_TEST = "10.0.0.33/31"
     IPV4_TOME_UNDER_TEST = "10.0.0.33/32"
@@ -65,12 +60,6 @@ class TestSubPortIntf(object):
             dvs.runcmd("bash -c 'echo " + ("1" if status == "up" else "0") + \
                     " > /sys/class/net/" + port_name + "/carrier'")
         time.sleep(1)
-
-        #if tbl_name == CFG_LAG_MEMBER_TABLE_NAME
-        #    tbl = swsscommon.Table(self.config_db, CFG_LAG_MEMBER_TABLE_NAME)
-        #    fvs = swsscommon.FieldValuePairs([("NULL", "NULL")])
-        #    tbl.set("{}|Ethernet4".format(port_name), fvs)
-        #    time.sleep(1)
 
     def create_sub_port_intf_profile(self, sub_port_intf_name):
         fvs = swsscommon.FieldValuePairs([(ADMIN_STATUS, "up")])
