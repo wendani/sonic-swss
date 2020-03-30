@@ -274,21 +274,23 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
-    def test_sub_port_intf_admin_status_change(self, dvs):
-        self.connect_dbs(dvs)
+    def _test_sub_port_intf_admin_status_change(self, dvs, sub_port_intf_name):
+        substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
+        parent_port = substrs[0]
+        vlan_id = substrs[1]
 
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
-        self.set_parent_port_admin_status(dvs, self.PHYSICAL_PORT_UNDER_TEST, "up")
-        self.create_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
+        self.set_parent_port_admin_status(dvs, parent_port, "up")
+        self.create_sub_port_intf_profile(sub_port_intf_name)
 
-        self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
-        self.add_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
+        self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
+        self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
 
         fv_dict = {
             ADMIN_STATUS: "up",
         }
-        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST, fv_dict)
+        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, sub_port_intf_name, fv_dict)
 
         fv_dict = {
             "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE": "true",
@@ -299,13 +301,13 @@ class TestSubPortIntf(object):
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
 
         # Change sub port interface admin status to down
-        self.set_sub_port_intf_admin_status(self.SUB_PORT_INTERFACE_UNDER_TEST, "down")
+        self.set_sub_port_intf_admin_status(sub_port_intf_name, "down")
 
         # Verify that sub port interface admin status change is synced to APPL_DB INTF_TABLE by Intfmgrd
         fv_dict = {
             ADMIN_STATUS: "down",
         }
-        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST, fv_dict)
+        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, sub_port_intf_name, fv_dict)
 
         # Verify that sub port router interface entry in ASIC_DB has the updated admin status
         fv_dict = {
@@ -317,13 +319,13 @@ class TestSubPortIntf(object):
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
 
         # Change sub port interface admin status to up
-        self.set_sub_port_intf_admin_status(self.SUB_PORT_INTERFACE_UNDER_TEST, "up")
+        self.set_sub_port_intf_admin_status(sub_port_intf_name, "up")
 
         # Verify that sub port interface admin status change is synced to APPL_DB INTF_TABLE by Intfmgrd
         fv_dict = {
             ADMIN_STATUS: "up",
         }
-        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, self.SUB_PORT_INTERFACE_UNDER_TEST, fv_dict)
+        self.check_sub_port_intf_fvs(self.appl_db, APP_INTF_TABLE_NAME, sub_port_intf_name, fv_dict)
 
         # Verify that sub port router interface entry in ASIC_DB has the updated admin status
         fv_dict = {
@@ -335,10 +337,16 @@ class TestSubPortIntf(object):
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
 
         # Remove IP addresses
-        self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV4_ADDR_UNDER_TEST)
-        self.remove_sub_port_intf_ip_addr(self.SUB_PORT_INTERFACE_UNDER_TEST, self.IPV6_ADDR_UNDER_TEST)
+        self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
+        self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
         # Remove a sub port interface
-        self.remove_sub_port_intf_profile(self.SUB_PORT_INTERFACE_UNDER_TEST)
+        self.remove_sub_port_intf_profile(sub_port_intf_name)
+
+    def test_sub_port_intf_admin_status_change(self, dvs):
+        self.connect_dbs(dvs)
+
+        self._test_sub_port_intf_admin_status_change(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
+        self._test_sub_port_intf_admin_status_change(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
     def test_sub_port_intf_remove_ip_addrs(self, dvs):
         self.connect_dbs(dvs)
