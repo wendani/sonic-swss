@@ -89,7 +89,7 @@ class TestSubPortIntf(object):
         tbl = swsscommon.Table(self.config_db, CFG_VLAN_SUB_INTF_TABLE_NAME)
         tbl._del(sub_port_intf_name)
 
-        time.sleep(1)
+        time.sleep(2)
 
     def remove_sub_port_intf_ip_addr(self, sub_port_intf_name, ip_addr):
         tbl = swsscommon.Table(self.config_db, CFG_VLAN_SUB_INTF_TABLE_NAME)
