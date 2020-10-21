@@ -635,7 +635,7 @@ bool PortsOrch::addSubPort(Port &port, const string &alias, const bool &adminUp,
     }
     if (vlan_id > MAX_VALID_VLAN_ID)
     {
-        SWSS_LOG_ERROR("sub interface %s Port object creation failed: invalid VLAN id %u", alias.c_str(), vlan_id);
+        SWSS_LOG_ERROR("Sub interface %s Port object creation failed: invalid VLAN id %u", alias.c_str(), vlan_id);
         return false;
     }
 
@@ -2838,8 +2838,6 @@ void PortsOrch::doLagTask(Consumer &consumer)
                         continue;
                     }
 
-                    gNeighOrch->ifChangeInformNextHop(alias,
-                                                 (operation_status == "up"));
                     Port lag;
                     if (getPort(alias, lag))
                     {
@@ -2868,11 +2866,23 @@ void PortsOrch::doLagTask(Consumer &consumer)
             }
             else
             {
-
                 if (!operation_status.empty())
                 {
                     l.m_oper_status = string_oper_status.at(operation_status);
                     m_portList[alias] = l;
+
+                    bool isUp = operation_status == "up" ? true : false;
+                    if (!gNeighOrch->ifChangeInformNextHop(alias, isUp))
+                    {
+                        SWSS_LOG_WARN("Inform nexthop operation failed for interface %s", alias.c_str());
+                    }
+                    for (const auto &child_port : l.m_child_ports)
+                    {
+                        if (!gNeighOrch->ifChangeInformNextHop(child_port, isUp))
+                        {
+                            SWSS_LOG_WARN("Inform nexthop operation failed for sub interface %s", child_port.c_str());
+                        }
+                    }
                 }
                 if (operation_status_changed)
                 {
@@ -2881,6 +2891,7 @@ void PortsOrch::doLagTask(Consumer &consumer)
                     update.operStatus = string_oper_status.at(operation_status);
                     notify(SUBJECT_TYPE_PORT_OPER_STATE_CHANGE, static_cast<void *>(&update));
                 }
+
                 if (mtu != 0)
                 {
                     l.m_mtu = mtu;
@@ -4139,6 +4150,13 @@ void PortsOrch::updatePortOperStatus(Port &port, sai_port_oper_status_t status)
     if (!gNeighOrch->ifChangeInformNextHop(port.m_alias, isUp))
     {
         SWSS_LOG_WARN("Inform nexthop operation failed for interface %s", port.m_alias.c_str());
+    }
+    for (const auto &child_port : port.m_child_ports)
+    {
+        if (!gNeighOrch->ifChangeInformNextHop(child_port, isUp))
+        {
+            SWSS_LOG_WARN("Inform nexthop operation failed for sub interface %s", child_port.c_str());
+        }
     }
 
     PortOperStateUpdate update = {port, status};
