@@ -67,6 +67,11 @@ MirrorEntry::MirrorEntry(const string& platform) :
     string alias = "";
     nexthopInfo.prefix = IpPrefix("0.0.0.0/0");
     nexthopInfo.nexthop = NextHopKey("0.0.0.0", alias);
+
+    // neighborInfo
+    // mac and port data members have default constructors
+    // for proper initialization
+    neighborInfo.portId = SAI_NULL_OBJECT_ID;
 }
 
 MirrorOrch::MirrorOrch(TableConnector stateDbConnector, TableConnector confDbConnector,
@@ -568,20 +573,21 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
     // 2) If session has next hop, and the next hop's neighbor information is
     //    retrieved successfully, then continue.
     // 3) Otherwise, return false.
+    NeighborEntry neighbor;
     if (!m_neighOrch->getNeighborEntry(session.dstIp,
-                session.neighborInfo.neighbor, session.neighborInfo.mac) &&
+                neighbor, session.neighborInfo.mac) &&
             (session.nexthopInfo.nexthop.ip_address.isZero() ||
             !m_neighOrch->getNeighborEntry(session.nexthopInfo.nexthop,
-                session.neighborInfo.neighbor, session.neighborInfo.mac)))
+                neighbor, session.neighborInfo.mac)))
     {
         return false;
     }
 
     SWSS_LOG_NOTICE("Mirror session %s neighbor is %s",
-            name.c_str(), session.neighborInfo.neighbor.alias.c_str());
+            name.c_str(), neighbor.alias.c_str());
 
     // Get mirror session monitor port information
-    m_portsOrch->getPort(session.neighborInfo.neighbor.alias,
+    m_portsOrch->getPort(neighbor.alias,
             session.neighborInfo.port);
 
     switch (session.neighborInfo.port.m_type)
