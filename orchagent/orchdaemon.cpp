@@ -103,14 +103,8 @@ bool OrchDaemon::init()
     };
 
     VNetOrch *vnet_orch;
-    if (platform == MLNX_PLATFORM_SUBSTRING)
-    {
-        vnet_orch = new VNetOrch(m_applDb, APP_VNET_TABLE_NAME, VNET_EXEC::VNET_EXEC_BRIDGE);
-    }
-    else
-    {
-        vnet_orch = new VNetOrch(m_applDb, APP_VNET_TABLE_NAME);
-    }
+    vnet_orch = new VNetOrch(m_applDb, APP_VNET_TABLE_NAME);
+
     gDirectory.set(vnet_orch);
     VNetCfgRouteOrch *cfg_vnet_rt_orch = new VNetCfgRouteOrch(m_configDb, m_applDb, cfg_vnet_tables);
     gDirectory.set(cfg_vnet_rt_orch);
@@ -472,6 +466,12 @@ void OrchDaemon::start()
 
         if (ret == Select::TIMEOUT)
         {
+            /* Let sairedis to flush all SAI function call to ASIC DB.
+             * Normally the redis pipeline will flush when enough request
+             * accumulated. Still it is possible that small amount of
+             * requests live in it. When the daemon has nothing to do, it
+             * is a good chance to flush the pipeline  */
+            flush();
             continue;
         }
 
@@ -484,14 +484,6 @@ void OrchDaemon::start()
         /* TODO: Abstract Orch class to have a specific todo list */
         for (Orch *o : m_orchList)
             o->doTask();
-
-        /* Let sairedis to flush all SAI function call to ASIC DB.
-         * Normally the redis pipeline will flush when enough request
-         * accumulated. Still it is possible that small amount of
-         * requests live in it. When the daemon has finished events/tasks, it
-         * is a good chance to flush the pipeline before next select happened.
-         */
-        flush();
 
         /*
          * Asked to check warm restart readiness.
