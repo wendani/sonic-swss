@@ -362,7 +362,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
     {
         // This is a sub interface
         // alias holds the complete sub interface name
-        // while parentAlias holds the parent port alias
+        // while parentAlias holds the parent port name
         vlanId = alias.substr(found + 1);
         parentAlias = alias.substr(0, found);
     }
