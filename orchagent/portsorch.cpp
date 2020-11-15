@@ -4117,11 +4117,13 @@ void PortsOrch::updatePortOperStatus(Port &port, sai_port_oper_status_t status)
     port.m_oper_status = status;
 
     bool isUp = status == SAI_PORT_OPER_STATUS_UP;
-    // Host intf is a notion for physical port only
-    if (port.m_type == Port::PHY && !setHostIntfsOperStatus(port, isUp))
+    if (port.m_type == Port::PHY)
     {
-        SWSS_LOG_ERROR("Failed to set host interface %s operational status %s", port.m_alias.c_str(),
-                isUp ? "up" : "down");
+        if (!setHostIntfsOperStatus(port, isUp))
+        {
+            SWSS_LOG_ERROR("Failed to set host interface %s operational status %s", port.m_alias.c_str(),
+                    isUp ? "up" : "down");
+        }
     }
     if (!gNeighOrch->ifChangeInformNextHop(port.m_alias, isUp))
     {
