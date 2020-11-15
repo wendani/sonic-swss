@@ -518,14 +518,14 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_removal(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_removal(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
-    def _test_sub_port_intf_mtu(self, dvs, sub_port_intf_name):
+    def _test_sub_port_intf_mtu(self, dvs, sub_port_intf_name, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
 
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
-        self.create_sub_port_intf_profile(sub_port_intf_name)
+        self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
 
