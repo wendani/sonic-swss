@@ -2815,7 +2815,6 @@ void PortsOrch::doLagTask(Consumer &consumer)
             // Retrieve attributes
             uint32_t mtu = 0;
             string learn_mode;
-            bool operation_status_changed = false;
             string operation_status;
 
             for (auto i : kfvFieldsValues(t))
@@ -2836,14 +2835,6 @@ void PortsOrch::doLagTask(Consumer &consumer)
                         SWSS_LOG_ERROR("Invalid operation status value:%s", operation_status.c_str());
                         it++;
                         continue;
-                    }
-
-                    Port lag;
-                    if (getPort(alias, lag))
-                    {
-                        operation_status_changed = 
-                           (string_oper_status.at(operation_status) != 
-                                                    lag.m_oper_status);
                     }
                 }
             }
@@ -2868,28 +2859,9 @@ void PortsOrch::doLagTask(Consumer &consumer)
             {
                 if (!operation_status.empty())
                 {
-                    l.m_oper_status = string_oper_status.at(operation_status);
-                    m_portList[alias] = l;
+                    updatePortOperStatus(l, string_oper_status.at(operation_status));
 
-                    bool isUp = operation_status == "up" ? true : false;
-                    if (!gNeighOrch->ifChangeInformNextHop(alias, isUp))
-                    {
-                        SWSS_LOG_WARN("Inform nexthop operation failed for interface %s", alias.c_str());
-                    }
-                    for (const auto &child_port : l.m_child_ports)
-                    {
-                        if (!gNeighOrch->ifChangeInformNextHop(child_port, isUp))
-                        {
-                            SWSS_LOG_WARN("Inform nexthop operation failed for sub interface %s", child_port.c_str());
-                        }
-                    }
-                }
-                if (operation_status_changed)
-                {
-                    PortOperStateUpdate update;
-                    update.port = l;
-                    update.operStatus = string_oper_status.at(operation_status);
-                    notify(SUBJECT_TYPE_PORT_OPER_STATE_CHANGE, static_cast<void *>(&update));
+                    m_portList[alias] = l;
                 }
 
                 if (mtu != 0)
@@ -4138,11 +4110,15 @@ void PortsOrch::updatePortOperStatus(Port &port, sai_port_oper_status_t status)
         return ;
     }
 
-    updateDbPortOperStatus(port, status);
+    if (port.m_type == Port::PHY)
+    {
+        updateDbPortOperStatus(port, status);
+    }
     port.m_oper_status = status;
 
     bool isUp = status == SAI_PORT_OPER_STATUS_UP;
-    if (!setHostIntfsOperStatus(port, isUp))
+    // Host intf is a notion for physical port only
+    if (port.m_type == Port::PHY && !setHostIntfsOperStatus(port, isUp))
     {
         SWSS_LOG_ERROR("Failed to set host interface %s operational status %s", port.m_alias.c_str(),
                 isUp ? "up" : "down");
