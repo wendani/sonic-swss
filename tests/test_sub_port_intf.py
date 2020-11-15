@@ -314,14 +314,14 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
-    def _test_sub_port_intf_admin_status_change(self, dvs, sub_port_intf_name):
+    def _test_sub_port_intf_admin_status_change(self, dvs, sub_port_intf_name, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
 
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
-        self.create_sub_port_intf_profile(sub_port_intf_name)
+        self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
@@ -329,6 +329,8 @@ class TestSubPortIntf(object):
         fv_dict = {
             ADMIN_STATUS: "up",
         }
+        if vrf_name:
+            fv_dict[VRF_NAME] = vrf_name
         self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME, sub_port_intf_name, fv_dict)
 
         fv_dict = {
