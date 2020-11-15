@@ -55,6 +55,8 @@ class TestSubPortIntf(object):
         self.state_db = dvs.get_state_db()
         dvs.setup_db()
 
+        self.default_vrf_oid = self.get_default_vrf_oid()
+
     def get_parent_port_index(self, port_name):
         if port_name.startswith(ETHERNET_PREFIX):
             idx = int(port_name[len(ETHERNET_PREFIX):])
@@ -200,7 +202,7 @@ class TestSubPortIntf(object):
             assert parent_port.startswith(LAG_PREFIX)
             state_tbl_name = STATE_LAG_TABLE_NAME
 
-        default_vrf_oid = self.get_default_vrf_oid()
+        vrf_oid = self.default_vrf_oid
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
@@ -233,7 +235,7 @@ class TestSubPortIntf(object):
             "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE": "true",
             "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE": "true",
             "SAI_ROUTER_INTERFACE_ATTR_MTU": DEFAULT_MTU,
-            "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID": default_vrf_oid,
+            "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID": vrf_oid,
         }
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
