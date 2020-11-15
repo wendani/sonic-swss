@@ -165,17 +165,23 @@ class TestSubPortIntf(object):
     def check_sub_port_intf_fvs(self, db, table_name, key, fv_dict):
         db.wait_for_field_match(table_name, key, fv_dict)
 
-    def check_sub_port_intf_route_entries(self):
-        expected_destinations = [self.IPV4_TOME_UNDER_TEST,
-                                 self.IPV4_SUBNET_UNDER_TEST,
-                                 self.IPV6_TOME_UNDER_TEST,
-                                 self.IPV6_SUBNET_UNDER_TEST]
+    def check_sub_port_intf_route_entries(self, vrf_oid=None):
+        expected_dests = [self.IPV4_TOME_UNDER_TEST,
+                          self.IPV4_SUBNET_UNDER_TEST,
+                          self.IPV6_TOME_UNDER_TEST,
+                          self.IPV6_SUBNET_UNDER_TEST]
+        if vrf_oid is None:
+            vrf_oid = self.default_vrf_oid
+        expected_vrf_oids = [vrf_oid,
+                             vrf_oid,
+                             vrf_oid,
+                             vrf_oid]
 
         def _access_function():
             raw_route_entries = self.asic_db.get_keys(ASIC_ROUTE_ENTRY_TABLE)
-            route_destinations = [str(json.loads(raw_route_entry)["dest"])
-                                  for raw_route_entry in raw_route_entries]
-            return (all(dest in route_destinations for dest in expected_destinations), None)
+            route_dest_vrf_oids = [(json.loads(raw_route_entry)["dest"], json.loads(raw_route_entry)["vr"])
+                                        for raw_route_entry in raw_route_entries]
+            return (all((dest, vrf_oid) in route_dest_vrf_oids for dest, vrf_oid in zip(expected_dests, expected_vrf_oids), None)
 
         wait_for_result(_access_function, DVSDatabase.DEFAULT_POLLING_CONFIG)
 
@@ -250,14 +256,15 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_creation(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_creation(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
-    def _test_sub_port_intf_add_ip_addrs(self, dvs, sub_port_intf_name):
+    def _test_sub_port_intf_add_ip_addrs(self, dvs, sub_port_intf_name, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
 
+        vrf_oid = self.default_vrf_oid
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
-        self.create_sub_port_intf_profile(sub_port_intf_name)
+        self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
@@ -288,7 +295,7 @@ class TestSubPortIntf(object):
         # Verify that an IPv4 subnet route entry is created in ASIC_DB
         # Verify that an IPv6 ip2me route entry is created in ASIC_DB
         # Verify that an IPv6 subnet route entry is created in ASIC_DB
-        self.check_sub_port_intf_route_entries()
+        self.check_sub_port_intf_route_entries(vrf_oid)
 
         # Remove IP addresses
         self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
