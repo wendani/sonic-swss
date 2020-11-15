@@ -4107,7 +4107,7 @@ void PortsOrch::updatePortOperStatus(Port &port, sai_port_oper_status_t status)
             oper_status_strings.at(status).c_str());
     if (status == port.m_oper_status)
     {
-        return ;
+        return;
     }
 
     if (port.m_type == Port::PHY)
