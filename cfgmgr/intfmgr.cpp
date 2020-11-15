@@ -442,38 +442,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
             }
         }
 
-        if (!vrf_name.empty())
-        {
-            setIntfVrf(alias, vrf_name);
-        }
-
-        /*Set the mac of interface*/
-        if (!mac.empty())
-        {
-            setIntfMac(alias, mac);
-        }
-        else
-        {
-            FieldValueTuple fvTuple("mac_addr", MacAddress().to_string());
-            data.push_back(fvTuple);
-        }
-
-        if (!proxy_arp.empty())
-        {
-            if (!setIntfProxyArp(alias, proxy_arp))
-            {
-                SWSS_LOG_ERROR("Failed to set proxy ARP to \"%s\" state for the \"%s\" interface", proxy_arp.c_str(), alias.c_str());
-                return false;
-            }
-
-            if (!alias.compare(0, strlen(VLAN_PREFIX), VLAN_PREFIX))
-            {
-                FieldValueTuple fvTuple("proxy_arp", proxy_arp);
-                data.push_back(fvTuple);
-            }
-        }
-
-        if (!subIntfAlias.empty())
+        if (!parentAlias.empty())
         {
             if (m_subIntfList.find(alias) == m_subIntfList.end())
             {
@@ -523,7 +492,41 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
                 SWSS_LOG_NOTICE("Sub interface ip link set admin status %s failure. Runtime error: %s", adminStatus.c_str(), e.what());
                 return false;
             }
+        }
 
+        if (!vrf_name.empty())
+        {
+            setIntfVrf(alias, vrf_name);
+        }
+
+        /*Set the mac of interface*/
+        if (!mac.empty())
+        {
+            setIntfMac(alias, mac);
+        }
+        else
+        {
+            FieldValueTuple fvTuple("mac_addr", MacAddress().to_string());
+            data.push_back(fvTuple);
+        }
+
+        if (!proxy_arp.empty())
+        {
+            if (!setIntfProxyArp(alias, proxy_arp))
+            {
+                SWSS_LOG_ERROR("Failed to set proxy ARP to \"%s\" state for the \"%s\" interface", proxy_arp.c_str(), alias.c_str());
+                return false;
+            }
+
+            if (!alias.compare(0, strlen(VLAN_PREFIX), VLAN_PREFIX))
+            {
+                FieldValueTuple fvTuple("proxy_arp", proxy_arp);
+                data.push_back(fvTuple);
+            }
+        }
+
+        if (!parentAlias.empty())
+        {
             // set STATE_DB port state
             setSubIntfStateOk(alias);
         }
