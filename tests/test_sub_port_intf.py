@@ -25,8 +25,10 @@ ASIC_ROUTE_ENTRY_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY"
 ASIC_NEXT_HOP_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP"
 ASIC_NEXT_HOP_GROUP_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP"
 ASIC_NEXT_HOP_GROUP_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER"
+ASIC_VIRTUAL_ROUTER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER"
 
 ADMIN_STATUS = "admin_status"
+VRF_NAME = "vrf_name"
 
 ETHERNET_PREFIX = "Ethernet"
 LAG_PREFIX = "PortChannel"
@@ -87,8 +89,10 @@ class TestSubPortIntf(object):
         else:
             self.set_parent_port_oper_status(dvs, port_name, "up")
 
-    def create_sub_port_intf_profile(self, sub_port_intf_name):
+    def create_sub_port_intf_profile(self, sub_port_intf_name, vrf_name=""):
         fvs = {ADMIN_STATUS: "up"}
+        if vrf_name:
+            fvs[VRF_NAME] = vrf_name
 
         self.config_db.create_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, sub_port_intf_name, fvs)
 
@@ -124,6 +128,11 @@ class TestSubPortIntf(object):
         new_oids = self.asic_db.wait_for_n_keys(table, len(old_oids) + 1)
         oid = [ids for ids in new_oids if ids not in old_oids]
         return oid[0]
+
+    def get_default_vrf_oid(self):
+        oids = self.get_oids(ASIC_VIRTUAL_ROUTER_TABLE)
+        assert len(oids) == 1, "Wrong # of default vrfs: %d, expected #: 1." % (len(oids))
+        return oids[0]
 
     def get_ip_prefix_nhg_oid(self, ip_prefix):
         def _access_function():
@@ -181,7 +190,7 @@ class TestSubPortIntf(object):
 
         wait_for_result(_access_function, DVSDatabase.DEFAULT_POLLING_CONFIG)
 
-    def _test_sub_port_intf_creation(self, dvs, sub_port_intf_name):
+    def _test_sub_port_intf_creation(self, dvs, sub_port_intf_name, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
         vlan_id = substrs[1]
@@ -191,10 +200,11 @@ class TestSubPortIntf(object):
             assert parent_port.startswith(LAG_PREFIX)
             state_tbl_name = STATE_LAG_TABLE_NAME
 
+        default_vrf_oid = self.get_default_vrf_oid()
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
-        self.create_sub_port_intf_profile(sub_port_intf_name)
+        self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         # Verify that sub port interface state ok is pushed to STATE_DB by Intfmgrd
         fv_dict = {
@@ -202,10 +212,18 @@ class TestSubPortIntf(object):
         }
         self.check_sub_port_intf_fvs(self.state_db, state_tbl_name, sub_port_intf_name, fv_dict)
 
+        # Verify vrf name sub port interface bound to in STATE_DB INTERFACE_TABLE
+        fv_dict = {
+            "vrf": vrf_name,
+        }
+        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, sub_port_intf_name, fv_dict)
+
         # Verify that sub port interface configuration is synced to APPL_DB INTF_TABLE by Intfmgrd
         fv_dict = {
             ADMIN_STATUS: "up",
         }
+        if vrf_name:
+            fv_dict[VRF_NAME] = vrf_name
         self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME, sub_port_intf_name, fv_dict)
 
         # Verify that a sub port router interface entry is created in ASIC_DB
@@ -215,6 +233,7 @@ class TestSubPortIntf(object):
             "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE": "true",
             "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE": "true",
             "SAI_ROUTER_INTERFACE_ATTR_MTU": DEFAULT_MTU,
+            "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID": default_vrf_oid,
         }
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
