@@ -615,9 +615,13 @@ class TestSubPortIntf(object):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
 
+        vrf_oid = self.default_vrf_oid
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
+        if vrf_name:
+            self.create_vrf(vrf_name)
+            vrf_oid = self.get_newly_created_oid(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
         self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
@@ -629,6 +633,7 @@ class TestSubPortIntf(object):
         # Verify that sub port router interface entry in ASIC_DB has the updated mtu
         fv_dict = {
             "SAI_ROUTER_INTERFACE_ATTR_MTU": mtu,
+            "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID": vrf_oid,
         }
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
 
@@ -638,12 +643,17 @@ class TestSubPortIntf(object):
         # Verify that sub port router interface entry in ASIC_DB has the default mtu
         fv_dict = {
             "SAI_ROUTER_INTERFACE_ATTR_MTU": DEFAULT_MTU,
+            "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID": vrf_oid,
         }
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
 
         # Remove a sub port interface
         self.remove_sub_port_intf_profile(sub_port_intf_name)
         self.check_sub_port_intf_profile_removal(rif_oid)
+
+        # Remove vrf if created
+        if vrf_name:
+            self.remove_vrf(vrf_name)
 
     def test_sub_port_intf_mtu(self, dvs):
         self.connect_dbs(dvs)
@@ -981,6 +991,9 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_removal(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
         self._test_sub_port_intf_removal(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+
+        self._test_sub_port_intf_mtu(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_mtu(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
 
 
 # Add Dummy always-pass test at end as workaroud
