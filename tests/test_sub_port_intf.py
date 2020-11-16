@@ -206,14 +206,20 @@ class TestSubPortIntf(object):
         assert vrf_name in out
 
     def check_sub_port_intf_vrf_nobind_kernel(self, dvs, port_name, vrf_name=None):
-        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep master".format(port_name)])
-        assert ec == 1
-        assert "master" not in out
-
         if vrf_name is not None:
             (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
             assert ec == 1
             assert vrf_name not in out
+
+        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep master".format(port_name)])
+        assert ec == 1
+        assert "master" not in out
+
+    def check_sub_port_intf_removal_kernel(self, dvs, port_name):
+        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {}".format(port_name)])
+        assert ec == 1
+        assert port_name in out
+        assert "does not exist" in out
 
     def check_sub_port_intf_key_removal(self, db, table_name, key):
         db.wait_for_deleted_keys(table_name, [key])
@@ -536,6 +542,8 @@ class TestSubPortIntf(object):
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
+        if vrf_name:
+            self.create_vrf(vrf_name)
         self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
@@ -547,6 +555,10 @@ class TestSubPortIntf(object):
             "state": "ok",
         }
         self.check_sub_port_intf_fvs(self.state_db, state_tbl_name, sub_port_intf_name, fv_dict)
+
+        if vrf_name:
+            self.check_sub_port_intf_vrf_bind_kernel(dvs, sub_port_intf_name, vrf_name)
+            self.check_sub_port_intf_vrf_nobind_kernel(dvs, parent_port, vrf_name)
 
         fv_dict = {
             "vrf": vrf_name,
@@ -574,6 +586,12 @@ class TestSubPortIntf(object):
         # Verify that sub port interface state ok is removed from STATE_DB by Intfmgrd
         self.check_sub_port_intf_key_removal(self.state_db, state_tbl_name, sub_port_intf_name)
 
+        # Verify sub port interface not exist in linux kernel
+        self.check_sub_port_intf_removal_kernel(dvs, sub_port_intf_name)
+        # If bound to non-default vrf, verify parent port not bound to vrf
+        if vrf_name:
+            self.check_sub_port_intf_vrf_nobind_kernel(dvs, parent_port, vrf_name)
+
         # Verify vrf name sub port interface bound to is removed from STATE_DB INTERFACE_TABLE
         self.check_sub_port_intf_key_removal(self.state_db, STATE_INTERFACE_TABLE_NAME, sub_port_intf_name)
 
@@ -582,6 +600,10 @@ class TestSubPortIntf(object):
 
         # Verify that sub port router interface entry is removed from ASIC_DB
         self.check_sub_port_intf_key_removal(self.asic_db, ASIC_RIF_TABLE, rif_oid)
+
+        # Remove vrf if created
+        if vrf_name:
+            self.remove_vrf(vrf_name)
 
     def test_sub_port_intf_removal(self, dvs):
         self.connect_dbs(dvs)
@@ -956,6 +978,9 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_remove_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
         self._test_sub_port_intf_remove_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+
+        self._test_sub_port_intf_removal(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_removal(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
 
 
 # Add Dummy always-pass test at end as workaroud
