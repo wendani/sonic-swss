@@ -10,6 +10,7 @@ DEFAULT_MTU = "9100"
 CFG_VLAN_SUB_INTF_TABLE_NAME = "VLAN_SUB_INTERFACE"
 CFG_PORT_TABLE_NAME = "PORT"
 CFG_LAG_TABLE_NAME = "PORTCHANNEL"
+CFG_VRF_TABLE_NAME = "VRF"
 
 STATE_PORT_TABLE_NAME = "PORT_TABLE"
 STATE_LAG_TABLE_NAME = "LAG_TABLE"
@@ -47,6 +48,8 @@ class TestSubPortIntf(object):
     IPV6_ADDR_UNDER_TEST = "fc00::41/126"
     IPV6_TOME_UNDER_TEST = "fc00::41/128"
     IPV6_SUBNET_UNDER_TEST = "fc00::40/126"
+
+    VRF_UNDER_TEST = "Vrf0"
 
     def connect_dbs(self, dvs):
         self.app_db = dvs.get_app_db()
@@ -91,6 +94,12 @@ class TestSubPortIntf(object):
         else:
             self.set_parent_port_oper_status(dvs, port_name, "up")
 
+    def create_vrf(self, vrf_name):
+        tbl = swsscommon.Table(self.config_db, CFG_VRF_TABLE_NAME)
+        tbl.set(vrf_name, [("NULL", "NULL")])
+
+        time.sleep(1)
+
     def create_sub_port_intf_profile(self, sub_port_intf_name, vrf_name=""):
         fvs = {ADMIN_STATUS: "up"}
         if vrf_name:
@@ -108,6 +117,12 @@ class TestSubPortIntf(object):
         fvs = {ADMIN_STATUS: status}
 
         self.config_db.create_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, sub_port_intf_name, fvs)
+
+    def remove_vrf(self, vrf_name):
+        tbl = swsscommon.Table(self.config_db, CFG_VRF_TABLE_NAME)
+        tbl._del(vrf_name)
+
+        time.sleep(1)
 
     def remove_sub_port_intf_profile(self, sub_port_intf_name):
         self.config_db.delete_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, sub_port_intf_name)
@@ -185,6 +200,21 @@ class TestSubPortIntf(object):
 
         wait_for_result(_access_function, DVSDatabase.DEFAULT_POLLING_CONFIG)
 
+    def check_sub_port_intf_vrf_bind_kernel(self, dvs, port_name, vrf_name):
+        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
+        assert ec == 0
+        assert vrf_name in out
+
+    def check_sub_port_intf_vrf_nobind_kernel(self, dvs, port_name, vrf_name=None):
+        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep master".format(port_name)])
+        assert ec == 1
+        assert "master" not in out
+
+        if vrf_name is not None:
+            (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
+            assert ec == 1
+            assert vrf_name not in out
+
     def check_sub_port_intf_key_removal(self, db, table_name, key):
         db.wait_for_deleted_keys(table_name, [key])
 
@@ -212,6 +242,9 @@ class TestSubPortIntf(object):
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
+        if vrf_name:
+            self.create_vrf(vrf_name)
+            vrf_oid = self.get_newly_created_oid(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
         self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         # Verify that sub port interface state ok is pushed to STATE_DB by Intfmgrd
@@ -219,6 +252,12 @@ class TestSubPortIntf(object):
             "state": "ok",
         }
         self.check_sub_port_intf_fvs(self.state_db, state_tbl_name, sub_port_intf_name, fv_dict)
+
+        # If bound to non-default vrf, verify sub port interface vrf binding in linux kernel,
+        # and parent port not bound to vrf
+        if vrf_name:
+            self.check_sub_port_intf_vrf_bind_kernel(dvs, sub_port_intf_name, vrf_name)
+            self.check_sub_port_intf_vrf_nobind_kernel(dvs, parent_port, vrf_name)
 
         # Verify vrf name sub port interface bound to in STATE_DB INTERFACE_TABLE
         fv_dict = {
@@ -249,6 +288,10 @@ class TestSubPortIntf(object):
         # Remove a sub port interface
         self.remove_sub_port_intf_profile(sub_port_intf_name)
         self.check_sub_port_intf_profile_removal(rif_oid)
+
+        # Remove vrf if created
+        if vrf_name:
+            self.remove_vrf(vrf_name)
 
     def test_sub_port_intf_creation(self, dvs):
         self.connect_dbs(dvs)
@@ -870,6 +913,12 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, create_intf_on_parent_port=True)
         self._test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, create_intf_on_parent_port=True)
+
+    def test_sub_port_intf_nondeflt_vrf_bind(self, dvs):
+        self.connect_dbs(dvs)
+
+        self._test_sub_port_intf_creation(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_creation(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
 
 
 # Add Dummy always-pass test at end as workaroud
