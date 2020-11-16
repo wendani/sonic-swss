@@ -309,6 +309,9 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_creation(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_creation(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
+        self._test_sub_port_intf_creation(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_creation(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+
     def _test_sub_port_intf_add_ip_addrs(self, dvs, sub_port_intf_name, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
@@ -331,21 +334,21 @@ class TestSubPortIntf(object):
         fv_dict = {
             "state": "ok",
         }
-        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, \
-                sub_port_intf_name + "|" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
-        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, \
-                sub_port_intf_name + "|" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
+        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME,
+                                     sub_port_intf_name + "|" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
+        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME,
+                                     sub_port_intf_name + "|" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
 
         # Verify that ip address configuration is synced to APPL_DB INTF_TABLE by Intfmgrd
         fv_dict = {
             "scope": "global",
             "family": "IPv4",
         }
-        self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME, \
-                sub_port_intf_name + ":" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
+        self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME,
+                                     sub_port_intf_name + ":" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
         fv_dict["family"] = "IPv6"
-        self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME, \
-                sub_port_intf_name + ":" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
+        self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME,
+                                     sub_port_intf_name + ":" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
 
         # Verify that an IPv4 ip2me route entry is created in ASIC_DB
         # Verify that an IPv4 subnet route entry is created in ASIC_DB
@@ -373,6 +376,9 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
+
+        self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
 
     def _test_sub_port_intf_admin_status_change(self, dvs, sub_port_intf_name, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
@@ -469,6 +475,9 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_admin_status_change(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_admin_status_change(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
+        self._test_sub_port_intf_admin_status_change(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_admin_status_change(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+
     def _test_sub_port_intf_remove_ip_addrs(self, dvs, sub_port_intf_name, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
@@ -489,12 +498,12 @@ class TestSubPortIntf(object):
         self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
 
         # Verify that IPv4 address state ok is removed from STATE_DB INTERFACE_TABLE by Intfmgrd
-        self.check_sub_port_intf_key_removal(self.state_db, STATE_INTERFACE_TABLE_NAME, \
-                sub_port_intf_name + "|" + self.IPV4_ADDR_UNDER_TEST)
+        self.check_sub_port_intf_key_removal(self.state_db, STATE_INTERFACE_TABLE_NAME,
+                                             sub_port_intf_name + "|" + self.IPV4_ADDR_UNDER_TEST)
 
         # Verify that IPv4 address configuration is removed from APPL_DB INTF_TABLE by Intfmgrd
-        self.check_sub_port_intf_key_removal(self.app_db, APP_INTF_TABLE_NAME, \
-                sub_port_intf_name + ":" + self.IPV4_ADDR_UNDER_TEST)
+        self.check_sub_port_intf_key_removal(self.app_db, APP_INTF_TABLE_NAME,
+                                             sub_port_intf_name + ":" + self.IPV4_ADDR_UNDER_TEST)
 
         # Verify that IPv4 subnet route entry is removed from ASIC_DB
         # Verify that IPv4 ip2me route entry is removed from ASIC_DB
@@ -505,12 +514,12 @@ class TestSubPortIntf(object):
         self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
 
         # Verify that IPv6 address state ok is removed from STATE_DB INTERFACE_TABLE by Intfmgrd
-        self.check_sub_port_intf_key_removal(self.state_db, STATE_INTERFACE_TABLE_NAME, \
-                sub_port_intf_name + "|" + self.IPV6_ADDR_UNDER_TEST)
+        self.check_sub_port_intf_key_removal(self.state_db, STATE_INTERFACE_TABLE_NAME,
+                                             sub_port_intf_name + "|" + self.IPV6_ADDR_UNDER_TEST)
 
         # Verify that IPv6 address configuration is removed from APPL_DB INTF_TABLE by Intfmgrd
-        self.check_sub_port_intf_key_removal(self.app_db, APP_INTF_TABLE_NAME, \
-                sub_port_intf_name + ":" + self.IPV6_ADDR_UNDER_TEST)
+        self.check_sub_port_intf_key_removal(self.app_db, APP_INTF_TABLE_NAME,
+                                             sub_port_intf_name + ":" + self.IPV6_ADDR_UNDER_TEST)
 
         # Verify that IPv6 subnet route entry is removed from ASIC_DB
         # Verify that IPv6 ip2me route entry is removed from ASIC_DB
@@ -533,6 +542,9 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_remove_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_remove_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
+
+        self._test_sub_port_intf_remove_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_remove_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
 
     def _test_sub_port_intf_removal(self, dvs, sub_port_intf_name, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
@@ -615,6 +627,9 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_removal(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_removal(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
+        self._test_sub_port_intf_removal(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_removal(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+
     def _test_sub_port_intf_mtu(self, dvs, sub_port_intf_name, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
@@ -664,6 +679,9 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_mtu(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_mtu(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
+
+        self._test_sub_port_intf_mtu(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_mtu(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
 
     def create_nhg_router_intfs(self, dvs, parent_port_prefix, parent_port_idx_base, vlan_id, nhop_num, vrf_name=""):
         ifnames = []
@@ -881,7 +899,15 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_nhg_accel(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_nhg_accel(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, create_intf_on_parent_port=True)
 
-    def _test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(self, dvs, sub_port_intf_name, nhop_num=3, create_intf_on_parent_port=False):
+        self._test_sub_port_intf_nhg_accel(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, vrf_name=self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_nhg_accel(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST,
+                                           create_intf_on_parent_port=True, vrf_name=self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_nhg_accel(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, vrf_name=self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_nhg_accel(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST,
+                                           create_intf_on_parent_port=True, vrf_name=self.VRF_UNDER_TEST)
+
+    def _test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(self, dvs, sub_port_intf_name, nhop_num=3,
+                                                                     create_intf_on_parent_port=False, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
         vlan_id = substrs[1]
@@ -1002,29 +1028,6 @@ class TestSubPortIntf(object):
 
     def test_sub_port_intf_non_default_vrf_bind(self, dvs):
         self.connect_dbs(dvs)
-
-        self._test_sub_port_intf_creation(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
-        self._test_sub_port_intf_creation(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
-
-        self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
-        self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
-
-        self._test_sub_port_intf_admin_status_change(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
-        self._test_sub_port_intf_admin_status_change(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
-
-        self._test_sub_port_intf_remove_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
-        self._test_sub_port_intf_remove_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
-
-        self._test_sub_port_intf_removal(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
-        self._test_sub_port_intf_removal(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
-
-        self._test_sub_port_intf_mtu(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
-        self._test_sub_port_intf_mtu(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
-
-        self._test_sub_port_intf_nhg_accel(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, vrf_name=self.VRF_UNDER_TEST)
-        self._test_sub_port_intf_nhg_accel(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, create_intf_on_parent_port=True, vrf_name=self.VRF_UNDER_TEST)
-        self._test_sub_port_intf_nhg_accel(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, vrf_name=self.VRF_UNDER_TEST)
-        self._test_sub_port_intf_nhg_accel(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, create_intf_on_parent_port=True, vrf_name=self.VRF_UNDER_TEST)
 
 
 # Add Dummy always-pass test at end as workaroud
