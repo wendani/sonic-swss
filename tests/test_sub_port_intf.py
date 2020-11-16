@@ -368,9 +368,13 @@ class TestSubPortIntf(object):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
 
+        vrf_oid = self.default_vrf_oid
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
+        if vrf_name:
+            self.create_vrf(vrf_name)
+            vrf_oid = self.get_newly_created_oid(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
         self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
@@ -387,6 +391,7 @@ class TestSubPortIntf(object):
             "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE": "true",
             "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE": "true",
             "SAI_ROUTER_INTERFACE_ATTR_MTU": DEFAULT_MTU,
+            "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID": vrf_oid,
         }
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
@@ -398,6 +403,8 @@ class TestSubPortIntf(object):
         fv_dict = {
             ADMIN_STATUS: "down",
         }
+        if vrf_name:
+            fv_dict[VRF_NAME] = vrf_name
         self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME, sub_port_intf_name, fv_dict)
 
         # Verify that sub port router interface entry in ASIC_DB has the updated admin status
@@ -405,6 +412,7 @@ class TestSubPortIntf(object):
             "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE": "false",
             "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE": "false",
             "SAI_ROUTER_INTERFACE_ATTR_MTU": DEFAULT_MTU,
+            "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID": vrf_oid,
         }
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
@@ -416,6 +424,8 @@ class TestSubPortIntf(object):
         fv_dict = {
             ADMIN_STATUS: "up",
         }
+        if vrf_name:
+            fv_dict[VRF_NAME] = vrf_name
         self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME, sub_port_intf_name, fv_dict)
 
         # Verify that sub port router interface entry in ASIC_DB has the updated admin status
@@ -423,6 +433,7 @@ class TestSubPortIntf(object):
             "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE": "true",
             "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE": "true",
             "SAI_ROUTER_INTERFACE_ATTR_MTU": DEFAULT_MTU,
+            "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID": vrf_oid,
         }
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
@@ -437,6 +448,10 @@ class TestSubPortIntf(object):
         # Remove a sub port interface
         self.remove_sub_port_intf_profile(sub_port_intf_name)
         self.check_sub_port_intf_profile_removal(rif_oid)
+
+        # Remove vrf if created
+        if vrf_name:
+            self.remove_vrf(vrf_name)
 
     def test_sub_port_intf_admin_status_change(self, dvs):
         self.connect_dbs(dvs)
@@ -929,6 +944,9 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
         self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+
+        self._test_sub_port_intf_admin_status_change(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_admin_status_change(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
 
 
 # Add Dummy always-pass test at end as workaroud
