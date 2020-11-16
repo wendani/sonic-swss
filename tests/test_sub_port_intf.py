@@ -35,6 +35,7 @@ ETHERNET_PREFIX = "Ethernet"
 LAG_PREFIX = "PortChannel"
 
 VLAN_SUB_INTERFACE_SEPARATOR = "."
+APPL_DB_SEPARATOR = ":"
 
 
 class TestSubPortIntf(object):
@@ -151,15 +152,18 @@ class TestSubPortIntf(object):
         assert len(oids) == 1, "Wrong # of default vrfs: %d, expected #: 1." % (len(oids))
         return oids[0]
 
-    def get_ip_prefix_nhg_oid(self, ip_prefix):
+    def get_ip_prefix_nhg_oid(self, ip_prefix, vrf_oid=None):
         def _access_function():
             route_entry_found = False
+            if vrf_oid is None:
+                vrf_oid = self.default_vrf_oid
 
             raw_route_entry_keys = self.asic_db.get_keys(ASIC_ROUTE_ENTRY_TABLE)
             for raw_route_entry_key in raw_route_entry_keys:
                 route_entry_key = json.loads(raw_route_entry_key)
                 if route_entry_key["dest"] == ip_prefix:
                     route_entry_found = True
+                    assert route_entry_key["vr"] == vrf_oid
                     break
 
             return (route_entry_found, raw_route_entry_key)
@@ -661,7 +665,7 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_mtu(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_mtu(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
-    def create_nhg_router_intfs(self, dvs, parent_port_prefix, parent_port_idx_base, vlan_id, nhop_num):
+    def create_nhg_router_intfs(self, dvs, parent_port_prefix, parent_port_idx_base, vlan_id, nhop_num, vrf_name=""):
         ifnames = []
         parent_port_idx = parent_port_idx_base
         for i in range(0, nhop_num):
@@ -671,10 +675,10 @@ class TestSubPortIntf(object):
                 port_name = "{}{}".format(parent_port_prefix, parent_port_idx)
             ip_addr = "10.{}.{}.0/31".format(parent_port_idx, vlan_id)
             if vlan_id != 0:
-                self.create_sub_port_intf_profile(port_name)
+                self.create_sub_port_intf_profile(port_name, vrf_name)
                 self.add_sub_port_intf_ip_addr(port_name, ip_addr)
             else:
-                dvs.add_ip_address(port_name, ip_addr)
+                dvs.add_ip_address(port_name, ip_addr, vrf_name)
 
             ifnames.append(port_name)
 
@@ -685,9 +689,13 @@ class TestSubPortIntf(object):
         nhop_ips = []
         parent_port_idx = parent_port_idx_base
         for i in range(0, nhop_num):
+            if vlan_id != 0:
+                port_name = "{}{}.{}".format(parent_port_prefix, parent_port_idx, vlan_id)
+            else:
+                port_name = "{}{}".format(parent_port_prefix, parent_port_idx)
             nhop_ip = "10.{}.{}.1".format(parent_port_idx, vlan_id)
             nhop_mac = "00:00:00:{:02d}:{}:01".format(parent_port_idx, vlan_id)
-            dvs.runcmd("arp -s " + nhop_ip + " " + nhop_mac)
+            dvs.runcmd("ip neigh add " + nhop_ip + " lladdr " + nhop_mac + " dev " + port_name)
 
             nhop_ips.append(nhop_ip)
 
@@ -715,12 +723,16 @@ class TestSubPortIntf(object):
     def remove_nhg_next_hop_objs(self, dvs, parent_port_prefix, parent_port_idx_base, vlan_id, nhop_num):
         parent_port_idx = parent_port_idx_base
         for i in range(0, nhop_num):
+            if vlan_id != 0:
+                port_name = "{}{}.{}".format(parent_port_prefix, parent_port_idx, vlan_id)
+            else:
+                port_name = "{}{}".format(parent_port_prefix, parent_port_idx)
             nhop_ip = "10.{}.{}.1".format(parent_port_idx, vlan_id)
-            dvs.runcmd("arp -d " + nhop_ip)
+            dvs.runcmd("ip neigh del " + nhop_ip + " dev " + port_name)
 
             parent_port_idx += (4 if parent_port_prefix == ETHERNET_PREFIX else 1)
 
-    def check_nhg_members_on_parent_port_oper_status_change(self, dvs, parent_port_prefix, parent_port_idx_base, status, \
+    def check_nhg_members_on_parent_port_oper_status_change(self, dvs, parent_port_prefix, parent_port_idx_base, status,
                                                             nhg_oid, nhop_num, create_intf_on_parent_port):
         parent_port_idx = parent_port_idx_base
         for i in range(0, nhop_num):
@@ -756,7 +768,7 @@ class TestSubPortIntf(object):
 
             parent_port_idx += (4 if parent_port_prefix == ETHERNET_PREFIX else 1)
 
-    def _test_sub_port_intf_nhg_accel(self, dvs, sub_port_intf_name, nhop_num=3, create_intf_on_parent_port=False):
+    def _test_sub_port_intf_nhg_accel(self, dvs, sub_port_intf_name, nhop_num=3, create_intf_on_parent_port=False, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
         vlan_id = substrs[1]
@@ -769,6 +781,8 @@ class TestSubPortIntf(object):
             parent_port_prefix = LAG_PREFIX
         parent_port_idx_base = self.get_parent_port_index(parent_port)
 
+        vrf_oid = self.default_vrf_oid
+
         # Set parent ports admin status up
         parent_port_idx = parent_port_idx_base
         for i in range(0, nhop_num):
@@ -777,13 +791,17 @@ class TestSubPortIntf(object):
 
             parent_port_idx += (4 if parent_port_prefix == ETHERNET_PREFIX else 1)
 
+        if vrf_name:
+            self.create_vrf(vrf_name)
+            vrf_oid = self.get_newly_created_oid(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
+
         ifnames = []
         # Create sub port interfaces
-        ifnames.extend(self.create_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, int(vlan_id), nhop_num))
+        ifnames.extend(self.create_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, int(vlan_id), nhop_num, vrf_name))
 
         # Create router interfaces on parent ports
         if create_intf_on_parent_port == True:
-            ifnames.extend(self.create_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, 0, nhop_num))
+            ifnames.extend(self.create_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, 0, nhop_num, vrf_name))
 
         nhop_ips = []
         nhop_cnt = len(self.asic_db.get_keys(ASIC_NEXT_HOP_TABLE))
@@ -800,10 +818,10 @@ class TestSubPortIntf(object):
         rt_tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, APP_ROUTE_TABLE_NAME)
         fvs = swsscommon.FieldValuePairs([("nexthop", ",".join(nhop_ips)), ("ifname", ",".join(ifnames))])
         ip_prefix = "2.2.2.0/24"
-        rt_tbl.set(ip_prefix, fvs)
+        rt_tbl.set(vrf_name + APPL_DB_SEPARATOR + ip_prefix if vrf_name else ip_prefix, fvs)
 
         # Verify route entry created in ASIC_DB and get next hop group oid
-        nhg_oid = self.get_ip_prefix_nhg_oid(ip_prefix)
+        nhg_oid = self.get_ip_prefix_nhg_oid(ip_prefix, vrf_oid)
 
         # Verify next hop group of the specified oid created in ASIC_DB
         self.check_sub_port_intf_key_existence(self.asic_db, ASIC_NEXT_HOP_GROUP_TABLE, nhg_oid)
@@ -820,11 +838,11 @@ class TestSubPortIntf(object):
             self.check_sub_port_intf_fvs(self.asic_db, ASIC_NEXT_HOP_GROUP_MEMBER_TABLE, nhg_member_oid, fv_dict)
 
         # Bring parent ports oper status down one at a time, and verify next hop group members
-        self.check_nhg_members_on_parent_port_oper_status_change(dvs, parent_port_prefix, parent_port_idx_base, "down", \
+        self.check_nhg_members_on_parent_port_oper_status_change(dvs, parent_port_prefix, parent_port_idx_base, "down",
                                                                  nhg_oid, nhop_num, create_intf_on_parent_port)
 
         # Bring parent ports oper status up one at a time, and verify next hop group members
-        self.check_nhg_members_on_parent_port_oper_status_change(dvs, parent_port_prefix, parent_port_idx_base, "up", \
+        self.check_nhg_members_on_parent_port_oper_status_change(dvs, parent_port_prefix, parent_port_idx_base, "up",
                                                                  nhg_oid, nhop_num, create_intf_on_parent_port)
 
         # Clean up
@@ -838,7 +856,11 @@ class TestSubPortIntf(object):
             self.remove_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, 0, nhop_num)
 
         # Remove ecmp route entry
-        rt_tbl._del(ip_prefix)
+        rt_tbl._del(vrf_name + APPL_DB_SEPARATOR + ip_prefix if vrf_name else ip_prefix)
+
+        # Remove vrf if created
+        if vrf_name:
+            self.remove_vrf(vrf_name)
 
         # Removal of router interfaces indicates the proper removal of nhg, nhg members, next hop objects, and neighbor entries
         self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt - nhop_num if create_intf_on_parent_port == False else rif_cnt - nhop_num * 2)
@@ -958,6 +980,10 @@ class TestSubPortIntf(object):
             self.remove_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, 0, nhop_num)
         self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt - nhop_num if create_intf_on_parent_port == False else rif_cnt - nhop_num * 2)
 
+        # Remove vrf if created
+        if vrf_name:
+            self.remove_vrf(vrf_name)
+
         # Make sure parent port oper status is up
         parent_port_idx = parent_port_idx_base
         for i in range(0, nhop_num):
@@ -994,6 +1020,11 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_mtu(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
         self._test_sub_port_intf_mtu(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+
+        self._test_sub_port_intf_nhg_accel(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, vrf_name=self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_nhg_accel(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, create_intf_on_parent_port=True, vrf_name=self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_nhg_accel(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, vrf_name=self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_nhg_accel(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, create_intf_on_parent_port=True, vrf_name=self.VRF_UNDER_TEST)
 
 
 # Add Dummy always-pass test at end as workaroud
