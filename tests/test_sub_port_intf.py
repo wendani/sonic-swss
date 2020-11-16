@@ -920,6 +920,8 @@ class TestSubPortIntf(object):
             parent_port_prefix = LAG_PREFIX
         parent_port_idx_base = self.get_parent_port_index(parent_port)
 
+        vrf_oid = self.default_vrf_oid
+
         # Set parent ports admin status up
         parent_port_idx = parent_port_idx_base
         for i in range(0, nhop_num):
@@ -928,12 +930,16 @@ class TestSubPortIntf(object):
 
             parent_port_idx += (4 if parent_port_prefix == ETHERNET_PREFIX else 1)
 
+        if vrf_name:
+            self.create_vrf(vrf_name)
+            vrf_oid = self.get_newly_created_oid(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
+
         ifnames = []
         # Create sub port interfaces
-        ifnames.extend(self.create_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, int(vlan_id), nhop_num))
+        ifnames.extend(self.create_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, int(vlan_id), nhop_num, vrf_name))
         # Create router interfaces on parent ports
         if create_intf_on_parent_port == True:
-            ifnames.extend(self.create_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, 0, nhop_num))
+            ifnames.extend(self.create_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, 0, nhop_num, vrf_name))
 
         # Bring parent port oper status down one at a time
         # Verify next hop group members created after processing pending tasks
@@ -965,10 +971,10 @@ class TestSubPortIntf(object):
             rt_tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, APP_ROUTE_TABLE_NAME)
             fvs = swsscommon.FieldValuePairs([("nexthop", ",".join(nhop_ips)), ("ifname", ",".join(ifnames))])
             ip_prefix = "2.2.2.0/24"
-            rt_tbl.set(ip_prefix, fvs)
+            rt_tbl.set(vrf_name + APPL_DB_SEPARATOR + ip_prefix if vrf_name else ip_prefix, fvs)
 
             # Verify route entry created in ASIC_DB and get next hop group oid
-            nhg_oid = self.get_ip_prefix_nhg_oid(ip_prefix)
+            nhg_oid = self.get_ip_prefix_nhg_oid(ip_prefix, vrf_oid)
 
             # Verify next hop group of the specified oid created in ASIC_DB
             self.check_sub_port_intf_key_existence(self.asic_db, ASIC_NEXT_HOP_GROUP_TABLE, nhg_oid)
@@ -991,7 +997,7 @@ class TestSubPortIntf(object):
             if create_intf_on_parent_port == True:
                 self.remove_nhg_next_hop_objs(dvs, parent_port_prefix, parent_port_idx_base, 0, nhop_num)
             # Remove ecmp route entry
-            rt_tbl._del(ip_prefix)
+            rt_tbl._del(vrf_name + APPL_DB_SEPARATOR + ip_prefix if vrf_name else ip_prefix)
             # Removal of next hop objects indicates the proper removal of route entry, nhg, and nhg members
             self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_TABLE, nhop_cnt - nhop_num if create_intf_on_parent_port == False else nhop_cnt - nhop_num * 2)
 
@@ -1026,8 +1032,12 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, create_intf_on_parent_port=True)
 
-    def test_sub_port_intf_non_default_vrf_bind(self, dvs):
-        self.connect_dbs(dvs)
+        self._test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, vrf_name=self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST,
+                                                                          create_intf_on_parent_port=True, vrf_name=self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, vrf_name=self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST,
+                                                                          create_intf_on_parent_port=True, vrf_name=self.VRF_UNDER_TEST)
 
 
 # Add Dummy always-pass test at end as workaroud
