@@ -307,6 +307,9 @@ class TestSubPortIntf(object):
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
+        if vrf_name:
+            self.create_vrf(vrf_name)
+            vrf_oid = self.get_newly_created_oid(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
         self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
@@ -350,6 +353,10 @@ class TestSubPortIntf(object):
         # Remove a sub port interface
         self.remove_sub_port_intf_profile(sub_port_intf_name)
         self.check_sub_port_intf_profile_removal(rif_oid)
+
+        # Remove vrf if created
+        if vrf_name:
+            self.remove_vrf(vrf_name)
 
     def test_sub_port_intf_add_ip_addrs(self, dvs):
         self.connect_dbs(dvs)
@@ -914,11 +921,14 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, create_intf_on_parent_port=True)
 
-    def test_sub_port_intf_nondeflt_vrf_bind(self, dvs):
+    def test_sub_port_intf_non_default_vrf_bind(self, dvs):
         self.connect_dbs(dvs)
 
         self._test_sub_port_intf_creation(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
         self._test_sub_port_intf_creation(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+
+        self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
 
 
 # Add Dummy always-pass test at end as workaroud
