@@ -9,6 +9,8 @@ import random
 import string
 import subprocess
 import sys
+import tarfile
+import io
 
 from typing import Dict, Tuple
 from datetime import datetime
@@ -90,7 +92,7 @@ class AsicDbValidator(DVSDatabase):
             if len(self.get_keys("ASIC_STATE:SAI_OBJECT_TYPE_VLAN")) != 1:
                 return (False, None)
 
-            if len(self.get_keys("ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF")) != NUM_PORTS:
+            if len(self.get_keys("ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF")) < NUM_PORTS:
                 return (False, None)
 
             if len(self.get_keys("ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY")) != 0:
@@ -196,6 +198,10 @@ class VirtualServer:
             return e.returncode
 
         return 0
+
+    # used in buildimage tests, do not delete
+    def runcmd_async(self, cmd: str) -> subprocess.Popen:
+        return subprocess.Popen(f"ip netns exec {self.nsname} {cmd}", shell=True)
 
     def runcmd_output(self, cmd: str) -> str:
         return subprocess.check_output(f"ip netns exec {self.nsname} {cmd}", shell=True).decode("utf-8")
@@ -531,6 +537,17 @@ class DockerVirtualSwitch:
             print("-----")
 
         return (exitcode, out)
+
+    # used in buildimage tests, do not delete
+    def copy_file(self, path: str, filename: str) -> None:
+        tarstr = io.BytesIO()
+        tar = tarfile.open(fileobj=tarstr, mode="w")
+        tar.add(filename, os.path.basename(filename))
+        tar.close()
+
+        self.ctn.exec_run(f"mkdir -p {path}")
+        self.ctn.put_archive(path, tarstr.getvalue())
+        tarstr.close()
 
     def get_logs(self) -> None:
         log_dir = os.path.join("log", self.log_path) if self.log_path else "log"
