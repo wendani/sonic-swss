@@ -197,7 +197,7 @@ class TestSubPortIntf(object):
             raw_route_entries = self.asic_db.get_keys(ASIC_ROUTE_ENTRY_TABLE)
             route_dest_vrf_oids = [(json.loads(raw_route_entry)["dest"], json.loads(raw_route_entry)["vr"])
                                         for raw_route_entry in raw_route_entries]
-            return (all((dest, vrf_oid) in route_dest_vrf_oids for dest, vrf_oid in zip(expected_dests, expected_vrf_oids), None)
+            return (all((dest, vrf_oid) in route_dest_vrf_oids for dest, vrf_oid in zip(expected_dests, expected_vrf_oids)), None)
 
         wait_for_result(_access_function, DVSDatabase.DEFAULT_POLLING_CONFIG)
 
