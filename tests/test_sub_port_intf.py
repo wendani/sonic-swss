@@ -117,10 +117,10 @@ class TestSubPortIntf(object):
         self.config_db.create_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, sub_port_intf_name, fvs)
 
     def remove_vrf(self, vrf_name):
-        tbl = swsscommon.Table(self.config_db, CFG_VRF_TABLE_NAME)
-        tbl._del(vrf_name)
+        self.config_db.delete_entry(CFG_VRF_TABLE_NAME, vrf)
 
-        time.sleep(1)
+    def check_vrf_removal(self, vrf_oid):
+        self.asic_db.wait_for_deleted_keys(ASIC_VRF_TABLE, [vrf_oid])
 
     def remove_sub_port_intf_profile(self, sub_port_intf_name):
         self.config_db.delete_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, sub_port_intf_name)
