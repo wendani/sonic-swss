@@ -299,6 +299,7 @@ class TestSubPortIntf(object):
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
+            self.check_vrf_removal(vrf_oid)
 
     def test_sub_port_intf_creation(self, dvs):
         self.connect_dbs(dvs)
@@ -367,6 +368,7 @@ class TestSubPortIntf(object):
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
+            self.check_vrf_removal(vrf_oid)
 
     def test_sub_port_intf_add_ip_addrs(self, dvs):
         self.connect_dbs(dvs)
@@ -465,6 +467,7 @@ class TestSubPortIntf(object):
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
+            self.check_vrf_removal(vrf_oid)
 
     def test_sub_port_intf_admin_status_change(self, dvs):
         self.connect_dbs(dvs)
@@ -484,6 +487,7 @@ class TestSubPortIntf(object):
         self.set_parent_port_admin_status(dvs, parent_port, "up")
         if vrf_name:
             self.create_vrf(vrf_name)
+            self.asic_db.wait_for_n_keys(ASIC_VRF_TABLE, 2)
         self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
@@ -533,6 +537,7 @@ class TestSubPortIntf(object):
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
+            self.asic_db.wait_for_n_keys(ASIC_VRF_TABLE, 1)
 
     def test_sub_port_intf_remove_ip_addrs(self, dvs):
         self.connect_dbs(dvs)
@@ -557,6 +562,7 @@ class TestSubPortIntf(object):
         self.set_parent_port_admin_status(dvs, parent_port, "up")
         if vrf_name:
             self.create_vrf(vrf_name)
+            self.asic_db.wait_for_n_keys(ASIC_VRF_TABLE, 2)
         self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
@@ -617,6 +623,7 @@ class TestSubPortIntf(object):
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
+            self.asic_db.wait_for_n_keys(ASIC_VRF_TABLE, 1)
 
     def test_sub_port_intf_removal(self, dvs):
         self.connect_dbs(dvs)
@@ -670,6 +677,7 @@ class TestSubPortIntf(object):
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
+            self.check_vrf_removal(vrf_oid)
 
     def test_sub_port_intf_mtu(self, dvs):
         self.connect_dbs(dvs)
@@ -873,12 +881,13 @@ class TestSubPortIntf(object):
         # Remove ecmp route entry
         rt_tbl._del(vrf_name + APPL_DB_SEPARATOR + ip_prefix if vrf_name else ip_prefix)
 
+        # Removal of router interfaces indicates the proper removal of nhg, nhg members, next hop objects, and neighbor entries
+        self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt - nhop_num if create_intf_on_parent_port == False else rif_cnt - nhop_num * 2)
+
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
-
-        # Removal of router interfaces indicates the proper removal of nhg, nhg members, next hop objects, and neighbor entries
-        self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt - nhop_num if create_intf_on_parent_port == False else rif_cnt - nhop_num * 2)
+            self.check_vrf_removal(vrf_oid)
 
         # Make sure parent port is oper status up
         parent_port_idx = parent_port_idx_base
@@ -1012,6 +1021,7 @@ class TestSubPortIntf(object):
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
+            self.check_vrf_removal(vrf_oid)
 
         # Make sure parent port oper status is up
         parent_port_idx = parent_port_idx_base
