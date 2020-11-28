@@ -96,10 +96,7 @@ class TestSubPortIntf(object):
             self.set_parent_port_oper_status(dvs, port_name, "up")
 
     def create_vrf(self, vrf_name):
-        tbl = swsscommon.Table(self.config_db, CFG_VRF_TABLE_NAME)
-        tbl.set(vrf_name, [("NULL", "NULL")])
-
-        time.sleep(1)
+        self.config_db.create_entry(CFG_VRF_TABLE_NAME, vrf_name, {"NULL": "NULL"})
 
     def create_sub_port_intf_profile(self, sub_port_intf_name, vrf_name=""):
         fvs = {ADMIN_STATUS: "up"}
