@@ -117,10 +117,10 @@ class TestSubPortIntf(object):
         self.config_db.create_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, sub_port_intf_name, fvs)
 
     def remove_vrf(self, vrf_name):
-        self.config_db.delete_entry(CFG_VRF_TABLE_NAME, vrf)
+        self.config_db.delete_entry(CFG_VRF_TABLE_NAME, vrf_name)
 
     def check_vrf_removal(self, vrf_oid):
-        self.asic_db.wait_for_deleted_keys(ASIC_VRF_TABLE, [vrf_oid])
+        self.asic_db.wait_for_deleted_keys(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
 
     def remove_sub_port_intf_profile(self, sub_port_intf_name):
         self.config_db.delete_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, sub_port_intf_name)
@@ -487,7 +487,7 @@ class TestSubPortIntf(object):
         self.set_parent_port_admin_status(dvs, parent_port, "up")
         if vrf_name:
             self.create_vrf(vrf_name)
-            self.asic_db.wait_for_n_keys(ASIC_VRF_TABLE, 2)
+            self.asic_db.wait_for_n_keys(ASIC_VIRTUAL_ROUTER_TABLE, 2)
         self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
@@ -537,7 +537,7 @@ class TestSubPortIntf(object):
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
-            self.asic_db.wait_for_n_keys(ASIC_VRF_TABLE, 1)
+            self.asic_db.wait_for_n_keys(ASIC_VIRTUAL_ROUTER_TABLE, 1)
 
     def test_sub_port_intf_remove_ip_addrs(self, dvs):
         self.connect_dbs(dvs)
@@ -562,7 +562,7 @@ class TestSubPortIntf(object):
         self.set_parent_port_admin_status(dvs, parent_port, "up")
         if vrf_name:
             self.create_vrf(vrf_name)
-            self.asic_db.wait_for_n_keys(ASIC_VRF_TABLE, 2)
+            self.asic_db.wait_for_n_keys(ASIC_VIRTUAL_ROUTER_TABLE, 2)
         self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
@@ -623,7 +623,7 @@ class TestSubPortIntf(object):
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
-            self.asic_db.wait_for_n_keys(ASIC_VRF_TABLE, 1)
+            self.asic_db.wait_for_n_keys(ASIC_VIRTUAL_ROUTER_TABLE, 1)
 
     def test_sub_port_intf_removal(self, dvs):
         self.connect_dbs(dvs)
