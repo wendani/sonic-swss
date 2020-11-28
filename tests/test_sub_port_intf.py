@@ -169,7 +169,7 @@ class TestSubPortIntf(object):
 
         fvs = self.asic_db.get_entry(ASIC_ROUTE_ENTRY_TABLE, raw_route_entry_key)
 
-        nhg_oid = fvs.get( "SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID", "")
+        nhg_oid = fvs.get("SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID", "")
         assert nhg_oid != ""
         assert nhg_oid != "oid:0x0"
 
@@ -765,12 +765,12 @@ class TestSubPortIntf(object):
 
             # Verify next hop group member # in ASIC_DB
             if status == "up":
-                nhg_member_oids = self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_GROUP_MEMBER_TABLE, \
+                nhg_member_oids = self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_GROUP_MEMBER_TABLE,
                                                                1 + i if create_intf_on_parent_port == False else (1 + i) * 2)
             else:
                 assert status == "down"
-                nhg_member_oids = self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_GROUP_MEMBER_TABLE, \
-                                                               (nhop_num - 1) - i if create_intf_on_parent_port == False else \
+                nhg_member_oids = self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_GROUP_MEMBER_TABLE,
+                                                               (nhop_num - 1) - i if create_intf_on_parent_port == False else
                                                                ((nhop_num - 1) - i) * 2)
 
             # Verify that next hop group members in ASIC_DB all
@@ -842,7 +842,7 @@ class TestSubPortIntf(object):
         self.check_sub_port_intf_key_existence(self.asic_db, ASIC_NEXT_HOP_GROUP_TABLE, nhg_oid)
 
         # Verify next hop group members created in ASIC_DB
-        nhg_member_oids = self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_GROUP_MEMBER_TABLE, \
+        nhg_member_oids = self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_GROUP_MEMBER_TABLE,
                                                        nhop_num if create_intf_on_parent_port == False else nhop_num * 2)
 
         # Verify that next hop group members all belong to the next hop group of the specified oid
@@ -977,7 +977,7 @@ class TestSubPortIntf(object):
             self.check_sub_port_intf_key_existence(self.asic_db, ASIC_NEXT_HOP_GROUP_TABLE, nhg_oid)
 
             # Verify next hop group member # created in ASIC_DB
-            nhg_member_oids = self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_GROUP_MEMBER_TABLE, \
+            nhg_member_oids = self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_GROUP_MEMBER_TABLE,
                                                            (nhop_num - 1) - i if create_intf_on_parent_port == False else ((nhop_num - 1) - i) * 2)
 
             # Verify that next hop group members all belong to the next hop group of the specified oid
