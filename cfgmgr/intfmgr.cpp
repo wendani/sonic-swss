@@ -527,6 +527,9 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
                 SWSS_LOG_NOTICE("Sub interface ip link set admin status %s failure. Runtime error: %s", adminStatus.c_str(), e.what());
                 return false;
             }
+
+            // set STATE_DB port state
+            setSubIntfStateOk(alias);
         }
 
         if (!vrf_name.empty())
@@ -575,11 +578,6 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
             }
         }
 
-        if (!parentAlias.empty())
-        {
-            // set STATE_DB port state
-            setSubIntfStateOk(alias);
-        }
         m_appIntfTableProducer.set(alias, data);
         m_stateIntfTable.hset(alias, "vrf", vrf_name);
     }
