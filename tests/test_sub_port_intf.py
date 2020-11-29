@@ -872,15 +872,15 @@ class TestSubPortIntf(object):
         # Clean up
         rif_cnt = len(self.asic_db.get_keys(ASIC_RIF_TABLE))
 
+        # Remove ecmp route entry
+        rt_tbl._del(vrf_name + APPL_DB_SEPARATOR + ip_prefix if vrf_name else ip_prefix)
+
         # Remove sub port interfaces
         self.remove_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, int(vlan_id), nhop_num)
 
         # Remove router interfaces on parent ports
         if create_intf_on_parent_port == True:
             self.remove_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, 0, nhop_num)
-
-        # Remove ecmp route entry
-        rt_tbl._del(vrf_name + APPL_DB_SEPARATOR + ip_prefix if vrf_name else ip_prefix)
 
         # Removal of router interfaces indicates the proper removal of nhg, nhg members, next hop objects, and neighbor entries
         self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt - nhop_num if create_intf_on_parent_port == False else rif_cnt - nhop_num * 2)
