@@ -150,10 +150,11 @@ class TestSubPortIntf(object):
         return oids[0]
 
     def get_ip_prefix_nhg_oid(self, ip_prefix, vrf_oid=None):
+        if vrf_oid is None:
+            vrf_oid = self.default_vrf_oid
+
         def _access_function():
             route_entry_found = False
-            if vrf_oid is None:
-                vrf_oid = self.default_vrf_oid
 
             raw_route_entry_keys = self.asic_db.get_keys(ASIC_ROUTE_ENTRY_TABLE)
             for raw_route_entry_key in raw_route_entry_keys:
