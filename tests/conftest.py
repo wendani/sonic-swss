@@ -375,8 +375,8 @@ class DockerVirtualSwitch:
         self.check_ready_status_and_init_db()
 
     def destroy(self) -> None:
-        if self.app_db:
-            del self.app_db
+        if self.appldb:
+            del self.appldb
 
         # In case persistent dvs was used removed all the extra server link
         # that were created
