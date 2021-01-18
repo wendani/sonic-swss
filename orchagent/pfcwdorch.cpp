@@ -258,7 +258,7 @@ task_process_status PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const st
 
     if (!startWdOnPort(port, detectionTime, restorationTime, action))
     {
-        SWSS_LOG_ERROR("Failed to start PFC Watchdog on port %s", port.m_alias.c_str());
+        SWSS_LOG_INFO("Failed to start PFC Watchdog on port %s", port.m_alias.c_str());
         return task_process_status::task_need_retry;
     }
 
@@ -494,11 +494,12 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
             continue;
         }
 
+        SWSS_LOG_NOTICE("Lossless TC %u found on port %s", i, port.m_alias.c_str());
         losslessTc.insert(i);
     }
     if (losslessTc.empty())
     {
-        SWSS_LOG_NOTICE("No lossless TC found on port %s", port.m_alias.c_str());
+        SWSS_LOG_INFO("No lossless TC found on port %s", port.m_alias.c_str());
         return false;
     }
 
@@ -890,7 +891,6 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(SelectableTimer &timer)
             handlerPair.second.handler->commitCounters(true);
         }
     }
-
 }
 
 template <typename DropHandler, typename ForwardHandler>
