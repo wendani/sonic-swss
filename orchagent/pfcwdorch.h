@@ -4,6 +4,7 @@
 #include "orch.h"
 #include "port.h"
 #include "pfcactionhandler.h"
+#include "qosorch.h"
 #include "producertable.h"
 #include "notificationconsumer.h"
 #include "timer.h"

@@ -1342,7 +1342,7 @@ task_process_status QosOrch::handlePortQosMapTable(Consumer& consumer)
 
             // update contains both old and new pfc enable bitmaps
             PortPfcUpdate update = { port, pfc_enable };
-            notify(SUBJECT_TYPE_PORT_PFC_CHANGE, static_cast<void *>(&update);
+            notify(SUBJECT_TYPE_PORT_PFC_CHANGE, static_cast<void *>(&update));
         }
     }
 
