@@ -446,7 +446,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
         }
         // By removing action handler, we expect pfc bit mask status in asic to
         // be the same as that in config
-        assert(pfcMaskStatus == cfgMaskCfg);
+        assert(pfcMaskStatus == pfcMaskCfg);
 
         for (uint8_t i = 0; i < PFC_WD_TC_MAX; i++)
         {
