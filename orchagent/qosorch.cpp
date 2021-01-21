@@ -1339,6 +1339,10 @@ task_process_status QosOrch::handlePortQosMapTable(Consumer& consumer)
             }
 
             SWSS_LOG_INFO("Applied PFC bits 0x%x to port %s", pfc_enable, port_name.c_str());
+
+            // update contains both old and new pfc enable bitmaps
+            PortPfcUpdate update = { port, pfc_enable };
+            notify(SUBJECT_TYPE_PORT_PFC_CHANGE, static_cast<void *>(&update);
         }
     }
 
