@@ -884,18 +884,11 @@ bool PortsOrch::getPortPfc(sai_object_id_t portId, uint8_t *pfc_bitmask)
     return true;
 }
 
-bool PortsOrch::setPortPfc(sai_object_id_t portId, uint8_t pfc_bitmask_cfg)
+bool PortsOrch::setPortPfcStatus(const Port &p, uint8_t pfc_bitmask_status)
 {
     SWSS_LOG_ENTER();
 
     sai_attribute_t attr;
-    Port p;
-
-    if (!getPort(portId, p))
-    {
-        SWSS_LOG_ERROR("Failed to get port object for port id 0x%" PRIx64, portId);
-        return false;
-    }
 
     if (p.m_pfc_asym == SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_COMBINED)
     {
@@ -911,18 +904,39 @@ bool PortsOrch::setPortPfc(sai_object_id_t portId, uint8_t pfc_bitmask_cfg)
         return false;
     }
 
+    attr.value.u8 = pfc_bitmask_status;
+
+    sai_status_t status = sai_port_api->set_port_attribute(p.m_port_id, &attr);
+    if (status != SAI_STATUS_SUCCESS)
+    {
+        SWSS_LOG_ERROR("Failed to set PFC status 0x%x to port id 0x%" PRIx64 ", rc: %d", attr.value.u8, p.m_port_id, status);
+        return false;
+    }
+
+    return true;
+}
+
+bool PortsOrch::setPortPfc(sai_object_id_t portId, uint8_t pfc_bitmask_cfg)
+{
+    SWSS_LOG_ENTER();
+
+    Port p;
+
+    if (!getPort(portId, p))
+    {
+        SWSS_LOG_ERROR("Failed to get port object for port id 0x%" PRIx64, portId);
+        return false;
+    }
+
     // Pfc enabled bit is temporarily cleared if the corresponding tc is in pfc storm.
     // This causes pfc bit mask status in asic to be different from that in config.
     // We leave such different bits as they are to be further handled by the corresponding
     // observer (i.e., pfcwd) while update the rest bits to asic according to config.
     uint8_t bitmask = p.pfc_bitmask_cfg ^ p.pfc_bitmask_status;
     uint8_t pfc_bitmask_status = (bitmask & p.pfc_bitmask_status) | (~bitmask & p.pfc_bitmask_cfg);
-    attr.value.u8 = pfc_bitmask_status;
-
-    sai_status_t status = sai_port_api->set_port_attribute(portId, &attr);
-    if (status != SAI_STATUS_SUCCESS)
+    if (!setPortPfcStatus(p, pfc_bitmask_status))
     {
-        SWSS_LOG_ERROR("Failed to set PFC 0x%x to port id 0x%" PRIx64 " (rc:%d)", attr.value.u8, portId, status);
+        SWSS_LOG_ERROR("Failed to set PFC status 0x%x to port id 0x%" PRIx64, pfc_bitmask_status, portId);
         return false;
     }
 

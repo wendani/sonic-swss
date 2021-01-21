@@ -256,6 +256,7 @@ private:
     bool setPortFec(Port &port, sai_port_fec_mode_t mode);
     bool setPortPfcAsym(Port &port, string pfc_asym);
     bool getDestPortId(sai_object_id_t src_port_id, dest_port_type_t port_type, sai_object_id_t &des_port_id);
+    bool setPortPfcStatus(const Port &p, uint8_t pfc_bitmask_status);
 
     bool setBridgePortAdminStatus(sai_object_id_t id, bool up);
 
