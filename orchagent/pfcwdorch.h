@@ -23,10 +23,10 @@ enum class PfcWdAction
 };
 
 template <typename DropHandler, typename ForwardHandler>
-class PfcWdOrch: public Orch
+class PfcWdOrch: public Orch, public Observer
 {
 public:
-    PfcWdOrch(DBConnector *db, vector<string> &tableNames);
+    PfcWdOrch(DBConnector *db, vector<string> &tableNames, QosOrch *qosOrch);
     virtual ~PfcWdOrch(void);
 
     virtual void doTask(Consumer& consumer);
@@ -53,8 +53,9 @@ public:
 protected:
     virtual bool startWdActionOnQueue(const string &event, sai_object_id_t queueId) = 0;
 
-private:
+    QosOrch *m_qosOrch;
 
+private:
     shared_ptr<DBConnector> m_countersDb = nullptr;
     shared_ptr<Table> m_countersTable = nullptr;
 };
@@ -66,6 +67,7 @@ public:
     PfcWdSwOrch(
             DBConnector *db,
             vector<string> &tableNames,
+            QosOrch *qosOrch,
             const vector<sai_port_stat_t> &portStatIds,
             const vector<sai_queue_stat_t> &queueStatIds,
             const vector<sai_queue_attr_t> &queueAttrIds,
@@ -83,6 +85,8 @@ public:
 
     bool bake() override;
     void doTask() override;
+
+    virtual void update(SubjectType subjectType, void *cntx);
 
 protected:
     bool startWdActionOnQueue(const string &event, sai_object_id_t queueId) override;

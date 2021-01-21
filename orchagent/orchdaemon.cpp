@@ -422,6 +422,7 @@ bool OrchDaemon::init()
             m_orchList.push_back(new PfcWdSwOrch<PfcWdZeroBufferHandler, PfcWdLossyHandler>(
                         m_configDb,
                         pfc_wd_tables,
+                        qos_orch,
                         portStatIds,
                         queueStatIds,
                         queueAttrIds,
@@ -432,6 +433,7 @@ bool OrchDaemon::init()
             m_orchList.push_back(new PfcWdSwOrch<PfcWdAclHandler, PfcWdLossyHandler>(
                         m_configDb,
                         pfc_wd_tables,
+                        qos_orch,
                         portStatIds,
                         queueStatIds,
                         queueAttrIds,
@@ -474,6 +476,7 @@ bool OrchDaemon::init()
         m_orchList.push_back(new PfcWdSwOrch<PfcWdAclHandler, PfcWdLossyHandler>(
                     m_configDb,
                     pfc_wd_tables,
+                    qos_orch,
                     portStatIds,
                     queueStatIds,
                     queueAttrIds,

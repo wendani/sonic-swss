@@ -33,12 +33,15 @@ extern sai_queue_api_t *sai_queue_api;
 extern PortsOrch *gPortsOrch;
 
 template <typename DropHandler, typename ForwardHandler>
-PfcWdOrch<DropHandler, ForwardHandler>::PfcWdOrch(DBConnector *db, vector<string> &tableNames):
+PfcWdOrch<DropHandler, ForwardHandler>::PfcWdOrch(DBConnector *db, vector<string> &tableNames, QosOrch *qosOrch):
     Orch(db, tableNames),
     m_countersDb(new DBConnector("COUNTERS_DB", 0)),
-    m_countersTable(new Table(m_countersDb.get(), COUNTERS_TABLE))
+    m_countersTable(new Table(m_countersDb.get(), COUNTERS_TABLE)),
+    m_qosOrch(qosOrch)
 {
     SWSS_LOG_ENTER();
+
+    m_qosOrch->attach(this);
 }
 
 
@@ -686,11 +689,12 @@ template <typename DropHandler, typename ForwardHandler>
 PfcWdSwOrch<DropHandler, ForwardHandler>::PfcWdSwOrch(
         DBConnector *db,
         vector<string> &tableNames,
+        QosOrch *qosOrch,
         const vector<sai_port_stat_t> &portStatIds,
         const vector<sai_queue_stat_t> &queueStatIds,
         const vector<sai_queue_attr_t> &queueAttrIds,
         int pollInterval) :
-    PfcWdOrch<DropHandler, ForwardHandler>(db, tableNames),
+    PfcWdOrch<DropHandler, ForwardHandler>(db, tableNames, qosOrch),
     m_flexCounterDb(new DBConnector("FLEX_COUNTER_DB", 0)),
     m_flexCounterTable(new ProducerTable(m_flexCounterDb.get(), FLEX_COUNTER_TABLE)),
     m_flexCounterGroupTable(new ProducerTable(m_flexCounterDb.get(), FLEX_COUNTER_GROUP_TABLE)),
@@ -1098,6 +1102,11 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
     SWSS_LOG_NOTICE("Add warm input PFC watchdog State: %s, %zd", APP_PFC_WD_TABLE_NAME, refilled);
 
     return true;
+}
+
+template <typename DropHandler, typename ForwardHandler>
+void PfcWdSwOrch<DropHandler, ForwardHandler>::update(SubjectType type, void *cntx)
+{
 }
 
 // Trick to keep member functions in a separate file
