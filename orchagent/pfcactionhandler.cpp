@@ -332,16 +332,16 @@ PfcWdLossyHandler::PfcWdLossyHandler(sai_object_id_t port, sai_object_id_t queue
 {
     SWSS_LOG_ENTER();
 
-    uint8_t pfcMask = 0;
+    uint8_t pfcMaskStatus = 0;
 
-    if (!gPortsOrch->getPortPfc(port, &pfcMask))
+    if (!gPortsOrch->getPortPfc(port, &pfcMaskStatus))
     {
         SWSS_LOG_ERROR("Failed to get PFC mask on port 0x%" PRIx64, port);
     }
 
-    pfcMask = static_cast<uint8_t>(pfcMask & ~(1 << queueId));
+    pfcMaskStatus = static_cast<uint8_t>(pfcMaskStatus & ~(1 << queueId));
 
-    if (!gPortsOrch->setPortPfc(port, pfcMask))
+    if (!gPortsOrch->setPortPfcStatus(port, pfcMaskStatus))
     {
         SWSS_LOG_ERROR("Failed to set PFC mask on port 0x%" PRIx64, port);
     }
@@ -351,16 +351,16 @@ PfcWdLossyHandler::~PfcWdLossyHandler(void)
 {
     SWSS_LOG_ENTER();
 
-    uint8_t pfcMask = 0;
+    uint8_t pfcMaskStatus = 0;
 
-    if (!gPortsOrch->getPortPfc(getPort(), &pfcMask))
+    if (!gPortsOrch->getPortPfc(getPort(), &pfcMaskStatus))
     {
         SWSS_LOG_ERROR("Failed to get PFC mask on port 0x%" PRIx64, getPort());
     }
 
-    pfcMask = static_cast<uint8_t>(pfcMask | (1 << getQueueId()));
+    pfcMaskStatus = static_cast<uint8_t>(pfcMaskStatus | (1 << getQueueId()));
 
-    if (!gPortsOrch->setPortPfc(getPort(), pfcMask))
+    if (!gPortsOrch->setPortPfcStatus(getPort(), pfcMaskStatus))
     {
         SWSS_LOG_ERROR("Failed to set PFC mask on port 0x%" PRIx64, getPort());
     }

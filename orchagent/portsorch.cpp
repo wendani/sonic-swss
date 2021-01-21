@@ -867,7 +867,7 @@ bool PortsOrch::setPortFec(Port &port, sai_port_fec_mode_t mode)
     return true;
 }
 
-bool PortsOrch::getPortPfc(sai_object_id_t portId, uint8_t *pfc_bitmask)
+bool PortsOrch::getPortPfc(sai_object_id_t portId, uint8_t *pfc_bitmask_status, uint8_t *pfc_bitmask_cfg)
 {
     SWSS_LOG_ENTER();
 
@@ -879,7 +879,15 @@ bool PortsOrch::getPortPfc(sai_object_id_t portId, uint8_t *pfc_bitmask)
         return false;
     }
 
-    *pfc_bitmask = p.m_pfc_bitmask;
+    if (pfc_bitmask_status != nullptr)
+    {
+        *pfc_bitmask_status = p.m_pfc_bitmask_status;
+    }
+
+    if (pfc_bitmask_cfg != nullptr)
+    {
+        *pfc_bitmask_cfg = p.m_pfc_bitmask_cfg;
+    }
 
     return true;
 }
@@ -928,7 +936,7 @@ bool PortsOrch::setPortPfc(sai_object_id_t portId, uint8_t pfc_bitmask_cfg)
         return false;
     }
 
-    // Pfc enabled bit is temporarily cleared if the corresponding tc is in pfc storm.
+    // Pfc enable bit is temporarily cleared if the corresponding tc is in pfc storm.
     // This causes pfc bit mask status in asic to be different from that in config.
     // We leave such different bits as they are to be further handled by the corresponding
     // observer (i.e., pfcwd) while update the rest bits to asic according to config.
@@ -956,9 +964,9 @@ bool PortsOrch::setPortPfcAsym(Port &port, string pfc_asym)
     SWSS_LOG_ENTER();
 
     sai_attribute_t attr;
-    uint8_t pfc = 0;
+    uint8_t pfc_status = 0;
 
-    if (!getPortPfc(port.m_port_id, &pfc))
+    if (!getPortPfc(port.m_port_id, &pfc_status))
     {
         return false;
     }
@@ -990,7 +998,7 @@ bool PortsOrch::setPortPfcAsym(Port &port, string pfc_asym)
         return false;
     }
 
-    if (!setPortPfc(port.m_port_id, pfc))
+    if (!setPortPfcStatus(port.m_port_id, pfc_status))
     {
         return false;
     }

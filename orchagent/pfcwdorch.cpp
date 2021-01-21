@@ -325,7 +325,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::setBigRedSwitchMode(const string 
 
     if (value == "enable")
     {
-        // When BIG_RED_SWITCH mode is enabled, pfcwd is automatically disabled
+        // When BIG_RED_SWITCH mode is enabled, pfcwd state machine is automatically disabled
         enableBigRedSwitchMode();
     }
     else if (value == "disable")
@@ -382,7 +382,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
     for (auto &it: allPorts)
     {
         Port port = it.second;
-        uint8_t pfcMask = 0;
+        uint8_t pfcMaskStatus = 0;
 
         if (port.m_type != Port::PHY)
         {
@@ -390,7 +390,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
             continue;
         }
 
-        if (!gPortsOrch->getPortPfc(port.m_port_id, &pfcMask))
+        if (!gPortsOrch->getPortPfc(port.m_port_id, &pfcMaskStatus))
         {
             SWSS_LOG_ERROR("Failed to get PFC mask on port %s", port.m_alias.c_str());
             return;
@@ -399,7 +399,11 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
         for (uint8_t i = 0; i < PFC_WD_TC_MAX; i++)
         {
             sai_object_id_t queueId = port.m_queue_ids[i];
-            if ((pfcMask & (1 << i)) == 0 && m_entryMap.find(queueId) == m_entryMap.end())
+            // Pfc enable bit not set can be the case that the corresponding tc
+            // is lossless, and is currently in pfc storm, with pfc action in act.
+            // We pick up such a case to enable big red switch mode by checking if a corresponding
+            // entry exists in m_entryMap
+            if ((pfcMaskStatus & (1 << i)) == 0 && m_entryMap.find(queueId) == m_entryMap.end())
             {
                 continue;
             }
@@ -422,11 +426,12 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
         }
     }
 
-    // Create pfcwdaction hanlder on all the ports.
+    // Create pfcwdaction hanlder on all ports.
     for (auto & it: allPorts)
     {
         Port port = it.second;
-        uint8_t pfcMask = 0;
+        uint8_t pfcMaskStatus = 0;
+        uint8_t pfcMaskCfg = 0;
 
         if (port.m_type != Port::PHY)
         {
@@ -434,15 +439,18 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
             continue;
         }
 
-        if (!gPortsOrch->getPortPfc(port.m_port_id, &pfcMask))
+        if (!gPortsOrch->getPortPfc(port.m_port_id, &pfcMaskStatus, &pfcMaskCfg))
         {
             SWSS_LOG_ERROR("Failed to get PFC mask on port %s", port.m_alias.c_str());
             return;
         }
+        // By removing action handler, we expect pfc bit mask status in asic to
+        // be the same as that in config
+        assert(pfcMaskStatus == cfgMaskCfg);
 
         for (uint8_t i = 0; i < PFC_WD_TC_MAX; i++)
         {
-            if ((pfcMask & (1 << i)) == 0)
+            if ((pfcMaskCfg & (1 << i)) == 0)
             {
                 continue;
             }
@@ -478,9 +486,9 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
 {
     SWSS_LOG_ENTER();
 
-    uint8_t pfcMask = 0;
+    uint8_t pfcMaskCfg = 0;
 
-    if (!gPortsOrch->getPortPfc(port.m_port_id, &pfcMask))
+    if (!gPortsOrch->getPortPfc(port.m_port_id, nullptr, &pfcMaskCfg))
     {
         SWSS_LOG_ERROR("Failed to get PFC mask on port %s", port.m_alias.c_str());
         return false;
@@ -489,7 +497,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
     set<uint8_t> losslessTc;
     for (uint8_t i = 0; i < PFC_WD_TC_MAX; i++)
     {
-        if ((pfcMask & (1 << i)) == 0)
+        if ((pfcMaskCfg & (1 << i)) == 0)
         {
             continue;
         }
