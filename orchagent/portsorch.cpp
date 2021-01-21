@@ -924,6 +924,33 @@ bool PortsOrch::setPortPfcStatus(const Port &p, uint8_t pfc_bitmask_status)
     return true;
 }
 
+bool PortsOrch::setPortPfcStatus(sai_object_id_t portId, uint8_t pfc_bitmask_status)
+{
+    SWSS_LOG_ENTER();
+
+    Port p;
+
+    if (!getPort(portId, p))
+    {
+        SWSS_LOG_ERROR("Failed to get port object for port id 0x%" PRIx64, portId);
+        return false;
+    }
+
+    if (!setPortPfcStatus(p, pfc_bitmask_status))
+    {
+        SWSS_LOG_ERROR("Failed to set PFC status 0x%x to port id 0x%" PRIx64, pfc_bitmask_status, portId);
+        return false;
+    }
+
+    if (p.m_pfc_bitmask_status != pfc_bitmask_status)
+    {
+        p.m_pfc_bitmask_status = pfc_bitmask_status;
+        m_portList[p.m_alias] = p;
+    }
+
+    return true;
+}
+
 bool PortsOrch::setPortPfc(sai_object_id_t portId, uint8_t pfc_bitmask_cfg)
 {
     SWSS_LOG_ENTER();
