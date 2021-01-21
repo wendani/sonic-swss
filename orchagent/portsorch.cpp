@@ -967,8 +967,8 @@ bool PortsOrch::setPortPfc(sai_object_id_t portId, uint8_t pfc_bitmask_cfg)
     // This causes pfc bit mask status in asic to be different from that in config.
     // We leave such different bits as they are to be further handled by the corresponding
     // observer (i.e., pfcwd) while update the rest bits to asic according to config.
-    uint8_t bitmask = p.pfc_bitmask_cfg ^ p.pfc_bitmask_status;
-    uint8_t pfc_bitmask_status = (bitmask & p.pfc_bitmask_status) | (~bitmask & p.pfc_bitmask_cfg);
+    uint8_t bitmask = p.m_pfc_bitmask_cfg ^ p.m_pfc_bitmask_status;
+    uint8_t pfc_bitmask_status = static_cast<uint8_t>((bitmask & p.m_pfc_bitmask_status) | (~bitmask & p.m_pfc_bitmask_cfg));
     if (!setPortPfcStatus(p, pfc_bitmask_status))
     {
         SWSS_LOG_ERROR("Failed to set PFC status 0x%x to port id 0x%" PRIx64, pfc_bitmask_status, portId);
