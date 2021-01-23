@@ -273,7 +273,7 @@ task_process_status PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const st
     if (!startWdOnPort(port, detectionTime, restorationTime, action))
     {
         SWSS_LOG_INFO("Failed to start PFC Watchdog on port %s", port.m_alias.c_str());
-        return task_process_status::task_need_retry;
+        return task_process_status::task_failed;
     }
 
     SWSS_LOG_NOTICE("Started PFC Watchdog on port %s", port.m_alias.c_str());
