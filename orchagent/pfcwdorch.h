@@ -121,8 +121,8 @@ private:
     void enableBigRedSwitchMode();
     void setBigRedSwitchMode(string value);
 
-    map<sai_object_id_t, PfcWdQueueEntry> m_entryMap;
-    map<sai_object_id_t, PfcWdQueueEntry> m_brsEntryMap;
+    unordered_map<sai_object_id_t, PfcWdQueueEntry> m_entryMap;
+    unordered_map<sai_object_id_t, PfcWdQueueEntry> m_brsEntryMap;
 
     const vector<sai_port_stat_t> c_portStatIds;
     const vector<sai_queue_stat_t> c_queueStatIds;
