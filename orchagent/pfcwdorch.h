@@ -110,6 +110,7 @@ private:
             uint32_t detectionTime, uint32_t restorationTime, PfcWdAction action);
     bool registerInWdDb(const Port& port,
             uint32_t detectionTime, uint32_t restorationTime, PfcWdAction action);
+    void unregisterQueueFromWdDb(const Port& port, uint8_t qIdx);
     void unregisterFromWdDb(const Port& port);
     void doTask(swss::NotificationConsumer &wdNotification);
 

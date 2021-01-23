@@ -626,6 +626,29 @@ string PfcWdSwOrch<DropHandler, ForwardHandler>::getFlexCounterTableKey(string k
 }
 
 template <typename DropHandler, typename ForwardHandler>
+void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterQueueFromWdDb(const Port& port, uint8_t qIdx)
+{
+    sai_object_id_t queueId = port.m_queue_ids[qIdx];
+    string key = getFlexCounterTableKey(sai_serialize_object_id(queueId));
+
+    // Unregister in syncd
+    m_flexCounterTable->del(key);
+
+    auto entry = m_entryMap.find(queueId);
+    if (entry != m_entryMap.end() && entry->second.handler != nullptr)
+    {
+        entry->second.handler->commitCounters();
+    }
+
+    m_entryMap.erase(queueId);
+
+    // Clean up
+    RedisClient redisClient(this->getCountersDb().get());
+    string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
+    redisClient.hdel(countersKey, {"PFC_WD_DETECTION_TIME", "PFC_WD_RESTORATION_TIME", "PFC_WD_ACTION", "PFC_WD_STATUS"});
+}
+
+template <typename DropHandler, typename ForwardHandler>
 void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterFromWdDb(const Port& port)
 {
     SWSS_LOG_ENTER();
@@ -635,25 +658,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterFromWdDb(const Port& po
 
     for (uint8_t i = 0; i < PFC_WD_TC_MAX; i++)
     {
-        sai_object_id_t queueId = port.m_queue_ids[i];
-        string key = getFlexCounterTableKey(sai_serialize_object_id(queueId));
-
-        // Unregister in syncd
-        m_flexCounterTable->del(key);
-
-        auto entry = m_entryMap.find(queueId);
-        if (entry != m_entryMap.end() && entry->second.handler != nullptr)
-        {
-            entry->second.handler->commitCounters();
-        }
-
-        m_entryMap.erase(queueId);
-
-        // Clean up
-        string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
-        this->getCountersDb()->hdel(countersKey, {"PFC_WD_DETECTION_TIME", "PFC_WD_RESTORATION_TIME", "PFC_WD_ACTION", "PFC_WD_STATUS"});
+        unregisterQueueFromWdDb(port, i);
     }
-
 }
 
 template <typename DropHandler, typename ForwardHandler>
