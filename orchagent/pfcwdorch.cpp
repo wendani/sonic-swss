@@ -594,10 +594,13 @@ string PfcWdSwOrch<DropHandler, ForwardHandler>::filterPfcCounters(string counte
         index = counter.find(SAI_PORT_STAT_PFC_PREFIX);
         if (index != 0)
         {
+            // non SAI_PORT_STAT_PFC_* counter
             filterCounters = filterCounters + counter + ",";
         }
         else
         {
+            // index == 0
+            // SAI_PORT_STAT_PFC_* counter
             uint8_t tc = (uint8_t)atoi(counter.substr(index + sizeof(SAI_PORT_STAT_PFC_PREFIX) - 1, 1).c_str());
             if (losslessTc.count(tc))
             {
@@ -660,8 +663,8 @@ PfcWdSwOrch<DropHandler, ForwardHandler>::PfcWdSwOrch(
         const vector<sai_port_stat_t> &portStatIds,
         const vector<sai_queue_stat_t> &queueStatIds,
         const vector<sai_queue_attr_t> &queueAttrIds,
-        int pollInterval):
-    PfcWdOrch<DropHandler, ForwardHandler>(db, tableNames),
+        int pollInterval) :
+    PfcWdOrch<DropHandler, ForwardHandler>(db, tableNames, qosOrch),
     m_flexCounterDb(new DBConnector("FLEX_COUNTER_DB", 0)),
     m_flexCounterTable(new ProducerTable(m_flexCounterDb.get(), FLEX_COUNTER_TABLE)),
     m_flexCounterGroupTable(new ProducerTable(m_flexCounterDb.get(), FLEX_COUNTER_GROUP_TABLE)),
@@ -735,7 +738,7 @@ PfcWdSwOrch<DropHandler, ForwardHandler>::~PfcWdSwOrch(void)
 
 template <typename DropHandler, typename ForwardHandler>
 PfcWdSwOrch<DropHandler, ForwardHandler>::PfcWdQueueEntry::PfcWdQueueEntry(
-        PfcWdAction action, sai_object_id_t port, uint8_t idx, string alias):
+        PfcWdAction action, sai_object_id_t port, uint8_t idx, string alias) :
     action(action),
     portId(port),
     index(idx),
