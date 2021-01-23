@@ -1118,6 +1118,101 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::bake()
 template <typename DropHandler, typename ForwardHandler>
 void PfcWdSwOrch<DropHandler, ForwardHandler>::update(SubjectType type, void *cntx)
 {
+    SWSS_LOG_ENTER();
+
+    if (cntx == nullptr)
+    {
+        return;
+    }
+
+    switch(type)
+    {
+        case SUBJECT_TYPE_PORT_PFC_CHANGE:
+        {
+            PortPfcUpdate *update = static_cast<PortPfcUpdate *>(cntx);
+
+            const Port &port = update->port;
+            if (port.m_pfc_bitmask_cfg == update->pfc_enable)
+            {
+                SWSS_LOG_NOTICE("No change on PFC enable bits. Skipping update");
+                return;
+            }
+            if (port.m_type != Port::PHY)
+            {
+                SWSS_LOG_NOTICE("%s to update is not a physical port. Skipping update", port.m_alias.c_str());
+                return;
+            }
+
+            auto portCfgIt = this->m_portCfgMap.find(port.m_alias);
+            if (portCfgIt == this->m_portCfgMap.end())
+            {
+                SWSS_LOG_NOTICE("%s to update does not have PFC watchdog configuration. Skipping update", port.m_alias.c_str());
+                return;
+            }
+
+            if (m_bigRedSwitchFlag)
+            {
+            }
+            else
+            {
+                uint8_t bitmask = 0x1;
+                set<uint8_t> losslessTc;
+                for (uint8_t qIdx = 0; qIdx < PFC_WD_TC_MAX; qIdx++)
+                {
+                    if ((port.m_pfc_bitmask_cfg & bitmask)
+                            && !(update->pfc_enable & bitmask))
+                    {
+                        // Stop watchdog on and detach storm action, if present, from PFC disabled queue
+                        unregisterQueueFromWdDb(port, qIdx);
+                    }
+                    else if (!(port.m_pfc_bitmask_cfg & bitmask)
+                             && (update->pfc_enable & bitmask))
+                    {
+                        // Start watchdog on PFC enabled queue
+                        registerQueueInWdDb(port, qIdx,
+                                            portCfgIt->second.detectionTime,
+                                            portCfgIt->second.restorationTime,
+                                            portCfgIt->second.action);
+                    }
+
+                    if (update->pfc_enable & bitmask)
+                    {
+                        losslessTc.insert(qIdx);
+                    }
+
+                    bitmask = static_cast<uint8_t>(bitmask << 1);
+                }
+
+                // Port level watchdog processing
+                if (losslessTc.empty())
+                {
+                    unregisterPortFromWdDb(port);
+                }
+                else
+                {
+                    // Create or update port counters in database
+                    registerPortInWdDb(port, losslessTc);
+
+                    auto platform_env_var = getenv("platform");
+                    string platform = platform_env_var ? platform_env_var: "";
+                    if ((platform == BFN_PLATFORM_SUBSTRING)
+                        || (platform == BRCM_PLATFORM_SUBSTRING))
+                    {
+                        // Create egress ACL table group for each port of pfcwd's interest
+                        sai_object_id_t groupId;
+                        gPortsOrch->createBindAclTableGroup(port.m_port_id, groupId, ACL_STAGE_INGRESS);
+                        gPortsOrch->createBindAclTableGroup(port.m_port_id, groupId, ACL_STAGE_EGRESS);
+                    }
+                }
+            }
+            break;
+        }
+        default:
+        {
+            // Receive update we are not interested in. Ignore it.
+            return;
+        }
+    }
 }
 
 // Trick to keep member functions in a separate file
