@@ -966,7 +966,7 @@ bool PortsOrch::setPortPfc(sai_object_id_t portId, uint8_t pfc_bitmask_cfg)
     // Pfc enable bit is temporarily cleared if the corresponding tc is in pfc storm.
     // This causes pfc bit mask status in asic to be different from that in config.
     // We leave such different bits as they are to be further handled by the corresponding
-    // observer (i.e., pfcwd) while update the rest bits to asic according to config.
+    // orch (i.e., pfcwd) while update the rest bits to asic according to config.
     uint8_t bitmask = p.m_pfc_bitmask_cfg ^ p.m_pfc_bitmask_status;
     uint8_t pfc_bitmask_status = static_cast<uint8_t>((bitmask & p.m_pfc_bitmask_status) | (~bitmask & pfc_bitmask_cfg));
     if (!setPortPfcStatus(p, pfc_bitmask_status))
