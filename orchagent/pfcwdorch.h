@@ -90,6 +90,7 @@ protected:
 private:
     struct PfcWdQueueEntry
     {
+        PfcWdQueueEntry() = default;
         PfcWdQueueEntry(
                 PfcWdAction action,
                 sai_object_id_t port,
@@ -105,6 +106,8 @@ private:
 
     template <typename T>
     static string counterIdsToStr(const vector<T> ids, string (*convert)(T));
+    void registerQueueInWdDb(const Port& port, uint8_t qIdx,
+            uint32_t detectionTime, uint32_t restorationTime, PfcWdAction action);
     bool registerInWdDb(const Port& port,
             uint32_t detectionTime, uint32_t restorationTime, PfcWdAction action);
     void unregisterFromWdDb(const Port& port);

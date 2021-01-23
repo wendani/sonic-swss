@@ -481,6 +481,52 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
 }
 
 template <typename DropHandler, typename ForwardHandler>
+void PfcWdSwOrch<DropHandler, ForwardHandler>::registerQueueInWdDb(const Port& port, uint8_t qIdx,
+        uint32_t detectionTime, uint32_t restorationTime, PfcWdAction action)
+{
+    sai_object_id_t queueId = port.m_queue_ids[qIdx];
+    string queueIdStr = sai_serialize_object_id(queueId);
+
+    // Store detection and restoration time for plugins
+    vector<FieldValueTuple> countersFieldValues;
+    countersFieldValues.emplace_back("PFC_WD_DETECTION_TIME", to_string(detectionTime * 1000));
+    // Restoration time is optional
+    countersFieldValues.emplace_back("PFC_WD_RESTORATION_TIME",
+            restorationTime == 0 ?
+            "" :
+            to_string(restorationTime * 1000));
+    countersFieldValues.emplace_back("PFC_WD_ACTION", this->serializeAction(action));
+
+    this->getCountersTable()->set(queueIdStr, countersFieldValues);
+
+    // We register our queues in PFC_WD table so that syncd will know that it must poll them
+    vector<FieldValueTuple> queueFieldValues;
+
+    if (!c_queueStatIds.empty())
+    {
+        string str = counterIdsToStr(c_queueStatIds, sai_serialize_queue_stat);
+        queueFieldValues.emplace_back(QUEUE_COUNTER_ID_LIST, str);
+    }
+
+    if (!c_queueAttrIds.empty())
+    {
+        string str = counterIdsToStr(c_queueAttrIds, sai_serialize_queue_attr);
+        queueFieldValues.emplace_back(QUEUE_ATTR_ID_LIST, str);
+    }
+
+    // Create or update an internal entry
+    m_entryMap[queueId] = PfcWdQueueEntry(action, port.m_port_id, qIdx, port.m_alias);
+
+    string key = getFlexCounterTableKey(queueIdStr);
+    m_flexCounterTable->set(key, queueFieldValues);
+
+    // Initialize PFC WD related counters
+    PfcWdActionHandler::initWdCounters(
+            this->getCountersTable(),
+            sai_serialize_object_id(queueId));
+}
+
+template <typename DropHandler, typename ForwardHandler>
 bool PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
         uint32_t detectionTime, uint32_t restorationTime, PfcWdAction action)
 {
@@ -525,46 +571,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
 
     for (auto i : losslessTc)
     {
-        sai_object_id_t queueId = port.m_queue_ids[i];
-        string queueIdStr = sai_serialize_object_id(queueId);
-
-        // Store detection and restoration time for plugins
-        vector<FieldValueTuple> countersFieldValues;
-        countersFieldValues.emplace_back("PFC_WD_DETECTION_TIME", to_string(detectionTime * 1000));
-        // Restoration time is optional
-        countersFieldValues.emplace_back("PFC_WD_RESTORATION_TIME",
-                restorationTime == 0 ?
-                "" :
-                to_string(restorationTime * 1000));
-        countersFieldValues.emplace_back("PFC_WD_ACTION", this->serializeAction(action));
-
-        this->getCountersTable()->set(queueIdStr, countersFieldValues);
-
-        // We register our queues in PFC_WD table so that syncd will know that it must poll them
-        vector<FieldValueTuple> queueFieldValues;
-
-        if (!c_queueStatIds.empty())
-        {
-            string str = counterIdsToStr(c_queueStatIds, sai_serialize_queue_stat);
-            queueFieldValues.emplace_back(QUEUE_COUNTER_ID_LIST, str);
-        }
-
-        if (!c_queueAttrIds.empty())
-        {
-            string str = counterIdsToStr(c_queueAttrIds, sai_serialize_queue_attr);
-            queueFieldValues.emplace_back(QUEUE_ATTR_ID_LIST, str);
-        }
-
-        // Create internal entry
-        m_entryMap.emplace(queueId, PfcWdQueueEntry(action, port.m_port_id, i, port.m_alias));
-
-        string key = getFlexCounterTableKey(queueIdStr);
-        m_flexCounterTable->set(key, queueFieldValues);
-
-        // Initialize PFC WD related counters
-        PfcWdActionHandler::initWdCounters(
-                this->getCountersTable(),
-                sai_serialize_object_id(queueId));
+        registerQueueInWdDb(port, i, detectionTime, restorationTime, action);
     }
 
     // We do NOT need to create ACL table group here. It will be
