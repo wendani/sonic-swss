@@ -280,6 +280,8 @@ task_process_status PfcWdOrch<DropHandler, ForwardHandler>::deleteEntry(const st
         return task_process_status::task_failed;
     }
 
+    m_portCfgMap.erase(name);
+
     SWSS_LOG_NOTICE("Stopped PFC Watchdog on port %s", name.c_str());
     return task_process_status::task_success;
 }
@@ -484,6 +486,8 @@ template <typename DropHandler, typename ForwardHandler>
 void PfcWdSwOrch<DropHandler, ForwardHandler>::registerQueueInWdDb(const Port& port, uint8_t qIdx,
         uint32_t detectionTime, uint32_t restorationTime, PfcWdAction action)
 {
+    SWSS_LOG_ENTER();
+
     sai_object_id_t queueId = port.m_queue_ids[qIdx];
     string queueIdStr = sai_serialize_object_id(queueId);
 
@@ -628,6 +632,8 @@ string PfcWdSwOrch<DropHandler, ForwardHandler>::getFlexCounterTableKey(string k
 template <typename DropHandler, typename ForwardHandler>
 void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterQueueFromWdDb(const Port& port, uint8_t qIdx)
 {
+    SWSS_LOG_ENTER();
+
     sai_object_id_t queueId = port.m_queue_ids[qIdx];
     string key = getFlexCounterTableKey(sai_serialize_object_id(queueId));
 
@@ -775,6 +781,8 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::stopWdOnPort(const Port& port)
 template <typename DropHandler, typename ForwardHandler>
 void PfcWdSwOrch<DropHandler, ForwardHandler>::doTask(Consumer& consumer)
 {
+    SWSS_LOG_ENTER();
+
     PfcWdOrch<DropHandler, ForwardHandler>::doTask(consumer);
 
     if (!gPortsOrch->allPortsReady())
