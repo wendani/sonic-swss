@@ -481,6 +481,24 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
 }
 
 template <typename DropHandler, typename ForwardHandler>
+void PfcWdSwOrch<DropHandler, ForwardHandler>::registerPortInWdDb(const Port& port, set<uint8_t>& losslessTc)
+{
+    SWSS_LOG_ENTER();
+
+    if (!c_portStatIds.empty())
+    {
+        string key = getFlexCounterTableKey(sai_serialize_object_id(port.m_port_id));
+        vector<FieldValueTuple> fieldValues;
+        // Only register lossless tc counters in database.
+        string str = counterIdsToStr(c_portStatIds, &sai_serialize_port_stat);
+        string filteredStr = filterPfcCounters(str, losslessTc);
+        fieldValues.emplace_back(PORT_COUNTER_ID_LIST, filteredStr);
+
+        m_flexCounterTable->set(key, fieldValues);
+    }
+}
+
+template <typename DropHandler, typename ForwardHandler>
 void PfcWdSwOrch<DropHandler, ForwardHandler>::registerQueueInWdDb(const Port& port, uint8_t qIdx,
         uint32_t detectionTime, uint32_t restorationTime, PfcWdAction action)
 {
@@ -559,17 +577,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
         return false;
     }
 
-    if (!c_portStatIds.empty())
-    {
-        string key = getFlexCounterTableKey(sai_serialize_object_id(port.m_port_id));
-        vector<FieldValueTuple> fieldValues;
-        // Only register lossless tc counters in database.
-        string str = counterIdsToStr(c_portStatIds, &sai_serialize_port_stat);
-        string filteredStr = filterPfcCounters(str, losslessTc);
-        fieldValues.emplace_back(PORT_COUNTER_ID_LIST, filteredStr);
-
-        m_flexCounterTable->set(key, fieldValues);
-    }
+    registerPortInWdDb(port, losslessTc);
 
     for (auto i : losslessTc)
     {
@@ -627,6 +635,16 @@ string PfcWdSwOrch<DropHandler, ForwardHandler>::getFlexCounterTableKey(string k
     return string(PFC_WD_FLEX_COUNTER_GROUP) + ":" + key;
 }
 
+
+template <typename DropHandler, typename ForwardHandler>
+void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterPortFromWdDb(const Port& port)
+{
+    SWSS_LOG_ENTER();
+
+    string key = getFlexCounterTableKey(sai_serialize_object_id(port.m_port_id));
+    m_flexCounterTable->del(key);
+}
+
 template <typename DropHandler, typename ForwardHandler>
 void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterQueueFromWdDb(const Port& port, uint8_t qIdx)
 {
@@ -657,8 +675,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterFromWdDb(const Port& po
 {
     SWSS_LOG_ENTER();
 
-    string key = getFlexCounterTableKey(sai_serialize_object_id(port.m_port_id));
-    m_flexCounterTable->del(key);
+    unregisterPortFromWdDb(port);
 
     for (uint8_t i = 0; i < PFC_WD_TC_MAX; i++)
     {

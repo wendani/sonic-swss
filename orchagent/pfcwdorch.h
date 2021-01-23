@@ -106,10 +106,12 @@ private:
 
     template <typename T>
     static string counterIdsToStr(const vector<T> ids, string (*convert)(T));
+    void registerPortInWdDb(const Port& port, set<uint8_t>& losslessTc);
     void registerQueueInWdDb(const Port& port, uint8_t qIdx,
             uint32_t detectionTime, uint32_t restorationTime, PfcWdAction action);
     bool registerInWdDb(const Port& port,
             uint32_t detectionTime, uint32_t restorationTime, PfcWdAction action);
+    void unregisterPortFromWdDb(const Port& port);
     void unregisterQueueFromWdDb(const Port& port, uint8_t qIdx);
     void unregisterFromWdDb(const Port& port);
     void doTask(swss::NotificationConsumer &wdNotification);
