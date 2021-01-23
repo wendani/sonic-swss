@@ -52,6 +52,16 @@ PfcWdOrch<DropHandler, ForwardHandler>::~PfcWdOrch(void)
 }
 
 template <typename DropHandler, typename ForwardHandler>
+PfcWdOrch<DropHandler, ForwardHandler>::PfcWdCfgEntry::PfcWdCfgEntry(
+        uint32_t detectionTime, uint32_t restorationTime, PfcWdAction action) :
+    detectionTime(detectionTime),
+    restorationTime(restorationTime),
+    action(action)
+{
+    SWSS_LOG_ENTER();
+}
+
+template <typename DropHandler, typename ForwardHandler>
 void PfcWdOrch<DropHandler, ForwardHandler>::doTask(Consumer& consumer)
 {
     SWSS_LOG_ENTER();
@@ -258,6 +268,7 @@ task_process_status PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const st
         SWSS_LOG_ERROR("%s missing", PFC_WD_DETECTION_TIME);
         return task_process_status::task_invalid_entry;
     }
+    m_portCfgMap[port.m_alias] = PfcWdCfgEntry(detectionTime, restorationTime, action);
 
     if (!startWdOnPort(port, detectionTime, restorationTime, action))
     {

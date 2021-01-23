@@ -56,6 +56,20 @@ protected:
 
     QosOrch *m_qosOrch;
 
+    struct PfcWdCfgEntry
+    {
+        PfcWdCfgEntry() = default;
+        PfcWdCfgEntry(
+                uint32_t detectionTime,
+                uint32_t restorationTime,
+                PfcWdAction action);
+
+        uint32_t detectionTime = 0;
+        uint32_t restorationTime = 0;
+        PfcWdAction action = PfcWdAction::PFC_WD_ACTION_UNKNOWN;
+    };
+    map<string, PfcWdCfgEntry> m_portCfgMap;
+
 private:
     shared_ptr<DBConnector> m_countersDb = nullptr;
     shared_ptr<Table> m_countersTable = nullptr;
