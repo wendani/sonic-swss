@@ -352,13 +352,15 @@ PfcWdLossyHandler::~PfcWdLossyHandler(void)
     SWSS_LOG_ENTER();
 
     uint8_t pfcMaskStatus = 0;
+    uint8_t pfcMaskCfg = 0;
 
-    if (!gPortsOrch->getPortPfc(getPort(), &pfcMaskStatus))
+    if (!gPortsOrch->getPortPfc(getPort(), &pfcMaskStatus, &pfcMaskCfg))
     {
         SWSS_LOG_ERROR("Failed to get PFC mask on port 0x%" PRIx64, getPort());
     }
 
-    pfcMaskStatus = static_cast<uint8_t>(pfcMaskStatus | (1 << getQueueId()));
+    // Set pfc enable bit to asic only if the corresponding bit in config is set
+    pfcMaskStatus = static_cast<uint8_t>(pfcMaskStatus | ((1 << getQueueId()) & pfcMaskCfg));
 
     if (!gPortsOrch->setPortPfcStatus(getPort(), pfcMaskStatus))
     {
