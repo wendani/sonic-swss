@@ -1195,83 +1195,72 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::update(SubjectType type, void *cn
             }
 
             auto portCfgIt = this->m_portCfgMap.find(port.m_alias);
-            if (portCfgIt == this->m_portCfgMap.end())
+            uint8_t bitmask = 0x1;
+            set<uint8_t> losslessTc;
+            for (uint8_t qIdx = 0; qIdx < PFC_WD_TC_MAX; qIdx++)
             {
-                SWSS_LOG_NOTICE("%s to update does not have PFC watchdog configuration. Skipping update", port.m_alias.c_str());
-                return;
-            }
-
-            if (m_bigRedSwitchFlag)
-            {
-                uint8_t bitmask = 0x1;
-                for (uint8_t qIdx = 0; qIdx < PFC_WD_TC_MAX; qIdx++)
+                if ((port.m_pfc_bitmask_cfg & bitmask)
+                        && !(update->pfc_enable & bitmask))
                 {
-                    if ((port.m_pfc_bitmask_cfg & bitmask)
-                            && !(update->pfc_enable & bitmask))
+                    if (m_bigRedSwitchFlag)
                     {
-                        // Disable big red switch mode on port, queue
+                        // Disable big red switch mode on PFC disabled queue
                         disableBigRedSwitchModeOnQueue(port, qIdx);
                     }
-                    else if (!(port.m_pfc_bitmask_cfg & bitmask)
-                             && (update->pfc_enable & bitmask))
-                    {
-                        // Enable big red switch mode on port, queue
-                        enableBigRedSwitchModeOnQueue(port, qIdx);
-                    }
 
-                    bitmask = static_cast<uint8_t>(bitmask << 1);
-                }
-            }
-            else
-            {
-                uint8_t bitmask = 0x1;
-                set<uint8_t> losslessTc;
-                for (uint8_t qIdx = 0; qIdx < PFC_WD_TC_MAX; qIdx++)
-                {
-                    if ((port.m_pfc_bitmask_cfg & bitmask)
-                            && !(update->pfc_enable & bitmask))
+                    if (portCfgIt != this->m_portCfgMap.end())
                     {
-                        // Stop watchdog on and detach storm action, if present, from PFC disabled queue
+                        // Stop watchdog state machine on and
+                        // detach storm action, if present, from PFC disabled queue
                         unregisterQueueFromWdDb(port, qIdx);
                     }
-                    else if (!(port.m_pfc_bitmask_cfg & bitmask)
-                             && (update->pfc_enable & bitmask))
+                }
+                else if (!(port.m_pfc_bitmask_cfg & bitmask)
+                         && (update->pfc_enable & bitmask))
+                {
+                    if (portCfgIt != this->m_portCfgMap.end())
                     {
-                        // Start watchdog on PFC enabled queue
+                        // Start watchdog state machine on PFC enabled queue
                         registerQueueInWdDb(port, qIdx,
                                             portCfgIt->second.detectionTime,
                                             portCfgIt->second.restorationTime,
                                             portCfgIt->second.action);
                     }
 
-                    if (update->pfc_enable & bitmask)
+                    if (m_bigRedSwitchFlag)
                     {
-                        losslessTc.insert(qIdx);
+                        // Enable big red switch mode on PFC enabled queue
+                        enableBigRedSwitchModeOnQueue(port, qIdx);
                     }
-
-                    bitmask = static_cast<uint8_t>(bitmask << 1);
                 }
 
-                // Port level watchdog processing
-                if (losslessTc.empty())
+                if (update->pfc_enable & bitmask)
                 {
-                    unregisterPortFromWdDb(port);
+                    losslessTc.insert(qIdx);
                 }
-                else
-                {
-                    // Create or update port counters in database
-                    registerPortInWdDb(port, losslessTc);
 
-                    auto platform_env_var = getenv("platform");
-                    string platform = platform_env_var ? platform_env_var: "";
-                    if ((platform == BFN_PLATFORM_SUBSTRING)
-                        || (platform == BRCM_PLATFORM_SUBSTRING))
-                    {
-                        // Create egress ACL table group for each port of pfcwd's interest
-                        sai_object_id_t groupId;
-                        gPortsOrch->createBindAclTableGroup(port.m_port_id, groupId, ACL_STAGE_INGRESS);
-                        gPortsOrch->createBindAclTableGroup(port.m_port_id, groupId, ACL_STAGE_EGRESS);
-                    }
+                bitmask = static_cast<uint8_t>(bitmask << 1);
+            }
+
+            // Port level watchdog processing
+            if (losslessTc.empty())
+            {
+                unregisterPortFromWdDb(port);
+            }
+            else
+            {
+                // Create or update port counters in database
+                registerPortInWdDb(port, losslessTc);
+
+                auto platform_env_var = getenv("platform");
+                string platform = platform_env_var ? platform_env_var: "";
+                if ((platform == BFN_PLATFORM_SUBSTRING)
+                    || (platform == BRCM_PLATFORM_SUBSTRING))
+                {
+                    // Create egress ACL table group for each port of pfcwd's interest
+                    sai_object_id_t groupId;
+                    gPortsOrch->createBindAclTableGroup(port.m_port_id, groupId, ACL_STAGE_INGRESS);
+                    gPortsOrch->createBindAclTableGroup(port.m_port_id, groupId, ACL_STAGE_EGRESS);
                 }
             }
             break;
