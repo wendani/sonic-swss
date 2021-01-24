@@ -1203,6 +1203,24 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::update(SubjectType type, void *cn
 
             if (m_bigRedSwitchFlag)
             {
+                uint8_t bitmask = 0x1;
+                for (uint8_t qIdx = 0; qIdx < PFC_WD_TC_MAX; qIdx++)
+                {
+                    if ((port.m_pfc_bitmask_cfg & bitmask)
+                            && !(update->pfc_enable & bitmask))
+                    {
+                        // Disable big red switch mode on port, queue
+                        disableBigRedSwitchModeOnQueue(port, qIdx);
+                    }
+                    else if (!(port.m_pfc_bitmask_cfg & bitmask)
+                             && (update->pfc_enable & bitmask))
+                    {
+                        // Enable big red switch mode on port, queue
+                        enableBigRedSwitchModeOnQueue(port, qIdx);
+                    }
+
+                    bitmask = static_cast<uint8_t>(bitmask << 1);
+                }
             }
             else
             {
