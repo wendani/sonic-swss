@@ -294,6 +294,8 @@ task_process_status PfcWdOrch<DropHandler, ForwardHandler>::deleteEntry(const st
         return task_process_status::task_failed;
     }
 
+    m_portCfgMap.erase(name);
+
     SWSS_LOG_NOTICE("Stopped PFC Watchdog on port %s", name.c_str());
     return task_process_status::task_success;
 }
