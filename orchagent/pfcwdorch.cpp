@@ -363,8 +363,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::disableBigRedSwitchModeOnQueue(co
     auto entryIt = m_brsEntryMap.find(queueId);
     if (entryIt != m_brsEntryMap.end() && entryIt->second.handler != nullptr)
     {
-        entry->second.handler->commitCounters();
-        entry->second.handler = nullptr;
+        entryIt->second.handler->commitCounters();
+        entryIt->second.handler = nullptr;
     }
 
     m_brsEntryMap.erase(entryIt);
