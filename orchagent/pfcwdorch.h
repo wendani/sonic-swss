@@ -140,6 +140,7 @@ private:
 
     void disableBigRedSwitchModeOnQueue(const Port& port, uint8_t qIdx);
     void disableBigRedSwitchMode();
+    void enableBigRedSwitchModeOnQueue(const Port& port, uint8_t qIdx);
     void enableBigRedSwitchMode();
     void setBigRedSwitchMode(string value);
 

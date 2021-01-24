@@ -405,6 +405,36 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::disableBigRedSwitchMode()
 }
 
 template <typename DropHandler, typename ForwardHandler>
+void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchModeOnQueue(const Port& port, uint8_t qIdx)
+{
+    sai_object_id_t queueId = port.m_queue_ids[qIdx];
+    string queueIdStr = sai_serialize_object_id(queueId);
+
+    vector<FieldValueTuple> countersFieldValues;
+    countersFieldValues.emplace_back("BIG_RED_SWITCH_MODE", "enable");
+    this->getCountersTable()->set(queueIdStr, countersFieldValues);
+
+    auto entry = m_brsEntryMap.emplace(queueId, PfcWdQueueEntry(PfcWdAction::PFC_WD_ACTION_DROP, port.m_port_id, i, port.m_alias)).first;
+
+    if (entry->second.handler == nullptr)
+    {
+        SWSS_LOG_NOTICE(
+                "PFC Watchdog BIG_RED_SWITCH mode enabled on port %s, queue index %d, queue id 0x%" PRIx64 " and port id 0x%" PRIx64 ".",
+                entry->second.portAlias.c_str(),
+                entry->second.index,
+                entry->first,
+                entry->second.portId);
+
+        entry->second.handler = make_shared<DropHandler>(
+                entry->second.portId,
+                entry->first,
+                entry->second.index,
+                this->getCountersTable());
+        entry->second.handler->initCounters();
+    }
+}
+
+template <typename DropHandler, typename ForwardHandler>
 void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
 {
     SWSS_LOG_ENTER();
