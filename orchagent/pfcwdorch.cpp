@@ -634,7 +634,6 @@ string PfcWdSwOrch<DropHandler, ForwardHandler>::getFlexCounterTableKey(string k
     return string(PFC_WD_FLEX_COUNTER_GROUP) + ":" + key;
 }
 
-
 template <typename DropHandler, typename ForwardHandler>
 void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterPortFromWdDb(const Port& port)
 {
