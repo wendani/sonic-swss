@@ -660,6 +660,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterQueueFromWdDb(const Por
         entry->second.handler->commitCounters();
     }
 
+    // If a queue is in PFC storm, a call to erase will detach queue
+    // from storm action
     m_entryMap.erase(queueId);
 
     // Clean up
