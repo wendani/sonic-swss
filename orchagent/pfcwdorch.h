@@ -138,6 +138,7 @@ private:
     string filterPfcCounters(string counters, set<uint8_t>& losslessTc);
     string getFlexCounterTableKey(string s);
 
+    void disableBigRedSwitchModeOnQueue(const Port& port, uint8_t qIdx);
     void disableBigRedSwitchMode();
     void enableBigRedSwitchMode();
     void setBigRedSwitchMode(string value);

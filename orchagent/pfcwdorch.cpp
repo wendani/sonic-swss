@@ -354,6 +354,27 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::setBigRedSwitchMode(const string 
 }
 
 template <typename DropHandler, typename ForwardHandler>
+void PfcWdSwOrch<DropHandler, ForwardHandler>::disableBigRedSwitchModeOnQueue(const Port& port, uint8_t qIdx)
+{
+    SWSS_LOG_ENTER();
+
+    sai_object_id_t queueId = port.m_queue_ids[qIdx];
+
+    auto entryIt = m_brsEntryMap.find(queueId);
+    if (entryIt != m_brsEntryMap.end() && entryIt->second.handler != nullptr)
+    {
+        entry->second.handler->commitCounters();
+        entry->second.handler = nullptr;
+    }
+
+    m_brsEntryMap.erase(entryIt);
+
+    RedisClient redisClient(this->getCountersDb().get());
+    string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
+    redisClient.hdel(countersKey, "BIG_RED_SWITCH_MODE");
+}
+
+template <typename DropHandler, typename ForwardHandler>
 void PfcWdSwOrch<DropHandler, ForwardHandler>::disableBigRedSwitchMode()
 {
     SWSS_LOG_ENTER();
