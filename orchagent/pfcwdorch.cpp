@@ -414,7 +414,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchModeOnQueue(con
     countersFieldValues.emplace_back("BIG_RED_SWITCH_MODE", "enable");
     this->getCountersTable()->set(queueIdStr, countersFieldValues);
 
-    auto entry = m_brsEntryMap.emplace(queueId, PfcWdQueueEntry(PfcWdAction::PFC_WD_ACTION_DROP, port.m_port_id, i, port.m_alias)).first;
+    auto entry = m_brsEntryMap.emplace(queueId, PfcWdQueueEntry(PfcWdAction::PFC_WD_ACTION_DROP, port.m_port_id, qIdx, port.m_alias)).first;
 
     if (entry->second.handler == nullptr)
     {
