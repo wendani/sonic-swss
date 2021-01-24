@@ -79,15 +79,15 @@ void CounterCheckOrch::mcCounterCheck()
             if (newMcCounters[prio] == numeric_limits<uint64_t>::max())
             {
                 SWSS_LOG_WARN("Could not retreive MC counters on queue %zu port %s",
-                              prio,
-                              port.m_alias.c_str());
+                        prio,
+                        port.m_alias.c_str());
             }
             else if (!isLossy && mcCounters[prio] < newMcCounters[prio])
             {
                 SWSS_LOG_WARN("Got Multicast %" PRIu64 " frame(s) on lossless queue %zu port %s",
-                              newMcCounters[prio] - mcCounters[prio],
-                              prio,
-                              port.m_alias.c_str());
+                        newMcCounters[prio] - mcCounters[prio],
+                        prio,
+                        port.m_alias.c_str());
             }
         }
 
@@ -125,15 +125,15 @@ void CounterCheckOrch::pfcFrameCounterCheck()
             if (newCounters[prio] == numeric_limits<uint64_t>::max())
             {
                 SWSS_LOG_WARN("Could not retreive PFC frame count on queue %zu port %s",
-                              prio,
-                              port.m_alias.c_str());
+                        prio,
+                        port.m_alias.c_str());
             }
             else if (isLossy && counters[prio] < newCounters[prio])
             {
                 SWSS_LOG_WARN("Got PFC %" PRIu64 " frame(s) on lossy queue %zu port %s",
-                              newCounters[prio] - counters[prio],
-                              prio,
-                              port.m_alias.c_str());
+                        newCounters[prio] - counters[prio],
+                        prio,
+                        port.m_alias.c_str());
             }
         }
 

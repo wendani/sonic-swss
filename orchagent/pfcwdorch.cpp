@@ -399,8 +399,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
         for (uint8_t i = 0; i < PFC_WD_TC_MAX; i++)
         {
             sai_object_id_t queueId = port.m_queue_ids[i];
-            // Pfc enable bit not set can be the case that the corresponding tc
-            // is lossless, and is currently in pfc storm, with pfc action in act.
+            // PFC enable bit not set can be the case that the corresponding TC
+            // is lossless, and is currently in PFC storm, with PFC action in act.
             // We pick up such a case to enable big red switch mode by checking if a corresponding
             // entry exists in m_entryMap
             if ((pfcMaskStatus & (1 << i)) == 0 && m_entryMap.find(queueId) == m_entryMap.end())
@@ -444,7 +444,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
             SWSS_LOG_ERROR("Failed to get PFC mask on port %s", port.m_alias.c_str());
             return;
         }
-        // By removing action handler, we expect pfc bit mask status in asic to
+        // By removing action handler, we expect PFC bit mask status in asic to
         // be the same as that in config
         assert(pfcMaskStatus == pfcMaskCfg);
 
