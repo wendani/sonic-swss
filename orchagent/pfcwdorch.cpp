@@ -345,10 +345,9 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::disableBigRedSwitchMode()
     SWSS_LOG_ENTER();
 
     m_bigRedSwitchFlag = false;
-    // Disable pfcwdaction hanlder on each queue if exists.
+    // Disable pfcwdaction handler on each queue if exists.
     for (auto &entry : m_brsEntryMap)
     {
-
         if (entry.second.handler != nullptr)
         {
             SWSS_LOG_NOTICE(
@@ -426,7 +425,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
         }
     }
 
-    // Create pfcwdaction hanlder on all ports.
+    // Create pfcwdaction handler on all ports.
     for (auto & it: allPorts)
     {
         Port port = it.second;
