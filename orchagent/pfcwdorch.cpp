@@ -730,6 +730,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterQueueFromWdDb(const Por
     // If a queue is in PFC storm, a call to erase will detach queue
     // from storm action
     m_entryMap.erase(queueId);
+    SWSS_LOG_NOTICE("Removed queue 0x%" PRIx64 " entry, queue index %d, port id 0x%" PRIx64, queueId, qIdx, port.m_port_id);
 
     // Clean up
     string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
