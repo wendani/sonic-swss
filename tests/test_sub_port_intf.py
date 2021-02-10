@@ -457,13 +457,18 @@ class TestSubPortIntf(object):
         parent_port = substrs[0]
         if parent_port.startswith(ETHERNET_PREFIX):
             state_tbl_name = STATE_PORT_TABLE_NAME
+            phy_ports = [parent_port]
         else:
             assert parent_port.startswith(LAG_PREFIX)
             state_tbl_name = STATE_LAG_TABLE_NAME
+            phy_ports = self.LAG_MEMBERS_UNDER_TEST
 
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
+        # Add lag members to test physical port host interface vlan tag attribute
+        if parent_port.startswith(LAG_PREFIX):
+            self.add_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
         self.create_sub_port_intf_profile(sub_port_intf_name)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
@@ -505,8 +510,13 @@ class TestSubPortIntf(object):
         fv_dict = {
             "SAI_HOSTIF_ATTR_VLAN_TAG": "SAI_HOSTIF_VLAN_TAG_STRIP",
         }
-        hostif_oid = dvs.asicdb.hostifnamemap[parent_port]
-        self.check_sub_port_intf_fvs(self.asic_db, ASIC_HOSTIF_TABLE, hostif_oid, fv_dict)
+        for phy_port in phy_ports:
+            hostif_oid = dvs.asicdb.hostifnamemap[phy_port]
+            self.check_sub_port_intf_fvs(self.asic_db, ASIC_HOSTIF_TABLE, hostif_oid, fv_dict)
+
+        # Remove lag members from lag parent port
+        if parent_port.startswith(LAG_PREFIX):
+            self.remove_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
 
     def test_sub_port_intf_removal(self, dvs):
         self.connect_dbs(dvs)
