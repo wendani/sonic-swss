@@ -25,6 +25,7 @@ ASIC_ROUTE_ENTRY_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY"
 ASIC_NEXT_HOP_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP"
 ASIC_NEXT_HOP_GROUP_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP"
 ASIC_NEXT_HOP_GROUP_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER"
+ASIC_LAG_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER"
 ASIC_HOSTIF_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF"
 
 ADMIN_STATUS = "admin_status"
@@ -100,7 +101,6 @@ class TestSubPortIntf(object):
         for member in members:
             key = "{}|{}".format(lag, member)
             self.config_db.create_entry(CFG_LAG_MEMBER_TABLE_NAME, key, fvs)
-        time.sleep(1)
 
     def add_sub_port_intf_ip_addr(self, sub_port_intf_name, ip_addr):
         fvs = {"NULL": "NULL"}
@@ -117,7 +117,6 @@ class TestSubPortIntf(object):
         for member in members:
             key = "{}|{}".format(lag, member)
             self.config_db.delete_entry(CFG_LAG_MEMBER_TABLE_NAME, key)
-        time.sleep(1)
 
     def remove_sub_port_intf_profile(self, sub_port_intf_name):
         self.config_db.delete_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, sub_port_intf_name)
@@ -215,6 +214,7 @@ class TestSubPortIntf(object):
         # Add lag members to test physical port host interface vlan tag attribute
         if parent_port.startswith(LAG_PREFIX):
             self.add_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, len(self.LAG_MEMBERS_UNDER_TEST))
         self.create_sub_port_intf_profile(sub_port_intf_name)
 
         # Verify that sub port interface state ok is pushed to STATE_DB by Intfmgrd
@@ -255,6 +255,7 @@ class TestSubPortIntf(object):
         # Remove lag members from lag parent port
         if parent_port.startswith(LAG_PREFIX):
             self.remove_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 0)
 
     def test_sub_port_intf_creation(self, dvs):
         self.connect_dbs(dvs)
@@ -473,6 +474,7 @@ class TestSubPortIntf(object):
         # Add lag members to test physical port host interface vlan tag attribute
         if parent_port.startswith(LAG_PREFIX):
             self.add_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, len(self.LAG_MEMBERS_UNDER_TEST))
         self.create_sub_port_intf_profile(sub_port_intf_name)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
@@ -521,6 +523,7 @@ class TestSubPortIntf(object):
         # Remove lag members from lag parent port
         if parent_port.startswith(LAG_PREFIX):
             self.remove_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 0)
 
     def test_sub_port_intf_removal(self, dvs):
         self.connect_dbs(dvs)
