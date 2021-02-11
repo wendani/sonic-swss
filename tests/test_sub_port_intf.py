@@ -100,6 +100,7 @@ class TestSubPortIntf(object):
         for member in members:
             key = "{}|{}".format(lag, member)
             self.config_db.create_entry(CFG_LAG_MEMBER_TABLE_NAME, key, fvs)
+        time.sleep(1)
 
     def add_sub_port_intf_ip_addr(self, sub_port_intf_name, ip_addr):
         fvs = {"NULL": "NULL"}
@@ -116,6 +117,7 @@ class TestSubPortIntf(object):
         for member in members:
             key = "{}|{}".format(lag, member)
             self.config_db.delete_entry(CFG_LAG_MEMBER_TABLE_NAME, key)
+        time.sleep(1)
 
     def remove_sub_port_intf_profile(self, sub_port_intf_name):
         self.config_db.delete_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, sub_port_intf_name)
