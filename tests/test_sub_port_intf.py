@@ -148,8 +148,19 @@ class TestSubPortIntf(object):
 
         self.config_db.create_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, sub_port_intf_name, fvs)
 
+    def remove_vxlan_tunnel(self, tunnel_name):
+        self.config_db.delete_entry(CFG_VXLAN_TUNNEL_TABLE_NAME, tunnel_name)
+
+    def remove_vnet(self, vnet_name):
+        self.config_db.delete_entry(CFG_VNET_TABLE_NAME, vnet_name)
+
     def remove_vrf(self, vrf_name):
-        self.config_db.delete_entry(CFG_VRF_TABLE_NAME, vrf_name)
+        if vrf_name.startswith(VRF_PREFIX):
+            self.config_db.delete_entry(CFG_VRF_TABLE_NAME, vrf_name)
+        else:
+            assert vrf_name.startswith(VNET_PREFIX)
+            self.remove_vnet(vrf_name)
+            self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
 
     def check_vrf_removal(self, vrf_oid):
         self.asic_db.wait_for_deleted_keys(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
@@ -342,6 +353,9 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_creation(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
         self._test_sub_port_intf_creation(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+
+        self._test_sub_port_intf_creation(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
+        self._test_sub_port_intf_creation(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
 
     def _test_sub_port_intf_add_ip_addrs(self, dvs, sub_port_intf_name, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
