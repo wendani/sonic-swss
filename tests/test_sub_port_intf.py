@@ -637,7 +637,7 @@ class TestSubPortIntf(object):
             ADMIN_STATUS: "up",
         }
         if vrf_name:
-            fv_dict[VRF_NAME] = vrf_name
+            fv_dict[VRF_NAME if vrf_name.startswith(VRF_PREFIX) else VNET_NAME] = vrf_name
         self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME, sub_port_intf_name, fv_dict)
 
         # Remove IP addresses
@@ -682,6 +682,9 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_removal(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
         self._test_sub_port_intf_removal(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+
+        self._test_sub_port_intf_removal(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
+        self._test_sub_port_intf_removal(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
 
     def _test_sub_port_intf_mtu(self, dvs, sub_port_intf_name, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
