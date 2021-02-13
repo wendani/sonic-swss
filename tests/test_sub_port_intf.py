@@ -10,6 +10,8 @@ CFG_VLAN_SUB_INTF_TABLE_NAME = "VLAN_SUB_INTERFACE"
 CFG_PORT_TABLE_NAME = "PORT"
 CFG_LAG_TABLE_NAME = "PORTCHANNEL"
 CFG_VRF_TABLE_NAME = "VRF"
+CFG_VXLAN_TUNNEL_TABLE_NAME = "VXLAN_TUNNEL"
+CFG_VNET_TABLE_NAME = "VNET"
 
 STATE_PORT_TABLE_NAME = "PORT_TABLE"
 STATE_LAG_TABLE_NAME = "LAG_TABLE"
@@ -29,9 +31,16 @@ ASIC_VIRTUAL_ROUTER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER"
 
 ADMIN_STATUS = "admin_status"
 VRF_NAME = "vrf_name"
+VNET_NAME = "vnet_name"
+SRC_IP = "src_ip"
+VXLAN_TUNNEL = "vxlan_tunnel"
+VNI = "vni"
+PEER_LIST = "peer_list"
 
 ETHERNET_PREFIX = "Ethernet"
 LAG_PREFIX = "PortChannel"
+VRF_PREFIX = "Vrf"
+VNET_PREFIX = "Vnet"
 
 VLAN_SUB_INTERFACE_SEPARATOR = "."
 APPL_DB_SEPARATOR = ":"
@@ -50,6 +59,11 @@ class TestSubPortIntf(object):
     IPV6_SUBNET_UNDER_TEST = "fc00::40/126"
 
     VRF_UNDER_TEST = "Vrf0"
+
+    TUNNEL_UNDER_TEST = "tunnel1"
+    VTEP_IP_UNDER_TEST = "1.1.1.1"
+    VNET_UNDER_TEST = "Vnet1000"
+    VNI_UNDER_TEST = "1000"
 
     def connect_dbs(self, dvs):
         self.app_db = dvs.get_app_db()
@@ -94,8 +108,27 @@ class TestSubPortIntf(object):
         else:
             self.set_parent_port_oper_status(dvs, port_name, "up")
 
+    def create_vxlan_tunnel(self, tunnel_name, vtep_ip):
+        fvs = {
+            SRC_IP: vtep_ip,
+        }
+        self.config_db.create_entry(CFG_VXLAN_TUNNEL_TABLE_NAME, tunnel_name, fvs)
+
+    def create_vnet(self, vnet_name, tunnel_name, vni, peer_list=""):
+        fvs = {
+            VXLAN_TUNNEL: tunnel_name,
+            VNI: vni,
+            PEER_LIST: peer_list,
+        }
+        self.config_db.create_entry(CFG_VNET_TABLE_NAME, vnet_name, fvs)
+
     def create_vrf(self, vrf_name):
-        self.config_db.create_entry(CFG_VRF_TABLE_NAME, vrf_name, {"NULL": "NULL"})
+        if vrf_name.startswith(VRF_PREFIX):
+            self.config_db.create_entry(CFG_VRF_TABLE_NAME, vrf_name, {"NULL": "NULL"})
+        else:
+            assert vrf_name.startswith(VNET_PREFIX)
+            self.create_vxlan_tunnel(self.TUNNEL_UNDER_TEST, self.VTEP_IP_UNDER_TEST)
+            self.create_vnet(vrf_name, self.TUNNEL_UNDER_TEST, self.VNI_UNDER_TEST)
 
     def create_sub_port_intf_profile(self, sub_port_intf_name, vrf_name=""):
         fvs = {ADMIN_STATUS: "up"}
