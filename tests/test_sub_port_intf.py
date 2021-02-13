@@ -133,7 +133,7 @@ class TestSubPortIntf(object):
     def create_sub_port_intf_profile(self, sub_port_intf_name, vrf_name=""):
         fvs = {ADMIN_STATUS: "up"}
         if vrf_name:
-            fvs[VRF_NAME] = vrf_name
+            fvs[VRF_NAME if vrf_name.startswith(VRF_PREFIX) else VNET_NAME, vrf_name] = vrf_name
 
         self.config_db.create_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, sub_port_intf_name, fvs)
 
@@ -310,7 +310,7 @@ class TestSubPortIntf(object):
             ADMIN_STATUS: "up",
         }
         if vrf_name:
-            fv_dict[VRF_NAME] = vrf_name
+            fv_dict[VRF_NAME if vrf_name.startswith(VRF_PREFIX) else VNET_NAME] = vrf_name
         self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME, sub_port_intf_name, fv_dict)
 
         # Verify that a sub port router interface entry is created in ASIC_DB
