@@ -227,17 +227,23 @@ class TestSubPortIntf(object):
     def check_sub_port_intf_fvs(self, db, table_name, key, fv_dict):
         db.wait_for_field_match(table_name, key, fv_dict)
 
-    def check_sub_port_intf_route_entries(self, vrf_oid=None):
+    def check_sub_port_intf_route_entries(self, vrf_oid=None, check_ipv6=True):
         expected_dests = [self.IPV4_TOME_UNDER_TEST,
                           self.IPV4_SUBNET_UNDER_TEST,
                           self.IPV6_TOME_UNDER_TEST,
                           self.IPV6_SUBNET_UNDER_TEST]
+        if not check_ipv6:
+            expected_dests.pop()
+            expected_dests.pop()
         if vrf_oid is None:
             vrf_oid = self.default_vrf_oid
         expected_vrf_oids = [vrf_oid,
                              vrf_oid,
                              vrf_oid,
                              vrf_oid]
+        if not check_ipv6:
+            expected_vrf_oids.pop()
+            expected_vrf_oids.pop()
 
         def _access_function():
             raw_route_entries = self.asic_db.get_keys(ASIC_ROUTE_ENTRY_TABLE)
@@ -373,7 +379,8 @@ class TestSubPortIntf(object):
         self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
-        self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
+        if not vrf_name.startswith(VNET_PREFIX):
+            self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
 
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
 
@@ -383,8 +390,9 @@ class TestSubPortIntf(object):
         }
         self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME,
                                      sub_port_intf_name + "|" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
-        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME,
-                                     sub_port_intf_name + "|" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
+        if not vrf_name.startswith(VNET_PREFIX):
+            self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME,
+                                         sub_port_intf_name + "|" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
 
         # Verify that ip address configuration is synced to APPL_DB INTF_TABLE by Intfmgrd
         fv_dict = {
@@ -393,22 +401,26 @@ class TestSubPortIntf(object):
         }
         self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME,
                                      sub_port_intf_name + ":" + self.IPV4_ADDR_UNDER_TEST, fv_dict)
-        fv_dict["family"] = "IPv6"
-        self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME,
-                                     sub_port_intf_name + ":" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
+        if not vrf_name.startswith(VNET_PREFIX):
+            fv_dict["family"] = "IPv6"
+            self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME,
+                                         sub_port_intf_name + ":" + self.IPV6_ADDR_UNDER_TEST, fv_dict)
 
         # Verify that an IPv4 ip2me route entry is created in ASIC_DB
         # Verify that an IPv4 subnet route entry is created in ASIC_DB
-        # Verify that an IPv6 ip2me route entry is created in ASIC_DB
-        # Verify that an IPv6 subnet route entry is created in ASIC_DB
-        self.check_sub_port_intf_route_entries(vrf_oid)
+        # Verify that an IPv6 ip2me route entry is created in ASIC_DB for non-vnet case
+        # Verify that an IPv6 subnet route entry is created in ASIC_DB for non-vnet case
+        self.check_sub_port_intf_route_entries(vrf_oid, check_ipv6=True if not vrf_name.startswith(VNET_PREFIX) else False)
 
         # Remove IP addresses
+        ip_addrs = [
+            self.IPV4_ADDR_UNDER_TEST,
+        ]
         self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
-        self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
-        self.check_sub_port_intf_ip_addr_removal(sub_port_intf_name,
-                                                 [self.IPV4_ADDR_UNDER_TEST,
-                                                  self.IPV6_ADDR_UNDER_TEST])
+        if not vrf_name.startswith(VNET_PREFIX):
+            ip_addrs.append(self.IPV6_ADDR_UNDER_TEST)
+            self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
+        self.check_sub_port_intf_ip_addr_removal(sub_port_intf_name, ip_addrs)
 
         # Remove a sub port interface
         self.remove_sub_port_intf_profile(sub_port_intf_name)
@@ -427,6 +439,9 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
         self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+
+        self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
+        self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
 
     def _test_sub_port_intf_admin_status_change(self, dvs, sub_port_intf_name, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
