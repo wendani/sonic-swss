@@ -562,7 +562,8 @@ class TestSubPortIntf(object):
         self.create_sub_port_intf_profile(sub_port_intf_name, vrf_name)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
-        self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
+        if not vrf_name.startswith(VNET_PREFIX):
+            self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
 
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
 
@@ -582,21 +583,22 @@ class TestSubPortIntf(object):
         removed_route_entries = set([self.IPV4_TOME_UNDER_TEST, self.IPV4_SUBNET_UNDER_TEST])
         self.check_sub_port_intf_route_entries_removal(removed_route_entries)
 
-        # Remove IPv6 address
-        self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
+        # Remove IPv6 address for non-vnet cases
+        if not vrf_name.startswith(VNET_PREFIX):
+            self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
 
-        # Verify that IPv6 address state ok is removed from STATE_DB INTERFACE_TABLE by Intfmgrd
-        self.check_sub_port_intf_key_removal(self.state_db, STATE_INTERFACE_TABLE_NAME,
-                                             sub_port_intf_name + "|" + self.IPV6_ADDR_UNDER_TEST)
+            # Verify that IPv6 address state ok is removed from STATE_DB INTERFACE_TABLE by Intfmgrd
+            self.check_sub_port_intf_key_removal(self.state_db, STATE_INTERFACE_TABLE_NAME,
+                                                 sub_port_intf_name + "|" + self.IPV6_ADDR_UNDER_TEST)
 
-        # Verify that IPv6 address configuration is removed from APPL_DB INTF_TABLE by Intfmgrd
-        self.check_sub_port_intf_key_removal(self.app_db, APP_INTF_TABLE_NAME,
-                                             sub_port_intf_name + ":" + self.IPV6_ADDR_UNDER_TEST)
+            # Verify that IPv6 address configuration is removed from APPL_DB INTF_TABLE by Intfmgrd
+            self.check_sub_port_intf_key_removal(self.app_db, APP_INTF_TABLE_NAME,
+                                                 sub_port_intf_name + ":" + self.IPV6_ADDR_UNDER_TEST)
 
-        # Verify that IPv6 subnet route entry is removed from ASIC_DB
-        # Verify that IPv6 ip2me route entry is removed from ASIC_DB
-        removed_route_entries.update([self.IPV6_TOME_UNDER_TEST, self.IPV6_SUBNET_UNDER_TEST])
-        self.check_sub_port_intf_route_entries_removal(removed_route_entries)
+            # Verify that IPv6 subnet route entry is removed from ASIC_DB
+            # Verify that IPv6 ip2me route entry is removed from ASIC_DB
+            removed_route_entries.update([self.IPV6_TOME_UNDER_TEST, self.IPV6_SUBNET_UNDER_TEST])
+            self.check_sub_port_intf_route_entries_removal(removed_route_entries)
 
         # Verify that sub port router interface entry still exists in ASIC_DB
         self.check_sub_port_intf_key_existence(self.asic_db, ASIC_RIF_TABLE, rif_oid)
@@ -618,6 +620,9 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_remove_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
         self._test_sub_port_intf_remove_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VRF_UNDER_TEST)
+
+        self._test_sub_port_intf_remove_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
+        self._test_sub_port_intf_remove_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
 
     def _test_sub_port_intf_removal(self, dvs, sub_port_intf_name, vrf_name=""):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
