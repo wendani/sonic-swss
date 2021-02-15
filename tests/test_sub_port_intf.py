@@ -21,6 +21,7 @@ APP_INTF_TABLE_NAME = "INTF_TABLE"
 APP_ROUTE_TABLE_NAME = "ROUTE_TABLE"
 APP_PORT_TABLE_NAME = "PORT_TABLE"
 APP_LAG_TABLE_NAME = "LAG_TABLE"
+APP_VNET_TABLE_NAME = "VNET_TABLE"
 
 ASIC_RIF_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE"
 ASIC_ROUTE_ENTRY_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY"
@@ -60,7 +61,7 @@ class TestSubPortIntf(object):
 
     VRF_UNDER_TEST = "Vrf0"
 
-    TUNNEL_UNDER_TEST = "tunnel1"
+    TUNNEL_UNDER_TEST = "Tunnel1"
     VTEP_IP_UNDER_TEST = "1.1.1.1"
     VNET_UNDER_TEST = "Vnet1000"
     VNI_UNDER_TEST = "1000"
@@ -153,6 +154,7 @@ class TestSubPortIntf(object):
 
     def remove_vnet(self, vnet_name):
         self.config_db.delete_entry(CFG_VNET_TABLE_NAME, vnet_name)
+        self.app_db.wait_for_deleted_keys(APP_VNET_TABLE_NAME, vnet_name)
 
     def remove_vrf(self, vrf_name):
         if vrf_name.startswith(VRF_PREFIX):
