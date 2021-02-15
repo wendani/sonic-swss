@@ -519,11 +519,14 @@ class TestSubPortIntf(object):
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
 
         # Remove IP addresses
+        ip_addrs = [
+            self.IPV4_ADDR_UNDER_TEST,
+        ]
         self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
-        self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
-        self.check_sub_port_intf_ip_addr_removal(sub_port_intf_name,
-                                                 [self.IPV4_ADDR_UNDER_TEST,
-                                                  self.IPV6_ADDR_UNDER_TEST])
+        if not vrf_name.startswith(VNET_PREFIX):
+            ip_addrs.append(self.IPV6_ADDR_UNDER_TEST)
+            self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
+        self.check_sub_port_intf_ip_addr_removal(sub_port_intf_name, ip_addrs)
 
         # Remove a sub port interface
         self.remove_sub_port_intf_profile(sub_port_intf_name)
