@@ -409,6 +409,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::disableBigRedSwitchMode()
 template <typename DropHandler, typename ForwardHandler>
 void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchModeOnQueue(const Port& port, uint8_t qIdx)
 {
+    SWSS_LOG_ENTER();
+
     sai_object_id_t queueId = port.m_queue_ids[qIdx];
     string queueIdStr = sai_serialize_object_id(queueId);
 

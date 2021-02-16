@@ -68,7 +68,7 @@ protected:
         uint32_t restorationTime = 0;
         PfcWdAction action = PfcWdAction::PFC_WD_ACTION_UNKNOWN;
     };
-    map<string, PfcWdCfgEntry> m_portCfgMap;
+    unordered_map<string, PfcWdCfgEntry> m_portCfgMap;
 
 private:
     shared_ptr<DBConnector> m_countersDb = nullptr;
