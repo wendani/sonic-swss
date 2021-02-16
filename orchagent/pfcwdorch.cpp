@@ -426,7 +426,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
         }
     }
 
-    // Create pfcwdaction hanlder on all ports.
+    // Create pfcwdaction handler on all ports.
     for (auto & it: allPorts)
     {
         Port port = it.second;
