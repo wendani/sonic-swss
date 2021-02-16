@@ -580,7 +580,7 @@ PfcWdZeroBufferHandler::ZeroBufferProfile::~ZeroBufferProfile(void)
 {
     SWSS_LOG_ENTER();
 
-    // Destory ingress and egress prifiles and pools
+    // Destroy ingress and egress profiles and pools
     destroyZeroBufferProfile(true);
     destroyZeroBufferProfile(false);
 }
