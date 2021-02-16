@@ -269,11 +269,9 @@ PfcWdAclHandler::~PfcWdAclHandler(void)
 
     auto found = m_aclTables.find(m_strIngressTable);
     found->second.unbind(getPort());
-    SWSS_LOG_NOTICE("Unbound port 0x%" PRIx64 " from %s", getPort(), m_strIngressTable.c_str());
 
     found = m_aclTables.find(m_strEgressTable);
     found->second.unbind(getPort());
-    SWSS_LOG_NOTICE("Unbound port 0x%" PRIx64 " from %s", getPort(), m_strEgressTable.c_str());
 }
 
 void PfcWdAclHandler::clear()
