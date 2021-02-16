@@ -665,9 +665,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterQueueFromWdDb(const Por
     m_entryMap.erase(queueId);
 
     // Clean up
-    RedisClient redisClient(this->getCountersDb().get());
     string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
-    redisClient.hdel(countersKey, {"PFC_WD_DETECTION_TIME", "PFC_WD_RESTORATION_TIME", "PFC_WD_ACTION", "PFC_WD_STATUS"});
+    this->getCountersDb()->hdel(countersKey, {"PFC_WD_DETECTION_TIME", "PFC_WD_RESTORATION_TIME", "PFC_WD_ACTION", "PFC_WD_STATUS"});
 }
 
 template <typename DropHandler, typename ForwardHandler>
