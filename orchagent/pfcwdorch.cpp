@@ -534,7 +534,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::registerQueueInWdDb(const Port& p
     }
 
     // Create internal entry
-    m_entryMap.emplace(queueId, PfcWdQueueEntry(action, port.m_port_id, i, port.m_alias));
+    m_entryMap.emplace(queueId, PfcWdQueueEntry(action, port.m_port_id, qIdx, port.m_alias));
 
     string key = getFlexCounterTableKey(queueIdStr);
     m_flexCounterTable->set(key, queueFieldValues);
