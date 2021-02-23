@@ -161,6 +161,7 @@ class TestSubPortIntf(object):
 
     def get_default_vrf_oid(self):
         oids = self.get_oids(ASIC_VIRTUAL_ROUTER_TABLE)
+        print(oids)
         assert len(oids) == 1, "Wrong # of default vrfs: %d, expected #: 1." % (len(oids))
         return oids[0]
 
