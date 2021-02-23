@@ -219,22 +219,23 @@ class TestSubPortIntf(object):
         wait_for_result(_access_function)
 
     def check_sub_port_intf_vrf_bind_kernel(self, dvs, port_name, vrf_name):
-        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
+        (ec, out) = dvs.runcmd(['sh', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
+        print(out)
         assert ec == 0
         assert vrf_name in out
 
     def check_sub_port_intf_vrf_nobind_kernel(self, dvs, port_name, vrf_name=None):
         if vrf_name is not None:
-            (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
+            (ec, out) = dvs.runcmd(['sh', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
             assert ec == 1
             assert vrf_name not in out
 
-        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep master".format(port_name)])
+        (ec, out) = dvs.runcmd(['sh', '-c', "ip link show {} | grep master".format(port_name)])
         assert ec == 1
         assert "master" not in out
 
     def check_sub_port_intf_removal_kernel(self, dvs, port_name):
-        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {}".format(port_name)])
+        (ec, out) = dvs.runcmd(['sh', '-c', "ip link show {}".format(port_name)])
         assert ec == 1
         assert port_name in out
         assert "does not exist" in out
