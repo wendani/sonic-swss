@@ -219,23 +219,23 @@ class TestSubPortIntf(object):
         wait_for_result(_access_function)
 
     def check_sub_port_intf_vrf_bind_kernel(self, dvs, port_name, vrf_name):
-        (ec, out) = dvs.runcmd(['sh', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
+        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
         print(out)
         assert ec == 0
         assert vrf_name in out
 
     def check_sub_port_intf_vrf_nobind_kernel(self, dvs, port_name, vrf_name=None):
         if vrf_name is not None:
-            (ec, out) = dvs.runcmd(['sh', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
+            (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
             assert ec == 1
             assert vrf_name not in out
 
-        (ec, out) = dvs.runcmd(['sh', '-c', "ip link show {} | grep master".format(port_name)])
+        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep master".format(port_name)])
         assert ec == 1
         assert "master" not in out
 
     def check_sub_port_intf_removal_kernel(self, dvs, port_name):
-        (ec, out) = dvs.runcmd(['sh', '-c', "ip link show {}".format(port_name)])
+        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {}".format(port_name)])
         assert ec == 1
         assert port_name in out
         assert "does not exist" in out
@@ -284,17 +284,17 @@ class TestSubPortIntf(object):
         }
         self.check_sub_port_intf_fvs(self.state_db, state_tbl_name, sub_port_intf_name, fv_dict)
 
-        # If bound to non-default vrf, verify sub port interface vrf binding in linux kernel,
-        # and parent port not bound to vrf
-        if vrf_name:
-            self.check_sub_port_intf_vrf_bind_kernel(dvs, sub_port_intf_name, vrf_name)
-            self.check_sub_port_intf_vrf_nobind_kernel(dvs, parent_port, vrf_name)
-
         # Verify vrf name sub port interface bound to in STATE_DB INTERFACE_TABLE
         fv_dict = {
             "vrf": vrf_name if vrf_name else "",
         }
         self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, sub_port_intf_name, fv_dict)
+
+        # If bound to non-default vrf, verify sub port interface vrf binding in linux kernel,
+        # and parent port not bound to vrf
+        if vrf_name:
+            self.check_sub_port_intf_vrf_bind_kernel(dvs, sub_port_intf_name, vrf_name)
+            self.check_sub_port_intf_vrf_nobind_kernel(dvs, parent_port, vrf_name)
 
         # Verify that sub port interface configuration is synced to APPL_DB INTF_TABLE by Intfmgrd
         fv_dict = {
@@ -618,14 +618,14 @@ class TestSubPortIntf(object):
         }
         self.check_sub_port_intf_fvs(self.state_db, state_tbl_name, sub_port_intf_name, fv_dict)
 
-        if vrf_name:
-            self.check_sub_port_intf_vrf_bind_kernel(dvs, sub_port_intf_name, vrf_name)
-            self.check_sub_port_intf_vrf_nobind_kernel(dvs, parent_port, vrf_name)
-
         fv_dict = {
             "vrf": vrf_name if vrf_name else "",
         }
         self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, sub_port_intf_name, fv_dict)
+
+        if vrf_name:
+            self.check_sub_port_intf_vrf_bind_kernel(dvs, sub_port_intf_name, vrf_name)
+            self.check_sub_port_intf_vrf_nobind_kernel(dvs, parent_port, vrf_name)
 
         fv_dict = {
             ADMIN_STATUS: "up",
