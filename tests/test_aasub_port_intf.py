@@ -287,6 +287,8 @@ class TestSubPortIntf(object):
             "state": "ok",
         }
         self.check_sub_port_intf_fvs(self.state_db, state_tbl_name, sub_port_intf_name, fv_dict)
+        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {}".format(sub_port_intf_name)])
+        print(out)
 
         # Verify vrf name sub port interface bound to in STATE_DB INTERFACE_TABLE
         fv_dict = {
