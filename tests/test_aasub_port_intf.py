@@ -161,7 +161,6 @@ class TestSubPortIntf(object):
 
     def get_default_vrf_oid(self):
         oids = self.get_oids(ASIC_VIRTUAL_ROUTER_TABLE)
-        print(oids)
         assert len(oids) == 1, "Wrong # of default vrfs: %d, expected #: 1." % (len(oids))
         return oids[0]
 
@@ -219,12 +218,6 @@ class TestSubPortIntf(object):
         wait_for_result(_access_function)
 
     def check_sub_port_intf_vrf_bind_kernel(self, dvs, port_name, vrf_name):
-        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {}".format(port_name)])
-        print(out)
-        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {}".format(vrf_name)])
-        print(out)
-        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
-        print(out)
         assert ec == 0
         assert vrf_name in out
 
@@ -287,8 +280,6 @@ class TestSubPortIntf(object):
             "state": "ok",
         }
         self.check_sub_port_intf_fvs(self.state_db, state_tbl_name, sub_port_intf_name, fv_dict)
-        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {}".format(sub_port_intf_name)])
-        print(out)
 
         # Verify vrf name sub port interface bound to in STATE_DB INTERFACE_TABLE
         fv_dict = {
