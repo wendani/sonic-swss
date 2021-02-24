@@ -564,6 +564,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
         if (!vrf_name.empty())
         {
             setIntfVrf(alias, vrf_name);
+            setHostSubIntfMtu(alias, "1234");
         }
 
         /*Set the mac of interface*/
