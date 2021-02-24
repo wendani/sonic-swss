@@ -78,8 +78,8 @@ class TestSubPortIntf(object):
             dvs.servers[srv_idx].runcmd("ip link set dev eth0 " + status)
         else:
             assert port_name.startswith(LAG_PREFIX)
-            dvs.runcmd("bash -c 'echo " + ("1" if status == "up" else "0") + \
-                    " > /sys/class/net/" + port_name + "/carrier'")
+            dvs.runcmd("bash -c 'echo " + ("1" if status == "up" else "0") +
+                       " > /sys/class/net/" + port_name + "/carrier'")
         time.sleep(1)
 
     def set_parent_port_admin_status(self, dvs, port_name, status):
