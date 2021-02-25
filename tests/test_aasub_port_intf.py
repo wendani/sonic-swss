@@ -218,6 +218,7 @@ class TestSubPortIntf(object):
         wait_for_result(_access_function)
 
     def check_sub_port_intf_vrf_bind_kernel(self, dvs, port_name, vrf_name):
+        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
         assert ec == 0
         assert vrf_name in out
 
