@@ -78,8 +78,7 @@ jobs:
 
       popd
 
-      ls $(Build.ArtifactStagingDirectory)
-      rm $(Build.ArtifactStagingDirectory)/docker-sonic-vs.gz
+      ls -al $(Build.ArtifactStagingDirectory)
 
       docker save docker-sonic-vs:$(Build.DefinitionName).$(Build.BuildNumber) | gzip -c > $(Build.ArtifactStagingDirectory)/docker-sonic-vs.gz
 

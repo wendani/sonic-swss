@@ -95,6 +95,7 @@ jobs:
   - script: |
       ./autogen.sh
       dpkg-buildpackage -us -uc -b -j$(nproc) && cp ../*.deb .
+      md5sum swss_1.0.0_amd64.deb
     displayName: "Compile sonic swss"
   - publish: $(System.DefaultWorkingDirectory)/
     artifact: ${{ parameters.artifact_name }}
