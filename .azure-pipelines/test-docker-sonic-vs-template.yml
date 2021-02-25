@@ -46,7 +46,6 @@ jobs:
 
   - script: |
       set -x
-      md5sum ../docker-sonic-vs.gz
       sudo docker load -i ../docker-sonic-vs.gz
       docker ps
       ip netns list
