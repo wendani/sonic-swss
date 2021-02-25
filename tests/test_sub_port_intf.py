@@ -93,8 +93,8 @@ class TestSubPortIntf(object):
             dvs.servers[srv_idx].runcmd("ip link set dev eth0 " + status)
         else:
             assert port_name.startswith(LAG_PREFIX)
-            dvs.runcmd("bash -c 'echo " + ("1" if status == "up" else "0") + \
-                    " > /sys/class/net/" + port_name + "/carrier'")
+            dvs.runcmd("bash -c 'echo " + ("1" if status == "up" else "0") +
+                       " > /sys/class/net/" + port_name + "/carrier'")
         time.sleep(1)
 
     def set_parent_port_admin_status(self, dvs, port_name, status):
@@ -135,7 +135,7 @@ class TestSubPortIntf(object):
             self.create_vxlan_tunnel(self.TUNNEL_UNDER_TEST, self.VTEP_IP_UNDER_TEST)
             self.create_vnet(vrf_name, self.TUNNEL_UNDER_TEST, self.VNI_UNDER_TEST)
 
-    def create_sub_port_intf_profile(self, sub_port_intf_name, vrf_name=""):
+    def create_sub_port_intf_profile(self, sub_port_intf_name, vrf_name=None):
         fvs = {ADMIN_STATUS: "up"}
         if vrf_name:
             fvs[VRF_NAME if vrf_name.startswith(VRF_PREFIX) else VNET_NAME] = vrf_name
@@ -303,7 +303,7 @@ class TestSubPortIntf(object):
 
         wait_for_result(_access_function)
 
-    def _test_sub_port_intf_creation(self, dvs, sub_port_intf_name, vrf_name=""):
+    def _test_sub_port_intf_creation(self, dvs, sub_port_intf_name, vrf_name=None):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
         vlan_id = substrs[1]
@@ -334,17 +334,17 @@ class TestSubPortIntf(object):
         }
         self.check_sub_port_intf_fvs(self.state_db, state_tbl_name, sub_port_intf_name, fv_dict)
 
+        # Verify vrf name sub port interface bound to in STATE_DB INTERFACE_TABLE
+        fv_dict = {
+            "vrf": vrf_name if vrf_name else "",
+        }
+        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, sub_port_intf_name, fv_dict)
+
         # If bound to non-default vrf, verify sub port interface vrf binding in linux kernel,
         # and parent port not bound to vrf
         if vrf_name:
             self.check_sub_port_intf_vrf_bind_kernel(dvs, sub_port_intf_name, vrf_name)
             self.check_sub_port_intf_vrf_nobind_kernel(dvs, parent_port, vrf_name)
-
-        # Verify vrf name sub port interface bound to in STATE_DB INTERFACE_TABLE
-        fv_dict = {
-            "vrf": vrf_name,
-        }
-        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, sub_port_intf_name, fv_dict)
 
         # Verify that sub port interface configuration is synced to APPL_DB INTF_TABLE by Intfmgrd
         fv_dict = {
@@ -400,7 +400,7 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_creation(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
         self._test_sub_port_intf_creation(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
 
-    def _test_sub_port_intf_add_ip_addrs(self, dvs, sub_port_intf_name, vrf_name=""):
+    def _test_sub_port_intf_add_ip_addrs(self, dvs, sub_port_intf_name, vrf_name=None):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
 
@@ -478,7 +478,7 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
         self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
 
-    def _test_sub_port_intf_admin_status_change(self, dvs, sub_port_intf_name, vrf_name=""):
+    def _test_sub_port_intf_admin_status_change(self, dvs, sub_port_intf_name, vrf_name=None):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
 
@@ -584,7 +584,7 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_admin_status_change(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
         self._test_sub_port_intf_admin_status_change(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
 
-    def _test_sub_port_intf_remove_ip_addrs(self, dvs, sub_port_intf_name, vrf_name=""):
+    def _test_sub_port_intf_remove_ip_addrs(self, dvs, sub_port_intf_name, vrf_name=None):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
 
@@ -659,7 +659,7 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_remove_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
         self._test_sub_port_intf_remove_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
 
-    def _test_sub_port_intf_removal(self, dvs, sub_port_intf_name, vrf_name=""):
+    def _test_sub_port_intf_removal(self, dvs, sub_port_intf_name, vrf_name=None):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
         if parent_port.startswith(ETHERNET_PREFIX):
@@ -693,14 +693,14 @@ class TestSubPortIntf(object):
         }
         self.check_sub_port_intf_fvs(self.state_db, state_tbl_name, sub_port_intf_name, fv_dict)
 
+        fv_dict = {
+            "vrf": vrf_name if vrf_name else "",
+        }
+        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, sub_port_intf_name, fv_dict)
+
         if vrf_name:
             self.check_sub_port_intf_vrf_bind_kernel(dvs, sub_port_intf_name, vrf_name)
             self.check_sub_port_intf_vrf_nobind_kernel(dvs, parent_port, vrf_name)
-
-        fv_dict = {
-            "vrf": vrf_name,
-        }
-        self.check_sub_port_intf_fvs(self.state_db, STATE_INTERFACE_TABLE_NAME, sub_port_intf_name, fv_dict)
 
         fv_dict = {
             ADMIN_STATUS: "up",
@@ -771,7 +771,7 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_removal(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
         self._test_sub_port_intf_removal(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
 
-    def _test_sub_port_intf_mtu(self, dvs, sub_port_intf_name, vrf_name=""):
+    def _test_sub_port_intf_mtu(self, dvs, sub_port_intf_name, vrf_name=None):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
 
@@ -828,7 +828,7 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_mtu(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
         self._test_sub_port_intf_mtu(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
 
-    def create_nhg_router_intfs(self, dvs, parent_port_prefix, parent_port_idx_base, vlan_id, nhop_num, vrf_name=""):
+    def create_nhg_router_intfs(self, dvs, parent_port_prefix, parent_port_idx_base, vlan_id, nhop_num, vrf_name=None):
         ifnames = []
         parent_port_idx = parent_port_idx_base
         for i in range(0, nhop_num):
@@ -931,7 +931,7 @@ class TestSubPortIntf(object):
 
             parent_port_idx += (4 if parent_port_prefix == ETHERNET_PREFIX else 1)
 
-    def _test_sub_port_intf_nhg_accel(self, dvs, sub_port_intf_name, nhop_num=3, create_intf_on_parent_port=False, vrf_name=""):
+    def _test_sub_port_intf_nhg_accel(self, dvs, sub_port_intf_name, nhop_num=3, create_intf_on_parent_port=False, vrf_name=None):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
         vlan_id = substrs[1]
@@ -1053,7 +1053,7 @@ class TestSubPortIntf(object):
                                            create_intf_on_parent_port=True, vrf_name=self.VRF_UNDER_TEST)
 
     def _test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(self, dvs, sub_port_intf_name, nhop_num=3,
-                                                                     create_intf_on_parent_port=False, vrf_name=""):
+                                                                     create_intf_on_parent_port=False, vrf_name=None):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
         vlan_id = substrs[1]
