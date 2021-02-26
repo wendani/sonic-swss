@@ -167,7 +167,8 @@ void PortMgr::doPortTask(Consumer &consumer)
                 for (const auto &subPort : m_portSubPortSet[alias])
                 {
                     setSubPortMtu(subPort, mtu);
-                    SWSS_LOG_NOTICE("Configure sub port %s MTU to %u, inherited from parent port %s", subPort.c_str(), mtu, alias.c_str());
+                    SWSS_LOG_NOTICE("Configure sub port %s MTU to %s, inherited from port %s",
+                                    subPort.c_str(), mtu.c_str(), alias.c_str());
                 }
             }
 
@@ -205,7 +206,6 @@ void PortMgr::doSubPortTask(Consumer &consumer)
         KeyOpFieldsValuesTuple &t = it->second;
 
         vector<string> keys = tokenize(kfvKey(t), config_db_key_delimiter);
-        const vector<FieldValueTuple> &fvTuples = kfvFieldsValues(t);
         string op = kfvOp(t);
 
         if (keys.size() == 1)
