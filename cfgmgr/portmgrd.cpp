@@ -42,6 +42,7 @@ int main(int argc, char **argv)
     {
         vector<string> cfg_port_tables = {
             CFG_PORT_TABLE_NAME,
+            CFG_VLAN_SUB_INTF_TABLE_NAME,
         };
 
         DBConnector cfgDb("CONFIG_DB", 0);

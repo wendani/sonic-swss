@@ -38,6 +38,18 @@ bool PortMgr::setPortMtu(const string &alias, const string &mtu)
     return true;
 }
 
+bool PortMgr::setSubPortMtu(const string &alias, const string &mtu)
+{
+    stringstream cmd;
+    string res;
+
+    // ip link set dev <port_name> mtu <mtu>
+    cmd << IP_CMD << " link set dev " << shellquote(alias) << " mtu " << shellquote(mtu);
+    EXEC_WITH_ERROR_THROW(cmd.str(), res);
+
+    return true;
+}
+
 bool PortMgr::setPortAdminStatus(const string &alias, const bool up)
 {
     stringstream cmd;
@@ -84,6 +96,20 @@ void PortMgr::doTask(Consumer &consumer)
     SWSS_LOG_ENTER();
 
     auto table = consumer.getTableName();
+
+    if (table == CFG_PORT_TABLE_NAME)
+    {
+        doPortTask(consumer);
+    }
+    else if (table == CFG_VLAN_SUB_INTF_TABLE_NAME)
+    {
+        doSubPortTask(consumer);
+    }
+}
+
+void PortMgr::doPortTask(Consumer &consumer)
+{
+    SWSS_LOG_ENTER();
 
     auto it = consumer.m_toSync.begin();
     while (it != consumer.m_toSync.end())
@@ -137,12 +163,19 @@ void PortMgr::doTask(Consumer &consumer)
             {
                 setPortMtu(alias, mtu);
                 SWSS_LOG_NOTICE("Configure %s MTU to %s", alias.c_str(), mtu.c_str());
+
+                for (const auto &subPort : m_portSubPortSet[alias])
+                {
+                    setSubPortMtu(subPort, mtu);
+                    SWSS_LOG_NOTICE("Configure sub port %s MTU to %u, inherited from parent port %s", subPort.c_str(), mtu, alias.c_str());
+                }
             }
 
             if (!admin_status.empty())
             {
                 setPortAdminStatus(alias, admin_status == "up");
                 SWSS_LOG_NOTICE("Configure %s admin status to %s", alias.c_str(), admin_status.c_str());
+
             }
 
             if (!learn_mode.empty())
@@ -156,6 +189,56 @@ void PortMgr::doTask(Consumer &consumer)
             SWSS_LOG_NOTICE("Delete Port: %s", alias.c_str());
             m_appPortTable.del(alias);
             m_portList.erase(alias);
+        }
+
+        it = consumer.m_toSync.erase(it);
+    }
+}
+
+void PortMgr::doSubPortTask(Consumer &consumer)
+{
+    SWSS_LOG_ENTER();
+
+    auto it = consumer.m_toSync.begin();
+    while (it != consumer.m_toSync.end())
+    {
+        KeyOpFieldsValuesTuple &t = it->second;
+
+        vector<string> keys = tokenize(kfvKey(t), config_db_key_delimiter);
+        const vector<FieldValueTuple> &fvTuples = kfvFieldsValues(t);
+        string op = kfvOp(t);
+
+        if (keys.size() == 1)
+        {
+            string alias(keys[0]);
+            string parentAlias;
+
+            size_t found = alias.find(VLAN_SUB_INTERFACE_SEPARATOR);
+            if (found != string::npos)
+            {
+                parentAlias = alias.substr(0, found);
+            }
+            else
+            {
+                it = consumer.m_toSync.erase(it);
+                continue;
+            }
+
+            if (!m_portList.count(parentAlias))
+            {
+                SWSS_LOG_INFO("Parent port %s is not ready, pending...", parentAlias.c_str());
+                it++;
+                continue;
+            }
+
+            if (op == SET_COMMAND)
+            {
+                m_portSubPortSet[parentAlias].insert(alias);
+            }
+            else if (op == DEL_COMMAND)
+            {
+                m_portSubPortSet[parentAlias].erase(alias);
+            }
         }
 
         it = consumer.m_toSync.erase(it);
