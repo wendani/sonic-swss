@@ -32,6 +32,7 @@ ASIC_NEXT_HOP_GROUP_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_ME
 ASIC_LAG_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER"
 ASIC_HOSTIF_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF"
 ASIC_VIRTUAL_ROUTER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER"
+ASIC_TUNNEL_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_TUNNEL"
 
 ADMIN_STATUS = "admin_status"
 VRF_NAME = "vrf_name"
@@ -165,7 +166,6 @@ class TestSubPortIntf(object):
 
     def remove_vnet(self, vnet_name):
         self.config_db.delete_entry(CFG_VNET_TABLE_NAME, vnet_name)
-        self.app_db.wait_for_deleted_keys(APP_VNET_TABLE_NAME, vnet_name)
 
     def remove_vrf(self, vrf_name):
         if vrf_name.startswith(VRF_PREFIX):
@@ -173,7 +173,6 @@ class TestSubPortIntf(object):
         else:
             assert vrf_name.startswith(VNET_PREFIX)
             self.remove_vnet(vrf_name)
-            self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
 
     def check_vrf_removal(self, vrf_oid):
         self.asic_db.wait_for_deleted_keys(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
@@ -387,6 +386,9 @@ class TestSubPortIntf(object):
         if vrf_name:
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
+            if vrf_name.startswith(VNET_PREFIX):
+                self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
+                self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
 
     def test_sub_port_intf_creation(self, dvs):
         self.connect_dbs(dvs)
@@ -465,6 +467,9 @@ class TestSubPortIntf(object):
         if vrf_name:
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
+            if vrf_name.startswith(VNET_PREFIX):
+                self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
+                self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
 
     def test_sub_port_intf_add_ip_addrs(self, dvs):
         self.connect_dbs(dvs)
@@ -571,6 +576,9 @@ class TestSubPortIntf(object):
         if vrf_name:
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
+            if vrf_name.startswith(VNET_PREFIX):
+                self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
+                self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
 
     def test_sub_port_intf_admin_status_change(self, dvs):
         self.connect_dbs(dvs)
@@ -646,6 +654,9 @@ class TestSubPortIntf(object):
         if vrf_name:
             self.remove_vrf(vrf_name)
             self.asic_db.wait_for_n_keys(ASIC_VIRTUAL_ROUTER_TABLE, 1)
+            if vrf_name.startswith(VNET_PREFIX):
+                self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
+                self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
 
     def test_sub_port_intf_remove_ip_addrs(self, dvs):
         self.connect_dbs(dvs)
@@ -758,6 +769,9 @@ class TestSubPortIntf(object):
         if vrf_name:
             self.remove_vrf(vrf_name)
             self.asic_db.wait_for_n_keys(ASIC_VIRTUAL_ROUTER_TABLE, 1)
+            if vrf_name.startswith(VNET_PREFIX):
+                self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
+                self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
 
     def test_sub_port_intf_removal(self, dvs):
         self.connect_dbs(dvs)
@@ -815,6 +829,9 @@ class TestSubPortIntf(object):
         if vrf_name:
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
+            if vrf_name.startswith(VNET_PREFIX):
+                self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
+                self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
 
     def test_sub_port_intf_mtu(self, dvs):
         self.connect_dbs(dvs)
