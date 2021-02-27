@@ -27,7 +27,7 @@ private:
     ProducerStateTable m_appPortTable;
 
     std::set<std::string> m_portList;
-    std::unordered_map<std::string, std::set<std::string>> m_portSubPortSet;
+    std::unordered_map<std::string, std::unordered_set<std::string>> m_portSubPortSet;
 
     void doTask(Consumer &consumer);
     void doPortTask(Consumer &consumer);

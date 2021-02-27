@@ -40,10 +40,12 @@ bool PortMgr::setPortMtu(const string &alias, const string &mtu)
 
 bool PortMgr::setSubPortMtu(const string &alias, const string &mtu)
 {
+    SWSS_LOG_ENTER();
+
     stringstream cmd;
     string res;
 
-    // ip link set dev <port_name> mtu <mtu>
+    // ip link set dev <sub_port_name> mtu <mtu>
     cmd << IP_CMD << " link set dev " << shellquote(alias) << " mtu " << shellquote(mtu);
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 
