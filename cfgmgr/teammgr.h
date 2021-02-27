@@ -33,6 +33,7 @@ private:
 
     std::set<std::string> m_lagList;
     std::map<std::string, pid_t> m_lagPIDList;
+    std::unordered_map<std::string, std::unordered_set<std::string>> m_lagSubPortSet;
 
     MacAddress m_mac;
 
@@ -40,6 +41,7 @@ private:
     void doLagTask(Consumer &consumer);
     void doLagMemberTask(Consumer &consumer);
     void doPortUpdateTask(Consumer &consumer);
+    void doSubPortTask(Consumer &consumer);
 
     task_process_status addLag(const std::string &alias, int min_links, bool fall_back);
     bool removeLag(const std::string &alias);
@@ -48,6 +50,7 @@ private:
 
     bool setLagAdminStatus(const std::string &alias, const std::string &admin_status);
     bool setLagMtu(const std::string &alias, const std::string &mtu);
+    bool setSubPortMtu(const std::string &alias, const std::string &mtu);
     bool setLagLearnMode(const std::string &alias, const std::string &learn_mode);
  
 

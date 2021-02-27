@@ -48,11 +48,13 @@ int main(int argc, char **argv)
         TableConnector conf_lag_table(&conf_db, CFG_LAG_TABLE_NAME);
         TableConnector conf_lag_member_table(&conf_db, CFG_LAG_MEMBER_TABLE_NAME);
         TableConnector state_port_table(&state_db, STATE_PORT_TABLE_NAME);
+        TableConnector conf_vlan_sub_intf_table(&conf_db, CFG_VLAN_SUB_INTF_TABLE_NAME);
 
         vector<TableConnector> tables = {
             conf_lag_table,
             conf_lag_member_table,
-            state_port_table
+            state_port_table,
+            conf_vlan_sub_intf_table,
         };
 
         TeamMgr teammgr(&conf_db, &app_db, &state_db, tables);
