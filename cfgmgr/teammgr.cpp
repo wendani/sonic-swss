@@ -693,12 +693,7 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
 
             if (op == SET_COMMAND)
             {
-                if (!m_lagList.count(parentAlias))
-                {
-                    SWSS_LOG_INFO("Parent port channel %s is not ready, pending...", parentAlias.c_str());
-                    it++;
-                    continue;
-                }
+                // Sub port readiness is an indication of parent port readiness
                 if (!isLagStateOk(alias))
                 {
                     SWSS_LOG_INFO("Sub port %s is not ready, pending...", alias.c_str());
