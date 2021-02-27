@@ -197,7 +197,7 @@ void TeamMgr::doLagTask(Consumer &consumer)
 
             setLagAdminStatus(alias, admin_status);
             setLagMtu(alias, mtu);
-            for (const auto &subPort : m_lagSubPortSet)
+            for (const auto &subPort : m_lagSubPortSet[alias])
             {
                 setSubPortMtu(subPort, mtu);
                 SWSS_LOG_NOTICE("Configure sub port %s MTU to %s, inherited from parent port channel %s",

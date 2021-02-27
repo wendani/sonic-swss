@@ -33,7 +33,7 @@ private:
 
     std::set<std::string> m_lagList;
     std::map<std::string, pid_t> m_lagPIDList;
-    std::unordered_map<std::string, std::unordered_set<string>> m_lagSubPortSet;
+    std::unordered_map<std::string, std::unordered_set<std::string>> m_lagSubPortSet;
 
     MacAddress m_mac;
 
