@@ -407,6 +407,58 @@ bool IntfMgr::isIntfStateOk(const string &alias)
     return false;
 }
 
+bool IntfMgr::doSubIntfMtuTask(const vector<string>& keys,
+        const vector<FieldValueTuple> &fvTuples,
+        const string& op)
+{
+    SWSS_LOG_ENTER();
+
+    string parentAlias(keys[0]);
+
+    if (op == SET_COMMAND)
+    {
+        if (!isIntfStateOk(parentAlias))
+        {
+            SWSS_LOG_INFO("Port %s is not ready, pending...", alias.c_str());
+            return false;
+        }
+
+        string mtu = "";
+        for (const auto &fv : fvTuples)
+        {
+            if (fvField(fv) == "mtu")
+            {
+                mtu = fvValue(fv);
+            }
+        }
+        if (!mtu.empty())
+        {
+            for (const auto &alias : m_portSubIntfSet[parentAlias])
+            {
+                try
+                {
+                    setHostSubIntfMtu(alias, mtu);
+                }
+                catch (const std::runtime_error &e)
+                {
+                    SWSS_LOG_NOTICE("Sub interface ip link set mtu failure. Runtime error: %s", e.what());
+                    return false;
+                }
+            }
+        }
+    }
+    else if (op == DEL_COMMAND)
+    {
+        m_portSubIntfSet.erase(parentAlias);
+    }
+    else
+    {
+        SWSS_LOG_ERROR("Unknown operation: %s", op.c_str());
+    }
+
+    return true;
+}
+
 bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
         vector<FieldValueTuple> data,
         const string& op)
@@ -534,11 +586,15 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
                     SWSS_LOG_NOTICE("Sub interface ip link set mtu failure. Runtime error: %s", e.what());
                     return false;
                 }
+
+                m_portSubIntfSet[parentAlias].erase(alias);
             }
             else
             {
                 FieldValueTuple fvTuple("mtu", MTU_INHERITANCE);
                 data.push_back(fvTuple);
+
+                m_portSubIntfSet[parentAlias].insert(alias);
             }
 
             if (adminStatus.empty())
@@ -720,7 +776,21 @@ void IntfMgr::doTask(Consumer &consumer)
 
         if (keys.size() == 1)
         {
-            if((table_name == CFG_VOQ_INBAND_INTERFACE_TABLE_NAME) &&
+            if ((table_name == CFG_PORT_TABLE_NAME)
+                    || (table_name == CFG_LAG_TABLE_NAME))
+            {
+                if (!doSubIntfMtuTask(keys, data, op))
+                {
+                    it++;
+                }
+                else
+                {
+                    it = consumer.m_toSync.erase(it);
+                }
+                continue;
+            }
+
+            if ((table_name == CFG_VOQ_INBAND_INTERFACE_TABLE_NAME) &&
                     (op == SET_COMMAND))
             {
                 //No further processing needed. Just relay to orchagent
@@ -730,6 +800,7 @@ void IntfMgr::doTask(Consumer &consumer)
                 it = consumer.m_toSync.erase(it);
                 continue;
             }
+
             if (!doIntfGeneralTask(keys, data, op))
             {
                 it++;
