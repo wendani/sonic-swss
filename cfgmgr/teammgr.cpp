@@ -671,7 +671,6 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
     while (it != consumer.m_toSync.end())
     {
         KeyOpFieldsValuesTuple &t = it->second;
-
         vector<string> keys = tokenize(kfvKey(t), config_db_key_delimiter);
         string op = kfvOp(t);
 
@@ -679,7 +678,6 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
         {
             string alias(keys[0]);
             string parentAlias;
-
             size_t found = alias.find(VLAN_SUB_INTERFACE_SEPARATOR);
             if (found != string::npos)
             {
@@ -701,7 +699,19 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
                     continue;
                 }
 
-                m_lagSubPortSet[parentAlias].insert(alias);
+                string mtu = "";
+                const vector<FieldValueTuple> &fvTuples = kfvFieldsValues(t);
+                for (const auto &fv : fvTuples)
+                {
+                    if (fvField(fv) == "mtu")
+                    {
+                        mtu = fvValue(fv);
+                    }
+                }
+                if (mtu.empty())
+                {
+                    m_lagSubPortSet[parentAlias].insert(alias);
+                }
             }
             else if (op == DEL_COMMAND)
             {
