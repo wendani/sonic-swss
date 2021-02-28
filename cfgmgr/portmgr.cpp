@@ -251,6 +251,22 @@ void PortMgr::doSubPortTask(Consumer &consumer)
                 }
                 if (mtu.empty())
                 {
+                    m_cfgPortTable.hget(parentAlias, "mtu", mtu);
+                    if (mtu.empty())
+                    {
+                        mtu = DEFAULT_MTU_STR;
+                    }
+                    try
+                    {
+                        setSubPortMtu(alias, mtu);
+                        SWSS_LOG_NOTICE("Configure sub port %s MTU to %s, inherited from parent port %s",
+                                        subPort.c_str(), mtu.c_str(), alias.c_str());
+                    }
+                    catch (const std::runtime_error &e)
+                    {
+                        SWSS_LOG_NOTICE("Sub port ip link set mtu failure. Runtime error: %s", e.what());
+                    }
+
                     m_portSubPortSet[parentAlias].insert(alias);
                 }
             }
