@@ -159,7 +159,7 @@ class TestSubPortIntf(object):
             pairs.append((VRF_NAME if vrf_name.startswith(VRF_PREFIX) else VNET_NAME, vrf_name))
         fvs = swsscommon.FieldValuePairs(pairs)
 
-        tbl = swsscommon.ProducerStateTable(self.appl_db, APP_INTF_TABLE_NAME)
+        tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, APP_INTF_TABLE_NAME)
         tbl.set(sub_port_intf_name, fvs)
 
     def add_sub_port_intf_ip_addr(self, sub_port_intf_name, ip_addr):
@@ -175,7 +175,7 @@ class TestSubPortIntf(object):
         ]
         fvs = swsscommon.FieldValuePairs(pairs)
 
-        tbl = swsscommon.ProducerStateTable(self.appl_db, APP_INTF_TABLE_NAME)
+        tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, APP_INTF_TABLE_NAME)
         tbl.set(sub_port_intf_name + APPL_DB_SEPARATOR + ip_addr, fvs)
 
     def set_sub_port_intf_admin_status(self, sub_port_intf_name, status):
@@ -211,7 +211,7 @@ class TestSubPortIntf(object):
         self.asic_db.wait_for_deleted_keys(ASIC_RIF_TABLE, [rif_oid])
 
     def remove_sub_port_intf_profile_appl_db(self, sub_port_intf_name):
-        tbl = swsscommon.ProducerStateTable(self.appl_db, APP_INTF_TABLE_NAME)
+        tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, APP_INTF_TABLE_NAME)
         tbl._del(sub_port_intf_name)
 
     def remove_sub_port_intf_ip_addr(self, sub_port_intf_name, ip_addr):
@@ -223,7 +223,7 @@ class TestSubPortIntf(object):
         self.app_db.wait_for_deleted_keys(APP_INTF_TABLE_NAME, interfaces)
 
     def remove_sub_port_intf_ip_addr_appl_db(self, sub_port_intf_name, ip_addr):
-        tbl = swsscommon.ProducerStateTable(self.appl_db, APP_INTF_TABLE_NAME)
+        tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, APP_INTF_TABLE_NAME)
         tbl._del(sub_port_intf_name + APPL_DB_SEPARATOR + ip_addr)
 
     def get_oids(self, table):
