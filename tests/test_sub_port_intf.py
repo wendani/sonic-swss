@@ -102,11 +102,37 @@ class TestSubPortIntf(object):
             key = "{}|{}".format(lag, member)
             self.config_db.create_entry(CFG_LAG_MEMBER_TABLE_NAME, key, fvs)
 
+    def create_sub_port_intf_profile_appl_db(self, sub_port_intf_name, admin_status, vrf_name=""):
+        pairs = [
+            (ADMIN_STATUS, admin_status),
+            ("mtu", "0"),
+        ]
+        if vrf_name:
+            pairs.append((VRF_NAME if vrf_name.startswith(VRF_PREFIX) else VNET_NAME, vrf_name))
+        fvs = swsscommon.FieldValuePairs(pairs)
+
+        tbl = swsscommon.ProducerStateTable(self.appl_db, APP_INTF_TABLE_NAME)
+        tbl.set(sub_port_intf_name, fvs)
+
+        time.sleep(1)
+
     def add_sub_port_intf_ip_addr(self, sub_port_intf_name, ip_addr):
         fvs = {"NULL": "NULL"}
 
         key = "{}|{}".format(sub_port_intf_name, ip_addr)
         self.config_db.create_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, key, fvs)
+
+    def add_sub_port_intf_ip_addr_appl_db(self, sub_port_intf_name, ip_addr):
+        pairs = [
+            ("scope", "global"),
+            ("family", "IPv4" if "." in ip_addr else "IPv6"),
+        ]
+        fvs = swsscommon.FieldValuePairs(pairs)
+
+        tbl = swsscommon.ProducerStateTable(self.appl_db, APP_INTF_TABLE_NAME)
+        tbl.set(sub_port_intf_name + APPL_DB_SEPARATOR + ip_addr, fvs)
+
+        time.sleep(2)
 
     def set_sub_port_intf_admin_status(self, sub_port_intf_name, status):
         fvs = {ADMIN_STATUS: status}
@@ -124,6 +150,12 @@ class TestSubPortIntf(object):
     def check_sub_port_intf_profile_removal(self, rif_oid):
         self.asic_db.wait_for_deleted_keys(ASIC_RIF_TABLE, [rif_oid])
 
+    def remove_sub_port_intf_profile_appl_db(self, sub_port_intf_name):
+        tbl = swsscommon.ProducerStateTable(self.appl_db, APP_INTF_TABLE_NAME)
+        tbl._del(sub_port_intf_name)
+
+        time.sleep(1)
+
     def remove_sub_port_intf_ip_addr(self, sub_port_intf_name, ip_addr):
         key = "{}|{}".format(sub_port_intf_name, ip_addr)
         self.config_db.delete_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, key)
@@ -131,6 +163,12 @@ class TestSubPortIntf(object):
     def check_sub_port_intf_ip_addr_removal(self, sub_port_intf_name, ip_addrs):
         interfaces = ["{}:{}".format(sub_port_intf_name, addr) for addr in ip_addrs]
         self.app_db.wait_for_deleted_keys(APP_INTF_TABLE_NAME, interfaces)
+
+    def remove_sub_port_intf_ip_addr_appl_db(self, sub_port_intf_name, ip_addr):
+        tbl = swsscommon.ProducerStateTable(self.appl_db, APP_INTF_TABLE_NAME)
+        tbl._del(sub_port_intf_name + APPL_DB_SEPARATOR + ip_addr)
+
+        time.sleep(1)
 
     def get_oids(self, table):
         return self.asic_db.get_keys(table)
@@ -319,6 +357,59 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
+
+    def _test_sub_port_intf_appl_db_proc_order(self, dvs, sub_port_intf_name, admin_up, vrf_name=""):
+        substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
+        parent_port = substrs[0]
+        vlan_id = substrs[1]
+
+        vrf_oid = self.default_vrf_oid
+        old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
+
+        self.set_parent_port_admin_status(dvs, parent_port, "up")
+        if vrf_name:
+            self.create_vrf(vrf_name)
+            vrf_oid = self.get_newly_created_oid(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
+
+        # Create IP address configuration in APPL_DB before creating configuration for sub port interface itself
+        self.add_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
+        if not vrf_name.startswith(VNET_PREFIX):
+            self.add_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
+
+        # Create sub port interface configuration in APPL_DB
+        self.create_sub_port_intf_profile_appl_db(sub_port_intf_name, "up" if admin_up == True else "down", vrf_name)
+
+        # Verify that a sub port router interface entry is created in ASIC_DB
+        fv_dict = {
+            "SAI_ROUTER_INTERFACE_ATTR_TYPE": "SAI_ROUTER_INTERFACE_TYPE_SUB_PORT",
+            "SAI_ROUTER_INTERFACE_ATTR_OUTER_VLAN_ID": "{}".format(vlan_id),
+            "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE": "true" if admin_up == True else "false",
+            "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE": "true" if admin_up == True else "false",
+            "SAI_ROUTER_INTERFACE_ATTR_MTU": DEFAULT_MTU,
+            "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID": vrf_oid,
+        }
+        rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
+        self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
+
+        # Remove IP addresses from APPL_DB
+        self.remove_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
+        if not vrf_name.startswith(VNET_PREFIX):
+            self.remove_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
+        # Remove sub port interface from APPL_DB
+        self.remove_sub_port_intf_profile_appl_db(sub_port_intf_name)
+
+        # Remove vrf if created
+        if vrf_name:
+            self.remove_vrf(vrf_name)
+
+    def test_sub_port_intf_appl_db_proc_order(self, dvs):
+        self.connect_dbs(dvs)
+
+        self._test_sub_port_intf_appl_db_proc_order(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, admin_up=True)
+        self._test_sub_port_intf_appl_db_proc_order(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, admin_up=False)
+
+        self._test_sub_port_intf_appl_db_proc_order(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=True)
+        self._test_sub_port_intf_appl_db_proc_order(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=False)
 
     def _test_sub_port_intf_admin_status_change(self, dvs, sub_port_intf_name):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
