@@ -162,8 +162,6 @@ class TestSubPortIntf(object):
         tbl = swsscommon.ProducerStateTable(self.appl_db, APP_INTF_TABLE_NAME)
         tbl.set(sub_port_intf_name, fvs)
 
-        time.sleep(1)
-
     def add_sub_port_intf_ip_addr(self, sub_port_intf_name, ip_addr):
         fvs = {"NULL": "NULL"}
 
@@ -179,8 +177,6 @@ class TestSubPortIntf(object):
 
         tbl = swsscommon.ProducerStateTable(self.appl_db, APP_INTF_TABLE_NAME)
         tbl.set(sub_port_intf_name + APPL_DB_SEPARATOR + ip_addr, fvs)
-
-        time.sleep(2)
 
     def set_sub_port_intf_admin_status(self, sub_port_intf_name, status):
         fvs = {ADMIN_STATUS: status}
@@ -218,8 +214,6 @@ class TestSubPortIntf(object):
         tbl = swsscommon.ProducerStateTable(self.appl_db, APP_INTF_TABLE_NAME)
         tbl._del(sub_port_intf_name)
 
-        time.sleep(1)
-
     def remove_sub_port_intf_ip_addr(self, sub_port_intf_name, ip_addr):
         key = "{}|{}".format(sub_port_intf_name, ip_addr)
         self.config_db.delete_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, key)
@@ -231,8 +225,6 @@ class TestSubPortIntf(object):
     def remove_sub_port_intf_ip_addr_appl_db(self, sub_port_intf_name, ip_addr):
         tbl = swsscommon.ProducerStateTable(self.appl_db, APP_INTF_TABLE_NAME)
         tbl._del(sub_port_intf_name + APPL_DB_SEPARATOR + ip_addr)
-
-        time.sleep(1)
 
     def get_oids(self, table):
         return self.asic_db.get_keys(table)
@@ -521,7 +513,7 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
         self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
 
-    def _test_sub_port_intf_appl_db_proc_order(self, dvs, sub_port_intf_name, admin_up, vrf_name=""):
+    def _test_sub_port_intf_appl_db_proc_order(self, dvs, sub_port_intf_name, admin_up, vrf_name=None):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
         vlan_id = substrs[1]
@@ -534,10 +526,11 @@ class TestSubPortIntf(object):
             self.create_vrf(vrf_name)
             vrf_oid = self.get_newly_created_oid(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
 
-        # Create IP address configuration in APPL_DB before creating configuration for sub port interface itself
+        # Create ip address configuration in APPL_DB before creating configuration for sub port interface itself
         self.add_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
-        if not vrf_name.startswith(VNET_PREFIX):
+        if vrf_name is None or not vrf_name.startswith(VNET_PREFIX):
             self.add_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
+        time.sleep(2)
 
         # Create sub port interface configuration in APPL_DB
         self.create_sub_port_intf_profile_appl_db(sub_port_intf_name, "up" if admin_up == True else "down", vrf_name)
@@ -554,16 +547,21 @@ class TestSubPortIntf(object):
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
 
-        # Remove IP addresses from APPL_DB
+        # Remove ip addresses from APPL_DB
         self.remove_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
-        if not vrf_name.startswith(VNET_PREFIX):
+        if vrf_name is None or not vrf_name.startswith(VNET_PREFIX):
             self.remove_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
         # Remove sub port interface from APPL_DB
         self.remove_sub_port_intf_profile_appl_db(sub_port_intf_name)
+        self.check_sub_port_intf_profile_removal(rif_oid)
 
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
+            self.check_vrf_removal(vrf_oid)
+            if vrf_name.startswith(VNET_PREFIX):
+                self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
+                self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
 
     def test_sub_port_intf_appl_db_proc_order(self, dvs):
         self.connect_dbs(dvs)
