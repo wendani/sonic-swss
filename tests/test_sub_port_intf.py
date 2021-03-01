@@ -150,7 +150,7 @@ class TestSubPortIntf(object):
             key = "{}|{}".format(lag, member)
             self.config_db.create_entry(CFG_LAG_MEMBER_TABLE_NAME, key, fvs)
 
-    def create_sub_port_intf_profile_appl_db(self, sub_port_intf_name, admin_status, vrf_name=""):
+    def create_sub_port_intf_profile_appl_db(self, sub_port_intf_name, admin_status, vrf_name=None):
         pairs = [
             (ADMIN_STATUS, admin_status),
             ("mtu", "0"),
