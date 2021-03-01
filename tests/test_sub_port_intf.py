@@ -513,7 +513,7 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_add_ip_addrs(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
         self._test_sub_port_intf_add_ip_addrs(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, self.VNET_UNDER_TEST)
 
-    def _test_sub_port_intf_appl_db_proc_order(self, dvs, sub_port_intf_name, admin_up, vrf_name=None):
+    def _test_sub_port_intf_appl_db_proc_seq(self, dvs, sub_port_intf_name, admin_up, vrf_name=None):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
         vlan_id = substrs[1]
@@ -563,20 +563,20 @@ class TestSubPortIntf(object):
                 self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
                 self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
 
-    def test_sub_port_intf_appl_db_proc_order(self, dvs):
+    def test_sub_port_intf_appl_db_proc_seq(self, dvs):
         self.connect_dbs(dvs)
 
-        self._test_sub_port_intf_appl_db_proc_order(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, admin_up=True)
-        self._test_sub_port_intf_appl_db_proc_order(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, admin_up=False)
+        self._test_sub_port_intf_appl_db_proc_seq(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, admin_up=True)
+        self._test_sub_port_intf_appl_db_proc_seq(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, admin_up=False)
 
-        self._test_sub_port_intf_appl_db_proc_order(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=True)
-        self._test_sub_port_intf_appl_db_proc_order(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=False)
+        self._test_sub_port_intf_appl_db_proc_seq(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=True)
+        self._test_sub_port_intf_appl_db_proc_seq(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=False)
 
-        self._test_sub_port_intf_appl_db_proc_order(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, admin_up=True, vrf_name=self.VRF_UNDER_TEST)
-        self._test_sub_port_intf_appl_db_proc_order(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, admin_up=False, vrf_name=self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_appl_db_proc_seq(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, admin_up=True, vrf_name=self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_appl_db_proc_seq(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, admin_up=False, vrf_name=self.VRF_UNDER_TEST)
 
-        self._test_sub_port_intf_appl_db_proc_order(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=True, vrf_name=self.VNET_UNDER_TEST)
-        self._test_sub_port_intf_appl_db_proc_order(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=False, vrf_name=self.VNET_UNDER_TEST)
+        self._test_sub_port_intf_appl_db_proc_seq(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=True, vrf_name=self.VNET_UNDER_TEST)
+        self._test_sub_port_intf_appl_db_proc_seq(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=False, vrf_name=self.VNET_UNDER_TEST)
 
     def _test_sub_port_intf_admin_status_change(self, dvs, sub_port_intf_name, vrf_name=None):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
