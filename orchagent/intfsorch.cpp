@@ -742,7 +742,7 @@ void IntfsOrch::doTask(Consumer &consumer)
             Port port;
             if (!gPortsOrch->getPort(alias, port))
             {
-                if (isSubIntf && !ip_prefix_in_key)
+                if (isSubIntf)
                 {
                     if (!gPortsOrch->addSubPort(port, alias, adminUp, mtu))
                     {
