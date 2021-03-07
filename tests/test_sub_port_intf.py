@@ -976,12 +976,15 @@ class TestSubPortIntf(object):
             vrf_oid = self.get_newly_created_oid(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
 
         ifnames = []
+        rif_cnt = len(self.asic_db.get_keys(ASIC_RIF_TABLE))
         # Create sub port interfaces
         ifnames.extend(self.create_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, int(vlan_id), nhop_num, vrf_name))
 
         # Create router interfaces on parent ports
         if create_intf_on_parent_port == True:
             ifnames.extend(self.create_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, 0, nhop_num, vrf_name))
+
+        self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt + nhop_num if create_intf_on_parent_port == False else rif_cnt + nhop_num * 2)
 
         nhop_ips = []
         nhop_cnt = len(self.asic_db.get_keys(ASIC_NEXT_HOP_TABLE))
@@ -1098,11 +1101,13 @@ class TestSubPortIntf(object):
             vrf_oid = self.get_newly_created_oid(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
 
         ifnames = []
+        rif_cnt = len(self.asic_db.get_keys(ASIC_RIF_TABLE))
         # Create sub port interfaces
         ifnames.extend(self.create_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, int(vlan_id), nhop_num, vrf_name))
         # Create router interfaces on parent ports
         if create_intf_on_parent_port == True:
             ifnames.extend(self.create_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, 0, nhop_num, vrf_name))
+        self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt + nhop_num if create_intf_on_parent_port == False else rif_cnt + nhop_num * 2)
 
         # Bring parent port oper status down one at a time
         # Verify next hop group members created after processing pending tasks
