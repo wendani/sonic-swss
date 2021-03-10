@@ -156,7 +156,7 @@ class TestSubPortIntf(object):
             ("mtu", "0"),
         ]
         if vrf_name:
-            pairs.append((VRF_NAME, vrf_name))
+            pairs.append((VRF_NAME if vrf_name.startswith(VRF_PREFIX) else VNET_NAME, vrf_name))
         fvs = swsscommon.FieldValuePairs(pairs)
 
         tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, APP_INTF_TABLE_NAME)
@@ -528,7 +528,8 @@ class TestSubPortIntf(object):
 
         # Create ip address configuration in APPL_DB before creating configuration for sub port interface itself
         self.add_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
-        self.add_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
+        if vrf_name is None or not vrf_name.startswith(VNET_PREFIX):
+            self.add_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
         time.sleep(2)
 
         # Create sub port interface configuration in APPL_DB
@@ -548,7 +549,8 @@ class TestSubPortIntf(object):
 
         # Remove ip addresses from APPL_DB
         self.remove_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
-        self.remove_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
+        if vrf_name is None or not vrf_name.startswith(VNET_PREFIX):
+            self.remove_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
         # Remove sub port interface from APPL_DB
         self.remove_sub_port_intf_profile_appl_db(sub_port_intf_name)
         self.check_sub_port_intf_profile_removal(rif_oid)
@@ -557,6 +559,9 @@ class TestSubPortIntf(object):
         if vrf_name:
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
+            if vrf_name.startswith(VNET_PREFIX):
+                self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
+                self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
 
     def test_sub_port_intf_appl_db_proc_seq(self, dvs):
         self.connect_dbs(dvs)
@@ -572,6 +577,12 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_appl_db_proc_seq(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=True, vrf_name=self.VRF_UNDER_TEST)
         self._test_sub_port_intf_appl_db_proc_seq(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=False, vrf_name=self.VRF_UNDER_TEST)
+
+        self._test_sub_port_intf_appl_db_proc_seq(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, admin_up=True, vrf_name=self.VNET_UNDER_TEST)
+        self._test_sub_port_intf_appl_db_proc_seq(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, admin_up=False, vrf_name=self.VNET_UNDER_TEST)
+
+        self._test_sub_port_intf_appl_db_proc_seq(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=True, vrf_name=self.VNET_UNDER_TEST)
+        self._test_sub_port_intf_appl_db_proc_seq(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, admin_up=False, vrf_name=self.VNET_UNDER_TEST)
 
     def _test_sub_port_intf_admin_status_change(self, dvs, sub_port_intf_name, vrf_name=None):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
