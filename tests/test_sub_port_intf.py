@@ -303,6 +303,18 @@ class TestSubPortIntf(object):
         assert ec == 0
         assert mtu in out
 
+    def check_sub_port_intf_admin_status_kernel(self, dvs, port_name, admin_up):
+        up = "UP"
+        if admin_up == True:
+            up = "," + up
+        (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep {}".format(port_name, up)])
+        if admin_up == True:
+            assert ec == 0
+            assert up in out
+        else:
+            assert ec == 1
+            assert up not in out
+
     def check_sub_port_intf_vrf_bind_kernel(self, dvs, port_name, vrf_name):
         (ec, out) = dvs.runcmd(['bash', '-c', "ip link show {} | grep {}".format(port_name, vrf_name)])
         assert ec == 0
@@ -606,6 +618,9 @@ class TestSubPortIntf(object):
         if vrf_name is None or not vrf_name.startswith(VNET_PREFIX):
             self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
 
+        # Verify sub port interface admin status in linux kernel
+        self.check_sub_port_intf_admin_status_kernel(dvs, sub_port_intf_name, admin_up=True)
+
         fv_dict = {
             ADMIN_STATUS: "up",
         }
@@ -624,6 +639,9 @@ class TestSubPortIntf(object):
 
         # Change sub port interface admin status to down
         self.set_sub_port_intf_admin_status(sub_port_intf_name, "down")
+
+        # Verify sub port interface admin status change in linux kernel
+        self.check_sub_port_intf_admin_status_kernel(dvs, sub_port_intf_name, admin_up=False)
 
         # Verify that sub port interface admin status change is synced to APP_DB by Intfmgrd
         fv_dict = {
@@ -645,6 +663,9 @@ class TestSubPortIntf(object):
 
         # Change sub port interface admin status to up
         self.set_sub_port_intf_admin_status(sub_port_intf_name, "up")
+
+        # Verify sub port interface admin status change in linux kernel
+        self.check_sub_port_intf_admin_status_kernel(dvs, sub_port_intf_name, admin_up=True)
 
         # Verify that sub port interface admin status change is synced to APP_DB by Intfmgrd
         fv_dict = {
