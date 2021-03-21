@@ -75,6 +75,13 @@ bool TeamMgr::isPortStateOk(const string &alias)
     return true;
 }
 
+void TeamMgr::setSubPortStateOk(const string &alias)
+{
+    vector<FieldValueTuple> fvTuples = {{"state", "ok"}};
+
+    m_stateLagTable.set(alias, fvTuples);
+}
+
 bool TeamMgr::isLagStateOk(const string &alias)
 {
     SWSS_LOG_ENTER();
@@ -88,6 +95,11 @@ bool TeamMgr::isLagStateOk(const string &alias)
     }
 
     return true;
+}
+
+void TeamMgr::removeSubPortState(const string &alias)
+{
+    m_stateLagTable.del(alias);
 }
 
 void TeamMgr::doTask(Consumer &consumer)
@@ -199,15 +211,18 @@ void TeamMgr::doLagTask(Consumer &consumer)
             setLagMtu(alias, mtu);
             for (const auto &subPort : m_lagSubPortSet[alias])
             {
-                try
+                if (m_subPortCfgMap[subPort].mtu.empty())
                 {
-                    setSubPortMtu(subPort, mtu);
-                    SWSS_LOG_NOTICE("Configure sub port %s MTU to %s, inherited from parent port %s",
-                                    subPort.c_str(), mtu.c_str(), alias.c_str());
-                }
-                catch (const std::runtime_error &e)
-                {
-                    SWSS_LOG_NOTICE("Sub port ip link set mtu failure. Runtime error: %s", e.what());
+                    try
+                    {
+                        setSubPortMtu(subPort, mtu);
+                        SWSS_LOG_NOTICE("Configure sub port %s MTU to %s, inherited from parent port %s",
+                                        subPort.c_str(), mtu.c_str(), alias.c_str());
+                    }
+                    catch (const std::runtime_error &e)
+                    {
+                        SWSS_LOG_NOTICE("Sub port ip link set mtu failure. Runtime error: %s", e.what());
+                    }
                 }
             }
             if (!learn_mode.empty())
@@ -371,6 +386,23 @@ bool TeamMgr::setLagAdminStatus(const string &alias, const string &admin_status)
 
     SWSS_LOG_NOTICE("Set port channel %s admin status to %s",
             alias.c_str(), admin_status.c_str());
+
+    return true;
+}
+
+bool TeamMgr::setSubPortAdminStatus(const string &alias, const string &admin_status)
+{
+    SWSS_LOG_ENTER();
+
+    stringstream cmd;
+    string res;
+
+    // ip link set <sub_port_name> [up|down]
+    cmd << IP_CMD << " link set " << shellquote(alias) << " " << shellquote(admin_status);
+    EXEC_WITH_ERROR_THROW(cmd.str(), res);
+
+    SWSS_LOG_NOTICE("Set sub port %s admin status to %s",
+                    alias.c_str(), admin_status.c_str());
 
     return true;
 }
@@ -670,6 +702,24 @@ bool TeamMgr::removeLagMember(const string &lag, const string &member)
     return true;
 }
 
+void TeamMgr::addHostSubPort(const string &lag, const string &subPort, const string &vlan)
+{
+    stringstream cmd;
+    string res;
+
+    cmd << IP_CMD " link add link " << shellquote(lag) << " name " << shellquote(subPort) << " type vlan id " << shellquote(vlan);
+    EXEC_WITH_ERROR_THROW(cmd.str(), res);
+}
+
+void TeamMgr::removeHostSubPort(const string &subPort)
+{
+    stringstream cmd;
+    string res;
+
+    cmd << IP_CMD " link del " << shellquote(subPort);
+    EXEC_WITH_ERROR_THROW(cmd.str(), res);
+}
+
 void TeamMgr::doSubPortTask(Consumer &consumer)
 {
     SWSS_LOG_ENTER();
@@ -685,9 +735,11 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
         {
             string alias(keys[0]);
             string parentAlias;
+            string vlanId;
             size_t found = alias.find(VLAN_SUB_INTERFACE_SEPARATOR);
             if (found != string::npos)
             {
+                vlanId = alias.substr(found + 1);
                 parentAlias = alias.substr(0, found);
             }
             else
@@ -698,15 +750,32 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
 
             if (op == SET_COMMAND)
             {
-                // Sub port readiness is an indication of parent port readiness
-                if (!isLagStateOk(alias))
+                if (!isLagStateOk(parentAlias))
                 {
-                    SWSS_LOG_INFO("Sub port %s is not ready, pending...", alias.c_str());
+                    SWSS_LOG_INFO("Parent port %s is not ready, pending...", alias.c_str());
                     it++;
                     continue;
                 }
 
+                if (m_subPortList.find(alias) == m_subPortList.end())
+                {
+                    try
+                    {
+                        addHostSubPort(parentAlias, alias, vlanId);
+                    }
+                    catch (const std::runtime_error &e)
+                    {
+                        SWSS_LOG_NOTICE("Sub interface ip link add failure. Runtime error: %s", e.what());
+                        it++;
+                        continue;
+                    }
+
+                    m_subPortList.insert(alias);
+                    m_lagSubPortSet[parentAlias].insert(alias);
+                }
+
                 string mtu = "";
+                string adminStatus = "up";
                 const vector<FieldValueTuple> &fvTuples = kfvFieldsValues(t);
                 for (const auto &fv : fvTuples)
                 {
@@ -714,16 +783,14 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
                     {
                         mtu = fvValue(fv);
                     }
+                    else if (fvField(fv) == "admin_status")
+                    {
+                        adminStatus = fvValue(fv);
+                    }
                 }
 
-                if (mtu.empty())
+                if (!mtu.empty())
                 {
-                    m_cfgLagTable.hget(parentAlias, "mtu", mtu);
-                    if (mtu.empty())
-                    {
-                        mtu = DEFAULT_MTU_STR;
-                    }
-
                     try
                     {
                         setSubPortMtu(alias, mtu);
@@ -733,14 +800,34 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
                     catch (const std::runtime_error &e)
                     {
                         SWSS_LOG_NOTICE("Sub port ip link set mtu failure. Runtime error: %s", e.what());
+                        it++;
+                        continue;
                     }
-
-                    m_lagSubPortSet[parentAlias].insert(alias);
                 }
+
+                try
+                {
+                    setSubPortAdminStatus(alias, adminStatus);
+                }
+                catch (const std::runtime_error &e)
+                {
+                    SWSS_LOG_NOTICE("Sub port ip link set admin status %s failure. Runtime error: %s", adminStatus.c_str(), e.what());
+                    it++;
+                    continue;
+                }
+
+                m_subPortCfgMap[alias].mtu = mtu;
+                // set STATE_DB port state
+                setSubPortStateOk(alias);
             }
             else if (op == DEL_COMMAND)
             {
+                removeHostSubPort(alias);
+                m_subPortList.erase(alias);
                 m_lagSubPortSet[parentAlias].erase(alias);
+                m_subPortCfgMap.erase(alias);
+
+                removeSubPortState(alias);
             }
         }
 

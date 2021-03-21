@@ -33,7 +33,9 @@ private:
 
     std::set<std::string> m_lagList;
     std::map<std::string, pid_t> m_lagPIDList;
+    std::set<std::string> m_subPortList;
     std::unordered_map<std::string, std::unordered_set<std::string>> m_lagSubPortSet;
+    std::unordered_map<std::string, swss::SubPortCfg> m_subPortCfgMap;
 
     MacAddress m_mac;
 
@@ -49,6 +51,7 @@ private:
     bool removeLagMember(const std::string &lag, const std::string &member);
 
     bool setLagAdminStatus(const std::string &alias, const std::string &admin_status);
+    bool setSubPortAdminStatus(const std::string &alias, const std::string &admin_status);
     bool setLagMtu(const std::string &alias, const std::string &mtu);
     bool setSubPortMtu(const std::string &alias, const std::string &mtu);
     bool setLagLearnMode(const std::string &alias, const std::string &learn_mode);
@@ -59,6 +62,11 @@ private:
     bool checkPortIffUp(const std::string &);
     bool isPortStateOk(const std::string&);
     bool isLagStateOk(const std::string&);
+
+    void setSubPortStateOk(const std::string &alias);
+    void removeSubPortState(const std::string &alias);
+    void addHostSubPort(const std::string &lag, const std::string &subPort, const std::string &vlan);
+    void removeHostSubPort(const std::string &subPort);
 };
 
 }
