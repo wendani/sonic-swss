@@ -419,8 +419,8 @@ bool TeamMgr::setSubPortMtu(const string &alias, const string &mtu)
     stringstream cmd;
     string res;
 
-    // ip link set dev <sub_port_name> mtu <mtu_value>
-    cmd << IP_CMD << " link set dev " << shellquote(alias) << " mtu " << shellquote(mtu);
+    // ip link set <sub_port_name> mtu <mtu_value>
+    cmd << IP_CMD << " link set " << shellquote(alias) << " mtu " << shellquote(mtu);
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 
     return true;
