@@ -45,8 +45,8 @@ bool PortMgr::setSubPortMtu(const string &alias, const string &mtu)
     stringstream cmd;
     string res;
 
-    // ip link set dev <sub_port_name> mtu <mtu>
-    cmd << IP_CMD << " link set dev " << shellquote(alias) << " mtu " << shellquote(mtu);
+    // ip link set <sub_port_name> mtu <mtu>
+    cmd << IP_CMD << " link set " << shellquote(alias) << " mtu " << shellquote(mtu);
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 
     return true;
@@ -69,6 +69,18 @@ bool PortMgr::setPortAdminStatus(const string &alias, const bool up)
     return true;
 }
 
+bool PortMgr::setSubPortAdminStatus(const string &alias, const bool up)
+{
+    stringstream cmd;
+    string res;
+
+    // ip link set <sub_port_name> [up|down]
+    cmd << IP_CMD << " link set " << shellquote(alias) << (up ? " up" : " down");
+    EXEC_WITH_ERROR_THROW(cmd.str(), res);
+
+    return true;
+}
+
 bool PortMgr::setPortLearnMode(const string &alias, const string &learn_mode)
 {
     // Set the port MAC learn mode in application database
@@ -78,6 +90,13 @@ bool PortMgr::setPortLearnMode(const string &alias, const string &learn_mode)
     m_appPortTable.set(alias, fvs);
 
     return true;
+}
+
+void PortMgr::setSubPortStateOk(const string &alias)
+{
+    vector<FieldValueTuple> fvTuples = {{"state", "ok"}};
+
+    m_statePortTable.set(alias, fvTuples);
 }
 
 bool PortMgr::isPortStateOk(const string &alias)
@@ -91,6 +110,29 @@ bool PortMgr::isPortStateOk(const string &alias)
     }
 
     return false;
+}
+
+void PortMgr::removeSubPortState(const string &alias)
+{
+    m_statePortTable.del(alias);
+}
+
+void PortMgr::addHostSubPort(const string&port, const string &subPort, const string &vlan)
+{
+    stringstream cmd;
+    string res;
+
+    cmd << IP_CMD " link add link " << shellquote(port) << " name " << shellquote(subPort) << " type vlan id " << shellquote(vlan);
+    EXEC_WITH_ERROR_THROW(cmd.str(), res);
+}
+
+void PortMgr::removeHostSubPort(const string &subPort)
+{
+    stringstream cmd;
+    string res;
+
+    cmd << IP_CMD " link del " << shellquote(subPort);
+    EXEC_WITH_ERROR_THROW(cmd.str(), res);
 }
 
 void PortMgr::doTask(Consumer &consumer)
@@ -219,9 +261,11 @@ void PortMgr::doSubPortTask(Consumer &consumer)
         {
             string alias(keys[0]);
             string parentAlias;
+            string vlanId;
             size_t found = alias.find(VLAN_SUB_INTERFACE_SEPARATOR);
             if (found != string::npos)
             {
+                vlanId = alias.substr(found + 1);
                 parentAlias = alias.substr(0, found);
             }
             else
@@ -232,15 +276,32 @@ void PortMgr::doSubPortTask(Consumer &consumer)
 
             if (op == SET_COMMAND)
             {
-                // Sub port readiness is an indication of parent port readiness
-                if (!isPortStateOk(alias))
+                if (!isPortStateOk(parentAlias))
                 {
-                    SWSS_LOG_INFO("Sub port %s is not ready, pending...", alias.c_str());
+                    SWSS_LOG_INFO("Parent port %s is not ready, pending...", parentAlias.c_str());
                     it++;
                     continue;
                 }
 
+                if (m_subPortList.find(alias) == m_subPortList.end())
+                {
+                    try
+                    {
+                        addHostSubPort(parentAlias, alias, vlanId);
+                    }
+                    catch (const std::runtime_error &e)
+                    {
+                        SWSS_LOG_NOTICE("Sub interface ip link add failure. Runtime error: %s", e.what());
+                        it++;
+                        continue;
+                    }
+
+                    m_subPortList.insert(alias);
+                    m_portSubPortSet[parentAlias].insert(alias);
+                }
+
                 string mtu = "";
+                string adminStatus = "up";
                 const vector<FieldValueTuple> &fvTuples = kfvFieldsValues(t);
                 for (const auto &fv : fvTuples)
                 {
@@ -248,16 +309,14 @@ void PortMgr::doSubPortTask(Consumer &consumer)
                     {
                         mtu = fvValue(fv);
                     }
+                    else if (fvField(fv) == "admin_status")
+                    {
+                        adminStatus = fvValue(fv);
+                    }
                 }
 
-                if (mtu.empty())
+                if (!mtu.empty())
                 {
-                    m_cfgPortTable.hget(parentAlias, "mtu", mtu);
-                    if (mtu.empty())
-                    {
-                        mtu = DEFAULT_MTU_STR;
-                    }
-
                     try
                     {
                         setSubPortMtu(alias, mtu);
@@ -267,14 +326,32 @@ void PortMgr::doSubPortTask(Consumer &consumer)
                     catch (const std::runtime_error &e)
                     {
                         SWSS_LOG_NOTICE("Sub port ip link set mtu failure. Runtime error: %s", e.what());
+                        it++;
+                        continue;
                     }
-
-                    m_portSubPortSet[parentAlias].insert(alias);
                 }
+
+                try
+                {
+                    setSubPortAdminStatus(alias, adminStatus == "up");
+                }
+                catch (const std::runtime_error &e)
+                {
+                    SWSS_LOG_NOTICE("Sub port ip link set admin status %s failure. Runtime error: %s", adminStatus.c_str(), e.what());
+                    it++;
+                    continue;
+                }
+
+                // set STATE_DB port state
+                setSubPortStateOk(alias);
             }
             else if (op == DEL_COMMAND)
             {
+                removeHostSubPort(alias);
+                m_subPortList.erase(alias);
                 m_portSubPortSet[parentAlias].erase(alias);
+
+                removeSubPortState(alias);
             }
         }
 
