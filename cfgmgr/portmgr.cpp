@@ -249,6 +249,7 @@ void PortMgr::doSubPortTask(Consumer &consumer)
                         mtu = fvValue(fv);
                     }
                 }
+
                 if (mtu.empty())
                 {
                     m_cfgPortTable.hget(parentAlias, "mtu", mtu);
@@ -256,6 +257,7 @@ void PortMgr::doSubPortTask(Consumer &consumer)
                     {
                         mtu = DEFAULT_MTU_STR;
                     }
+
                     try
                     {
                         setSubPortMtu(alias, mtu);

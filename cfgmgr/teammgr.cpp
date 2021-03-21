@@ -715,6 +715,7 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
                         mtu = fvValue(fv);
                     }
                 }
+
                 if (mtu.empty())
                 {
                     m_cfgLagTable.hget(parentAlias, "mtu", mtu);
@@ -722,6 +723,7 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
                     {
                         mtu = DEFAULT_MTU_STR;
                     }
+
                     try
                     {
                         setSubPortMtu(alias, mtu);
