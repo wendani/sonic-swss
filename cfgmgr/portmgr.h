@@ -14,6 +14,11 @@ namespace swss {
 #define DEFAULT_ADMIN_STATUS_STR    "down"
 #define DEFAULT_MTU_STR             "9100"
 
+struct SubPortCfg
+{
+    std::string mtu;
+};
+
 class PortMgr : public Orch
 {
 public:
@@ -29,6 +34,7 @@ private:
     std::set<std::string> m_portList;
     std::set<std::string> m_subPortList;
     std::unordered_map<std::string, std::unordered_set<std::string>> m_portSubPortSet;
+    std::unordered_map<std::string, SubPortCfg> m_subPortCfgMap;
 
     void doTask(Consumer &consumer);
     void doPortTask(Consumer &consumer);

@@ -210,15 +210,18 @@ void PortMgr::doPortTask(Consumer &consumer)
 
                 for (const auto &subPort : m_portSubPortSet[alias])
                 {
-                    try
+                    if (m_subPortCfgMap[subPort].mtu.empty())
                     {
-                        setSubPortMtu(subPort, mtu);
-                        SWSS_LOG_NOTICE("Configure sub port %s MTU to %s, inherited from parent port %s",
-                                        subPort.c_str(), mtu.c_str(), alias.c_str());
-                    }
-                    catch (const std::runtime_error &e)
-                    {
-                        SWSS_LOG_NOTICE("Sub port ip link set mtu failure. Runtime error: %s", e.what());
+                        try
+                        {
+                            setSubPortMtu(subPort, mtu);
+                            SWSS_LOG_NOTICE("Configure sub port %s MTU to %s, inherited from parent port %s",
+                                            subPort.c_str(), mtu.c_str(), alias.c_str());
+                        }
+                        catch (const std::runtime_error &e)
+                        {
+                            SWSS_LOG_NOTICE("Sub port ip link set mtu failure. Runtime error: %s", e.what());
+                        }
                     }
                 }
             }
@@ -342,6 +345,7 @@ void PortMgr::doSubPortTask(Consumer &consumer)
                     continue;
                 }
 
+                m_subPortCfgMap[alias].mtu = mtu;
                 // set STATE_DB port state
                 setSubPortStateOk(alias);
             }
@@ -350,6 +354,7 @@ void PortMgr::doSubPortTask(Consumer &consumer)
                 removeHostSubPort(alias);
                 m_subPortList.erase(alias);
                 m_portSubPortSet[parentAlias].erase(alias);
+                m_subPortCfgMap.erase(alias);
 
                 removeSubPortState(alias);
             }
