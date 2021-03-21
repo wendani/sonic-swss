@@ -47,7 +47,7 @@ private:
     bool isPortStateOk(const std::string &alias);
     void setSubPortStateOk(const std::string &alias);
     void removeSubPortState(const std::string &alias);
-    void addHostSubPort(const std::string&port, const std::string &subPort, const std::string &vlan);
+    void addHostSubPort(const std::string &port, const std::string &subPort, const std::string &vlan);
     void removeHostSubPort(const std::string &subPort);
 };
 

@@ -117,7 +117,7 @@ void PortMgr::removeSubPortState(const string &alias)
     m_statePortTable.del(alias);
 }
 
-void PortMgr::addHostSubPort(const string&port, const string &subPort, const string &vlan)
+void PortMgr::addHostSubPort(const string &port, const string &subPort, const string &vlan)
 {
     stringstream cmd;
     string res;
