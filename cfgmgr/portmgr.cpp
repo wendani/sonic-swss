@@ -369,6 +369,7 @@ void PortMgr::doSubPortTask(Consumer &consumer)
                 }
 
                 m_subPortCfgMap[alias].mtu = mtu;
+                m_subPortCfgMap[alias].adminStatus = adminStatus;
                 // set STATE_DB port state
                 setSubPortStateOk(alias);
             }

@@ -226,6 +226,7 @@ void TeamMgr::doLagTask(Consumer &consumer)
                     }
                 }
             }
+
             if (!learn_mode.empty())
             {
                 setLagLearnMode(alias, learn_mode);
@@ -824,6 +825,7 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
                 }
 
                 m_subPortCfgMap[alias].mtu = mtu;
+                m_subPortCfgMap[alias].adminStatus = adminStatus;
                 // set STATE_DB port state
                 setSubPortStateOk(alias);
             }
