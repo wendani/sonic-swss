@@ -35,7 +35,12 @@ private:
     std::map<std::string, pid_t> m_lagPIDList;
     std::set<std::string> m_subPortList;
     std::unordered_map<std::string, std::unordered_set<std::string>> m_lagSubPortSet;
-    std::unordered_map<std::string, swss::SubPortCfg> m_subPortCfgMap;
+
+    struct SubPortCfg
+    {
+        std::string mtu;
+    };
+    std::unordered_map<std::string, SubPortCfg> m_subPortCfgMap;
 
     MacAddress m_mac;
 
