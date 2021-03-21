@@ -237,34 +237,6 @@ bool IntfMgr::isIntfChangeVrf(const string &alias, const string &vrfName)
     return false;
 }
 
-void IntfMgr::setSubIntfStateOk(const string &alias)
-{
-    vector<FieldValueTuple> fvTuples = {{"state", "ok"}};
-
-    if (!alias.compare(0, strlen(LAG_PREFIX), LAG_PREFIX))
-    {
-        m_stateLagTable.set(alias, fvTuples);
-    }
-    else
-    {
-        // EthernetX using PORT_TABLE
-        m_statePortTable.set(alias, fvTuples);
-    }
-}
-
-void IntfMgr::removeSubIntfState(const string &alias)
-{
-    if (!alias.compare(0, strlen(LAG_PREFIX), LAG_PREFIX))
-    {
-        m_stateLagTable.del(alias);
-    }
-    else
-    {
-        // EthernetX using PORT_TABLE
-        m_statePortTable.del(alias);
-    }
-}
-
 bool IntfMgr::setIntfGratArp(const string &alias, const string &grat_arp)
 {
     /*
