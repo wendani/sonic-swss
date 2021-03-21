@@ -10,6 +10,8 @@
 using namespace std;
 using namespace swss;
 
+#define ETHERNET_PREFIX "Ethernet"
+
 PortMgr::PortMgr(DBConnector *cfgDb, DBConnector *appDb, DBConnector *stateDb, const vector<string> &tableNames) :
         Orch(cfgDb, tableNames),
         m_cfgPortTable(cfgDb, CFG_PORT_TABLE_NAME),
@@ -263,6 +265,12 @@ void PortMgr::doSubPortTask(Consumer &consumer)
         if (keys.size() == 1)
         {
             string alias(keys[0]);
+            if (alias.compare(0, strlen(ETHERNET_PREFIX), ETHERNET_PREFIX))
+            {
+                it = consumer.m_toSync.erase(it);
+                continue;
+            }
+
             string parentAlias;
             string vlanId;
             size_t found = alias.find(VLAN_SUB_INTERFACE_SEPARATOR);

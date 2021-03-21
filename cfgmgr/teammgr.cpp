@@ -21,6 +21,7 @@
 using namespace std;
 using namespace swss;
 
+#define LAG_PREFIX  "PortChannel"
 
 TeamMgr::TeamMgr(DBConnector *confDb, DBConnector *applDb, DBConnector *statDb,
         const vector<TableConnector> &tables) :
@@ -734,6 +735,12 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
         if (keys.size() == 1)
         {
             string alias(keys[0]);
+            if (alias.compare(0, strlen(LAG_PREFIX), LAG_PREFIX))
+            {
+                it = consumer.m_toSync.erase(it);
+                continue;
+            }
+
             string parentAlias;
             string vlanId;
             size_t found = alias.find(VLAN_SUB_INTERFACE_SEPARATOR);
