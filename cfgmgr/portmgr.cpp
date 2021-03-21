@@ -69,6 +69,18 @@ bool PortMgr::setPortAdminStatus(const string &alias, const bool up)
     return true;
 }
 
+bool PortMgr::setSubPortAdminStatus(const string &alias, const bool up)
+{
+    stringstream cmd;
+    string res;
+
+    // ip link set dev <sub_port_name> [up|down]
+    cmd << IP_CMD << " link set dev " << shellquote(alias) << (up ? " up" : " down");
+    EXEC_WITH_ERROR_THROW(cmd.str(), res);
+
+    return true;
+}
+
 bool PortMgr::setPortLearnMode(const string &alias, const string &learn_mode)
 {
     // Set the port MAC learn mode in application database
@@ -168,15 +180,19 @@ void PortMgr::doPortTask(Consumer &consumer)
 
                 for (const auto &subPort : m_portSubPortSet[alias])
                 {
-                    try
+                    const auto &mtu = m_subPortCfgMap[subPort].mtu;
+                    if (mtu.empty())
                     {
-                        setSubPortMtu(subPort, mtu);
-                        SWSS_LOG_NOTICE("Configure sub port %s MTU to %s, inherited from parent port %s",
-                                        subPort.c_str(), mtu.c_str(), alias.c_str());
-                    }
-                    catch (const std::runtime_error &e)
-                    {
-                        SWSS_LOG_NOTICE("Sub port ip link set mtu failure. Runtime error: %s", e.what());
+                        try
+                        {
+                            setSubPortMtu(subPort, mtu);
+                            SWSS_LOG_NOTICE("Configure sub port %s MTU to %s, inherited from parent port %s",
+                                            subPort.c_str(), mtu.c_str(), alias.c_str());
+                        }
+                        catch (const std::runtime_error &e)
+                        {
+                            SWSS_LOG_NOTICE("Sub port ip link set mtu failure. Runtime error: %s", e.what());
+                        }
                     }
                 }
             }
@@ -185,6 +201,21 @@ void PortMgr::doPortTask(Consumer &consumer)
             {
                 setPortAdminStatus(alias, admin_status == "up");
                 SWSS_LOG_NOTICE("Configure %s admin status to %s", alias.c_str(), admin_status.c_str());
+
+                for (const auto &subPort : m_portSubPortSet[alias])
+                {
+                    const auto &subPortAdminStatus = m_subPortCfgMap[subPort].adminStatus;
+                    try
+                    {
+                        setSubPortAdminStatus(subPort, subPortAdminStatus == "up");
+                        SWSS_LOG_NOTICE("Configure sub port %s admin status to %s",
+                                        subPort.c_str(), subPortAdminStatus.c_str());
+                    }
+                    catch (const std::runtime_error &e)
+                    {
+                        SWSS_LOG_NOTICE("Sub port ip link set admin status failure. Runtime error: %s", e.what());
+                    }
+                }
             }
 
             if (!learn_mode.empty())
@@ -240,7 +271,10 @@ void PortMgr::doSubPortTask(Consumer &consumer)
                     continue;
                 }
 
+                m_portSubPortSet[parentAlias].insert(alias);
+
                 string mtu = "";
+                string adminStatus = "up";
                 const vector<FieldValueTuple> &fvTuples = kfvFieldsValues(t);
                 for (const auto &fv : fvTuples)
                 {
@@ -248,7 +282,14 @@ void PortMgr::doSubPortTask(Consumer &consumer)
                     {
                         mtu = fvValue(fv);
                     }
+                    else if (fvField(fv) == "admin_status")
+                    {
+                        adminStatus = fvValue(fv);
+                    }
                 }
+
+                m_subPortCfgMap[alias].mtu = mtu;
+                m_subPortCfgMap[alias].adminStatus = adminStatus;
 
                 if (mtu.empty())
                 {
@@ -268,13 +309,12 @@ void PortMgr::doSubPortTask(Consumer &consumer)
                     {
                         SWSS_LOG_NOTICE("Sub port ip link set mtu failure. Runtime error: %s", e.what());
                     }
-
-                    m_portSubPortSet[parentAlias].insert(alias);
                 }
             }
             else if (op == DEL_COMMAND)
             {
                 m_portSubPortSet[parentAlias].erase(alias);
+                m_subPortCfgMap.erase(alias);
             }
         }
 
