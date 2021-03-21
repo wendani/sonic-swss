@@ -33,7 +33,14 @@ private:
     ProducerStateTable m_appPortTable;
 
     std::set<std::string> m_portList;
+    std::set<std::string> m_subPortList;
     std::unordered_map<std::string, std::unordered_set<std::string>> m_portSubPortSet;
+    std::unordered_map<std::string, SubPortCfg> m_subPortCfgMap;
+
+    struct SubPortCfg
+    {
+        std::string mtu;
+    };
     std::unordered_map<std::string, SubPortCfg> m_subPortCfgMap;
 
     void doTask(Consumer &consumer);
@@ -45,6 +52,10 @@ private:
     bool setSubPortAdminStatus(const std::string &alias, const bool up);
     bool setPortLearnMode(const std::string &alias, const std::string &learn_mode);
     bool isPortStateOk(const std::string &alias);
+    void setSubPortStateOk(const std::string &alias);
+    void removeSubPortState(const std::string &alias);
+    void addHostSubPort(const std::string &port, const std::string &subPort, const std::string &vlan);
+    void removeHostSubPort(const std::string &subPort);
 };
 
 }

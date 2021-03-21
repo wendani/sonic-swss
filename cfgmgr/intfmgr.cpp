@@ -237,70 +237,6 @@ bool IntfMgr::isIntfChangeVrf(const string &alias, const string &vrfName)
     return false;
 }
 
-void IntfMgr::addHostSubIntf(const string&intf, const string &subIntf, const string &vlan)
-{
-    stringstream cmd;
-    string res;
-
-    cmd << IP_CMD " link add link " << shellquote(intf) << " name " << shellquote(subIntf) << " type vlan id " << shellquote(vlan);
-    EXEC_WITH_ERROR_THROW(cmd.str(), res);
-}
-
-void IntfMgr::setHostSubIntfMtu(const string &subIntf, const string &mtu)
-{
-    stringstream cmd;
-    string res;
-
-    cmd << IP_CMD " link set " << shellquote(subIntf) << " mtu " << shellquote(mtu);
-    EXEC_WITH_ERROR_THROW(cmd.str(), res);
-}
-
-void IntfMgr::setHostSubIntfAdminStatus(const string &subIntf, const string &adminStatus)
-{
-    stringstream cmd;
-    string res;
-
-    cmd << IP_CMD " link set " << shellquote(subIntf) << " " << shellquote(adminStatus);
-    EXEC_WITH_ERROR_THROW(cmd.str(), res);
-}
-
-void IntfMgr::removeHostSubIntf(const string &subIntf)
-{
-    stringstream cmd;
-    string res;
-
-    cmd << IP_CMD " link del " << shellquote(subIntf);
-    EXEC_WITH_ERROR_THROW(cmd.str(), res);
-}
-
-void IntfMgr::setSubIntfStateOk(const string &alias)
-{
-    vector<FieldValueTuple> fvTuples = {{"state", "ok"}};
-
-    if (!alias.compare(0, strlen(LAG_PREFIX), LAG_PREFIX))
-    {
-        m_stateLagTable.set(alias, fvTuples);
-    }
-    else
-    {
-        // EthernetX using PORT_TABLE
-        m_statePortTable.set(alias, fvTuples);
-    }
-}
-
-void IntfMgr::removeSubIntfState(const string &alias)
-{
-    if (!alias.compare(0, strlen(LAG_PREFIX), LAG_PREFIX))
-    {
-        m_stateLagTable.del(alias);
-    }
-    else
-    {
-        // EthernetX using PORT_TABLE
-        m_statePortTable.del(alias);
-    }
-}
-
 bool IntfMgr::setIntfGratArp(const string &alias, const string &grat_arp)
 {
     /*
@@ -414,7 +350,6 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
     SWSS_LOG_ENTER();
 
     string alias(keys[0]);
-    string vlanId;
     string parentAlias;
     size_t found = alias.find(VLAN_SUB_INTERFACE_SEPARATOR);
     if (found != string::npos)
@@ -422,7 +357,6 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
         // This is a sub interface
         // alias holds the complete sub interface name
         // while parentAlias holds the parent port name
-        vlanId = alias.substr(found + 1);
         parentAlias = alias.substr(0, found);
     }
     bool is_lo = !alias.compare(0, strlen(LOOPBACK_PREFIX), LOOPBACK_PREFIX);
@@ -468,7 +402,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
 
     if (op == SET_COMMAND)
     {
-        if (!isIntfStateOk(parentAlias.empty() ? alias : parentAlias))
+        if (!isIntfStateOk(alias))
         {
             SWSS_LOG_DEBUG("Interface is not ready, skipping %s", alias.c_str());
             return false;
@@ -508,34 +442,7 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
 
         if (!parentAlias.empty())
         {
-            if (m_subIntfList.find(alias) == m_subIntfList.end())
-            {
-                try
-                {
-                    addHostSubIntf(parentAlias, alias, vlanId);
-                }
-                catch (const std::runtime_error &e)
-                {
-                    SWSS_LOG_NOTICE("Sub interface ip link add failure. Runtime error: %s", e.what());
-                    return false;
-                }
-
-                m_subIntfList.insert(alias);
-            }
-
-            if (!mtu.empty())
-            {
-                try
-                {
-                    setHostSubIntfMtu(alias, mtu);
-                }
-                catch (const std::runtime_error &e)
-                {
-                    SWSS_LOG_NOTICE("Sub interface ip link set mtu failure. Runtime error: %s", e.what());
-                    return false;
-                }
-            }
-            else
+            if (mtu.empty())
             {
                 FieldValueTuple fvTuple("mtu", MTU_INHERITANCE);
                 data.push_back(fvTuple);
@@ -547,18 +454,6 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
                 FieldValueTuple fvTuple("admin_status", adminStatus);
                 data.push_back(fvTuple);
             }
-            try
-            {
-                setHostSubIntfAdminStatus(alias, adminStatus);
-            }
-            catch (const std::runtime_error &e)
-            {
-                SWSS_LOG_NOTICE("Sub interface ip link set admin status %s failure. Runtime error: %s", adminStatus.c_str(), e.what());
-                return false;
-            }
-
-            // set STATE_DB port state
-            setSubIntfStateOk(alias);
         }
 
         if (!vrf_name.empty())
@@ -625,14 +520,6 @@ bool IntfMgr::doIntfGeneralTask(const vector<string>& keys,
         {
             delLoopbackIntf(alias);
             m_loopbackIntfList.erase(alias);
-        }
-
-        if (!parentAlias.empty())
-        {
-            removeHostSubIntf(alias);
-            m_subIntfList.erase(alias);
-
-            removeSubIntfState(alias);
         }
 
         m_appIntfTableProducer.del(alias);

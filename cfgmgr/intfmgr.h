@@ -22,7 +22,6 @@ private:
     Table m_cfgIntfTable, m_cfgVlanIntfTable, m_cfgLagIntfTable, m_cfgLoopbackIntfTable;
     Table m_statePortTable, m_stateLagTable, m_stateVlanTable, m_stateVrfTable, m_stateIntfTable;
 
-    std::set<std::string> m_subIntfList;
     std::set<std::string> m_loopbackIntfList;
     std::set<std::string> m_pendingReplayIntfList;
 
@@ -44,10 +43,6 @@ private:
     void delLoopbackIntf(const std::string &alias);
     void flushLoopbackIntfs(void);
 
-    void addHostSubIntf(const std::string&intf, const std::string &subIntf, const std::string &vlan);
-    void setHostSubIntfMtu(const std::string &subIntf, const std::string &mtu);
-    void setHostSubIntfAdminStatus(const std::string &subIntf, const std::string &admin_status);
-    void removeHostSubIntf(const std::string &subIntf);
     void setSubIntfStateOk(const std::string &alias);
     void removeSubIntfState(const std::string &alias);
 
