@@ -331,8 +331,8 @@ void PortMgr::doSubPortTask(Consumer &consumer)
                     try
                     {
                         setSubPortMtu(alias, mtu);
-                        SWSS_LOG_INFO("Configure sub port %s MTU to %s, inherited from parent port %s",
-                                      alias.c_str(), mtu.c_str(), parentAlias.c_str());
+                        SWSS_LOG_NOTICE("Configure sub port %s MTU to %s, inherited from parent port %s",
+                                        alias.c_str(), mtu.c_str(), parentAlias.c_str());
                     }
                     catch (const std::runtime_error &e)
                     {
