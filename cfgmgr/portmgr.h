@@ -29,7 +29,6 @@ private:
     std::set<std::string> m_portList;
     std::set<std::string> m_subPortList;
     std::unordered_map<std::string, std::unordered_set<std::string>> m_portSubPortSet;
-    std::unordered_map<std::string, SubPortCfg> m_subPortCfgMap;
 
     struct SubPortCfg
     {

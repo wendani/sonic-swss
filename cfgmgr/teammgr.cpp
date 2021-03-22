@@ -209,6 +209,21 @@ void TeamMgr::doLagTask(Consumer &consumer)
             }
 
             setLagAdminStatus(alias, admin_status);
+            for (const auto &subPort : m_lagSubPortSet[alias])
+            {
+                const auto &subPortAdminStatus = m_subPortCfgMap[subPort].adminStatus;
+                try
+                {
+                    setSubPortAdminStatus(subPort, subPortAdminStatus);
+                    SWSS_LOG_NOTICE("Configure sub port %s admin status to %s",
+                                    subPort.c_str(), subPortAdminStatus.c_str());
+                }
+                catch (const std::runtime_error &e)
+                {
+                    SWSS_LOG_NOTICE("Sub port ip link set admin status failure. Runtime error: %s", e.what());
+                }
+            }
+
             setLagMtu(alias, mtu);
             for (const auto &subPort : m_lagSubPortSet[alias])
             {
