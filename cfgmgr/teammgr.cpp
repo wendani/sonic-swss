@@ -209,19 +209,23 @@ void TeamMgr::doLagTask(Consumer &consumer)
             }
 
             setLagAdminStatus(alias, admin_status);
-            for (const auto &subPort : m_lagSubPortSet[alias])
+            // Sub port cannot be configured admin up, if parent port is admin down
+            if (admin_status == "up")
             {
-                const auto &subPortAdminStatus = m_subPortCfgMap[subPort].adminStatus;
-                try
+                for (const auto &subPort : m_lagSubPortSet[alias])
                 {
-                    setSubPortAdminStatus(subPort, subPortAdminStatus);
-                    SWSS_LOG_NOTICE("Configure sub port %s admin status to %s",
-                                    subPort.c_str(), subPortAdminStatus.c_str());
-                }
-                catch (const std::runtime_error &e)
-                {
-                    SWSS_LOG_NOTICE("Sub port ip link set admin status %s failure. Runtime error: %s.",
-                                    subPortAdminStatus.c_str(), e.what());
+                    const auto &subPortAdminStatus = m_subPortCfgMap[subPort].adminStatus;
+                    try
+                    {
+                        setSubPortAdminStatus(subPort, subPortAdminStatus);
+                        SWSS_LOG_NOTICE("Configure sub port %s admin status to %s",
+                                        subPort.c_str(), subPortAdminStatus.c_str());
+                    }
+                    catch (const std::runtime_error &e)
+                    {
+                        SWSS_LOG_NOTICE("Sub port ip link set admin status %s failure. Runtime error: %s.",
+                                        subPortAdminStatus.c_str(), e.what());
+                    }
                 }
             }
 

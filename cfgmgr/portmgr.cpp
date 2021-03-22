@@ -233,19 +233,23 @@ void PortMgr::doPortTask(Consumer &consumer)
                 setPortAdminStatus(alias, admin_status == "up");
                 SWSS_LOG_NOTICE("Configure %s admin status to %s", alias.c_str(), admin_status.c_str());
 
-                for (const auto &subPort : m_portSubPortSet[alias])
+                // Sub port cannot be configured admin up, if parent port is admin down
+                if (admin_status == "up")
                 {
-                    const auto &subPortAdminStatus = m_subPortCfgMap[subPort].adminStatus;
-                    try
+                    for (const auto &subPort : m_portSubPortSet[alias])
                     {
-                        setSubPortAdminStatus(subPort, subPortAdminStatus == "up");
-                        SWSS_LOG_NOTICE("Configure sub port %s admin status to %s",
-                                        subPort.c_str(), subPortAdminStatus.c_str());
-                    }
-                    catch (const std::runtime_error &e)
-                    {
-                        SWSS_LOG_NOTICE("Sub port ip link set admin status %s failure. Runtime error: %s.",
-                                        subPortAdminStatus.c_str(), e.what());
+                        const auto &subPortAdminStatus = m_subPortCfgMap[subPort].adminStatus;
+                        try
+                        {
+                            setSubPortAdminStatus(subPort, subPortAdminStatus == "up");
+                            SWSS_LOG_NOTICE("Configure sub port %s admin status to %s",
+                                            subPort.c_str(), subPortAdminStatus.c_str());
+                        }
+                        catch (const std::runtime_error &e)
+                        {
+                            SWSS_LOG_NOTICE("Sub port ip link set admin status %s failure. Runtime error: %s.",
+                                            subPortAdminStatus.c_str(), e.what());
+                        }
                     }
                 }
             }
