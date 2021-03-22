@@ -424,9 +424,6 @@ bool TeamMgr::setSubPortAdminStatus(const string &alias, const string &admin_sta
     cmd << IP_CMD << " link set " << shellquote(alias) << " " << shellquote(admin_status);
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
 
-    SWSS_LOG_NOTICE("Set sub port %s admin status to %s",
-                    alias.c_str(), admin_status.c_str());
-
     return true;
 }
 
