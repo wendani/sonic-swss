@@ -921,12 +921,12 @@ bool PortsOrch::getPortPfc(sai_object_id_t portId, uint8_t *pfc_bitmask_status, 
 
     if (pfc_bitmask_status != nullptr)
     {
-        *pfc_bitmask_status = p.m_pfc_bitmask_status;
+        *pfc_bitmask_status = p.m_pfc_bitmask_wdcfg;
     }
 
     if (pfc_bitmask_cfg != nullptr)
     {
-        *pfc_bitmask_cfg = p.m_pfc_bitmask_cfg;
+        *pfc_bitmask_cfg = p.m_pfc_bitmask_usercfg;
     }
 
     return true;
@@ -982,9 +982,9 @@ bool PortsOrch::setPortPfcStatus(sai_object_id_t portId, uint8_t pfc_bitmask_sta
         return false;
     }
 
-    if (p.m_pfc_bitmask_status != pfc_bitmask_status)
+    if (p.m_pfc_bitmask_wdcfg != pfc_bitmask_status)
     {
-        p.m_pfc_bitmask_status = pfc_bitmask_status;
+        p.m_pfc_bitmask_wdcfg = pfc_bitmask_status;
         m_portList[p.m_alias] = p;
     }
 
@@ -1004,22 +1004,22 @@ bool PortsOrch::setPortPfc(sai_object_id_t portId, uint8_t pfc_bitmask_cfg)
     }
 
     // PFC enable bit is temporarily cleared if the corresponding TC is in PFC storm.
-    // This causes PFC bit mask status in asic to be different from that in config.
+    // This causes PFC bit mask status in asic (i.e., pfcwd config) to be different from user config.
     // We leave such different bits as they are to be further handled by the corresponding
-    // orch (i.e., pfcwd) while update the rest bits to asic according to config.
-    uint8_t bitmask = p.m_pfc_bitmask_cfg ^ p.m_pfc_bitmask_status;
-    uint8_t pfc_bitmask_status = static_cast<uint8_t>((bitmask & p.m_pfc_bitmask_status) | (~bitmask & pfc_bitmask_cfg));
+    // orch (i.e., pfcwd) while update the rest bits to asic according to user config.
+    uint8_t bitmask = p.m_pfc_bitmask_usercfg ^ p.m_pfc_bitmask_wdcfg;
+    uint8_t pfc_bitmask_status = static_cast<uint8_t>((bitmask & p.m_pfc_bitmask_wdcfg) | (~bitmask & pfc_bitmask_cfg));
     if (!setPortPfcStatus_(p, pfc_bitmask_status))
     {
         SWSS_LOG_ERROR("Failed to set PFC status 0x%x to port id 0x%" PRIx64, pfc_bitmask_status, portId);
         return false;
     }
 
-    if (p.m_pfc_bitmask_cfg != pfc_bitmask_cfg
-            || p.m_pfc_bitmask_status != pfc_bitmask_status)
+    if (p.m_pfc_bitmask_usercfg != pfc_bitmask_cfg
+            || p.m_pfc_bitmask_wdcfg != pfc_bitmask_status)
     {
-        p.m_pfc_bitmask_cfg = pfc_bitmask_cfg;
-        p.m_pfc_bitmask_status = pfc_bitmask_status;
+        p.m_pfc_bitmask_usercfg = pfc_bitmask_cfg;
+        p.m_pfc_bitmask_wdcfg = pfc_bitmask_status;
         m_portList[p.m_alias] = p;
     }
 
