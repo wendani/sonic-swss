@@ -386,16 +386,17 @@ PfcWdLossyHandler::PfcWdLossyHandler(sai_object_id_t port, sai_object_id_t queue
 {
     SWSS_LOG_ENTER();
 
-    uint8_t pfcMaskStatus = 0;
+    uint8_t pfcMaskWdCfg = 0;
+    uint8_t dummy = 0;
 
-    if (!gPortsOrch->getPortPfc(port, &pfcMaskStatus))
+    if (!gPortsOrch->getPortPfc(port, pfcMaskWdCfg, dummy))
     {
         SWSS_LOG_ERROR("Failed to get PFC mask on port 0x%" PRIx64, port);
     }
 
-    pfcMaskStatus = static_cast<uint8_t>(pfcMaskStatus & ~(1 << queueId));
+    pfcMaskWdCfg = static_cast<uint8_t>(pfcMaskWdCfg & ~(1 << queueId));
 
-    if (!gPortsOrch->setPortPfcStatus(port, pfcMaskStatus))
+    if (!gPortsOrch->setPortPfcStatus(port, pfcMaskWdCfg))
     {
         SWSS_LOG_ERROR("Failed to set PFC mask on port 0x%" PRIx64, port);
     }
@@ -405,18 +406,18 @@ PfcWdLossyHandler::~PfcWdLossyHandler(void)
 {
     SWSS_LOG_ENTER();
 
-    uint8_t pfcMaskStatus = 0;
-    uint8_t pfcMaskCfg = 0;
+    uint8_t pfcMaskWdCfg = 0;
+    uint8_t pfcMaskUserCfg = 0;
 
-    if (!gPortsOrch->getPortPfc(getPort(), &pfcMaskStatus, &pfcMaskCfg))
+    if (!gPortsOrch->getPortPfc(getPort(), pfcMaskWdCfg, pfcMaskUserCfg))
     {
         SWSS_LOG_ERROR("Failed to get PFC mask on port 0x%" PRIx64, getPort());
     }
 
     // Set PFC enable bit to asic only if the corresponding bit in config is set
-    pfcMaskStatus = static_cast<uint8_t>(pfcMaskStatus | ((1 << getQueueId()) & pfcMaskCfg));
+    pfcMaskWdCfg = static_cast<uint8_t>(pfcMaskWdCfg | ((1 << getQueueId()) & pfcMaskUserCfg));
 
-    if (!gPortsOrch->setPortPfcStatus(getPort(), pfcMaskStatus))
+    if (!gPortsOrch->setPortPfcStatus(getPort(), pfcMaskWdCfg))
     {
         SWSS_LOG_ERROR("Failed to set PFC mask on port 0x%" PRIx64, getPort());
     }
