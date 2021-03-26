@@ -1025,8 +1025,9 @@ bool PortsOrch::setPortPfcAsym(Port &port, string pfc_asym)
 
     sai_attribute_t attr;
     uint8_t pfc_status = 0;
+    uint8_t dummy = 0;
 
-    if (!getPortPfc(port.m_port_id, &pfc_status))
+    if (!getPortPfc(port.m_port_id, pfc_status, dummy))
     {
         return false;
     }
