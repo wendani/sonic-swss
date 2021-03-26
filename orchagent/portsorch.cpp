@@ -907,7 +907,7 @@ bool PortsOrch::setPortFec(Port &port, sai_port_fec_mode_t mode)
     return true;
 }
 
-bool PortsOrch::getPortPfc(sai_object_id_t portId, uint8_t *pfc_bitmask_status, uint8_t *pfc_bitmask_cfg)
+bool PortsOrch::getPortPfc(sai_object_id_t portId, uint8_t &pfc_bitmask_status, uint8_t &pfc_bitmask_cfg)
 {
     SWSS_LOG_ENTER();
 
@@ -919,15 +919,8 @@ bool PortsOrch::getPortPfc(sai_object_id_t portId, uint8_t *pfc_bitmask_status, 
         return false;
     }
 
-    if (pfc_bitmask_status != nullptr)
-    {
-        *pfc_bitmask_status = p.m_pfc_bitmask_wdcfg;
-    }
-
-    if (pfc_bitmask_cfg != nullptr)
-    {
-        *pfc_bitmask_cfg = p.m_pfc_bitmask_usercfg;
-    }
+    pfc_bitmask_status = p.m_pfc_bitmask_wdcfg;
+    pfc_bitmask_cfg = p.m_pfc_bitmask_usercfg;
 
     return true;
 }
