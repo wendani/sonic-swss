@@ -297,6 +297,7 @@ class TestPfcWd:
         fields = [DEBUG_STORM]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fields)
 
+    # brs: big red switch
     def test_pfc_en_bits_user_wd_cfg_sep_brs(self, dvs, testlog):
         self.connect_dbs(dvs)
 
