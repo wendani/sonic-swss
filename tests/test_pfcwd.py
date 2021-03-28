@@ -6,6 +6,7 @@ import re
 import json
 from swsscommon import swsscommon
 from dvslib.dvs_common import wait_for_result
+from test_pfc import getBitMaskStr
 
 DVS_FAKE_PLATFORM = "broadcom"
 
@@ -47,6 +48,8 @@ ENABLED = "enabled"
 PFC_WD_STATUS = "PFC_WD_STATUS"
 STORMED = "stormed"
 OPERATIONAL = "operational"
+
+PORT_UNDER_TEST = "Ethernet64"
 
 
 class TestPfcWd:
@@ -180,8 +183,6 @@ class TestPfcWd:
         self.cnt_r.hdel("{}:{}".format(CNTR_COUNTERS_TABLE_NAME, queue_oid), DEBUG_STORM);
 
     def test_pfc_en_bits_user_wd_cfg_sep(self, dvs, testlog):
-        PORT_UNDER_TEST = "Ethernet64"
-
         self.connect_dbs(dvs)
 
         # Enable pfc wd flex counter polling
@@ -195,11 +196,11 @@ class TestPfcWd:
         # Enable pfc on tc 3
         pfc_tcs = [QUEUE_3]
         self.set_port_pfc(PORT_UNDER_TEST, pfc_tcs)
-        port_oid = dvs.asicdb.portnamemap[PORT_UNDER_TEST]
 
         # Verify pfc enable bits in ASIC_DB
+        port_oid = dvs.asicdb.portnamemap[PORT_UNDER_TEST]
         fv_dict = {
-            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "8",
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": getBitMaskStr(pfc_tcs),
         }
         self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
 
@@ -215,7 +216,7 @@ class TestPfcWd:
 
         # Verify pfc enable bits stay unchanged in ASIC_DB
         fv_dict = {
-            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "8",
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": getBitMaskStr(pfc_tcs),
         }
         self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
 
@@ -228,6 +229,16 @@ class TestPfcWd:
         self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fv_dict)
 
         # Verify pfc enable bits change in ASIC_DB
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "0",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+
+        # Re-set pfc enable on tc 3
+        pfc_tcs = [QUEUE_3]
+        self.set_port_pfc(PORT_UNDER_TEST, pfc_tcs)
+
+        # Verify pfc enable bits stay unchanged in ASIC_DB
         fv_dict = {
             "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "0",
         }
@@ -257,9 +268,9 @@ class TestPfcWd:
         fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fields)
 
-        # Verify pfc enable bits stay unchanged in ASIC_DB
+        # Verify pfc enable bits in ASIC_DB
         fv_dict = {
-            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "16",
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": getBitMaskStr(pfc_tcs),
         }
         self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
 

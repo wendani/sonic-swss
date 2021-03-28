@@ -8,7 +8,7 @@ def getBitMaskStr(bits):
     mask = 0
 
     for b in bits:
-        mask = mask | 1 << b
+        mask = mask | 1 << int(b)
 
     return str(mask)
 
