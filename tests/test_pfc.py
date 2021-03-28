@@ -101,6 +101,24 @@ class TestPfc(object):
         pfc = getPortAttr(dvs, port_oid, 'SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL')
         assert pfc == pfc_tx
 
+    def test_pfc_en_bits_clear(self, dvs, testlog):
+        PORT_UNDER_TEST = "Ethernet64"
+
+        pfc_tcs = [3, 4]
+        setPortPfc(dvs, PORT_UNDER_TEST, pfc_tcs)
+
+        # Verify pfc enable bits in ASIC_DB
+        port_oid = dvs.asicdb.portnamemap[PORT_UNDER_TEST]
+        pfc = getPortAttr(dvs, port_oid, 'SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL')
+        assert pfc == getBitMaskStr(pfc_tcs)
+
+        pfc_tcs = []
+        setPortPfc(dvs, PORT_UNDER_TEST, pfc_tcs)
+
+        # Verify pfc enable bits all cleared in ASIC_DB
+        pfc = getPortAttr(dvs, port_oid, 'SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL')
+        assert pfc == getBitMaskStr(pfc_tcs)
+
 
 # Add Dummy always-pass test at end as workaroud
 # for issue when Flaky fail on final test it invokes module tear-down before retrying
