@@ -17,6 +17,7 @@ PFCWD_RULE_NAME_2 =  "DROP_TEST_RULE_2"
 
 CFG_PORT_QOS_MAP_TABLE_NAME = "PORT_QOS_MAP"
 CFG_PFC_WD_TABLE_NAME = "PFC_WD"
+CFG_PFC_WD_TABLE_GLOBAL_KEY = "GLOBAL"
 CFG_FLEX_COUNTER_TABLE_NAME = "FLEX_COUNTER_TABLE"
 CFG_FLEX_COUNTER_TABLE_PFCWD_KEY = "PFCWD"
 
@@ -38,6 +39,8 @@ ACTION = "action"
 DROP = "drop"
 DETECTION_TIME = "detection_time"
 RESTORATION_TIME = "restoration_time"
+BIG_RED_SWITCH = "BIG_RED_SWITCH"
+DISABLE = "disable"
 
 FLEX_COUNTER_STATUS = "FLEX_COUNTER_STATUS"
 ENABLE = "enable"
@@ -47,6 +50,7 @@ ENABLED = "enabled"
 PFC_WD_STATUS = "PFC_WD_STATUS"
 STORMED = "stormed"
 OPERATIONAL = "operational"
+BIG_RED_SWITCH_MODE = "BIG_RED_SWITCH_MODE"
 
 PORT_UNDER_TEST = "Ethernet64"
 
@@ -149,6 +153,12 @@ class TestPfcWd:
     def start_queue_pfc_storm(self, queue_oid):
         self.cnt_r.hset("{}:{}".format(CNTR_COUNTERS_TABLE_NAME, queue_oid), DEBUG_STORM, ENABLED);
 
+    def enable_big_red_switch(self):
+        fvs = {
+            BIG_RED_SWITCH: ENABLE,
+        }
+        self.config_db.create_entry(CFG_PFC_WD_TABLE_NAME, CFG_PFC_WD_TABLE_GLOBAL_KEY, fvs)
+
     def get_queue_oid(self, dvs, port_name, qidx):
         def _access_function():
             queue_oid = self.cnt_r.hget(CNTR_COUNTERS_QUEUE_NAME_MAP, "{}:{}".format(port_name, qidx));
@@ -180,6 +190,12 @@ class TestPfcWd:
 
     def stop_queue_pfc_storm(self, queue_oid):
         self.cnt_r.hdel("{}:{}".format(CNTR_COUNTERS_TABLE_NAME, queue_oid), DEBUG_STORM);
+
+    def disable_big_red_switch(self):
+        fvs = {
+            BIG_RED_SWITCH: DISABLE,
+        }
+        self.config_db.create_entry(CFG_PFC_WD_TABLE_NAME, CFG_PFC_WD_TABLE_GLOBAL_KEY, fvs)
 
     def test_pfc_en_bits_user_wd_cfg_sep(self, dvs, testlog):
         self.connect_dbs(dvs)
@@ -264,7 +280,6 @@ class TestPfcWd:
         queue_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_3)
         self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
                                   "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, queue_oid))
-
         # Verify pfc wd fields removed from COUNTERS_DB
         fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fields)
@@ -280,6 +295,106 @@ class TestPfcWd:
         self.stop_queue_pfc_storm(queue_oid)
         # Verify DEBUG_STORM field removed from COUNTERS_DB
         fields = [DEBUG_STORM]
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fields)
+
+    def test_pfc_en_bits_user_wd_cfg_sep_brs(self, dvs, testlog):
+        self.connect_dbs(dvs)
+
+        # Enable pfc wd flex counter polling
+        self.enable_flex_counter(CFG_FLEX_COUNTER_TABLE_PFCWD_KEY)
+        # Verify pfc wd flex counter status published to FLEX_COUNTER_DB FLEX_COUNTER_GROUP_TABLE by flex counter orch
+        fv_dict = {
+            FLEX_COUNTER_STATUS: ENABLE,
+        }
+        self.check_db_fvs(self.flex_cntr_db, FC_FLEX_COUNTER_GROUP_TABLE_NAME, FC_FLEX_COUNTER_GROUP_TABLE_PFC_WD_KEY, fv_dict)
+
+        # Enable pfc on tc 4
+        pfc_tcs = [QUEUE_4]
+        self.set_port_pfc(PORT_UNDER_TEST, pfc_tcs)
+
+        # Verify pfc enable bits in ASIC_DB
+        port_oid = dvs.asicdb.portnamemap[PORT_UNDER_TEST]
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "16",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+
+        # Start pfc wd (config) on port
+        self.start_port_pfcwd(PORT_UNDER_TEST)
+        # Verify port level counter to poll published to FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
+        self.check_db_key_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                    "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid))
+        # Verify queue level counter to poll published to FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
+        queue_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_4)
+        self.check_db_key_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                    "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, queue_oid))
+
+        # Verify pfc enable bits stay unchanged in ASIC_DB
+        time.sleep(2)
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "16",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+
+        # Enable big red switch
+        self.enable_big_red_switch()
+        # Verify queue 4 in brs from COUNTERS_DB
+        fv_dict = {
+            BIG_RED_SWITCH_MODE: ENABLE,
+        }
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fv_dict)
+
+        # Verify pfc enable bits change in ASIC_DB
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "0",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+
+        # Re-set pfc enable on tc 4
+        pfc_tcs = [QUEUE_4]
+        self.set_port_pfc(PORT_UNDER_TEST, pfc_tcs)
+
+        # Verify pfc enable bits stay unchanged in ASIC_DB
+        time.sleep(2)
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "0",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+
+        # Change pfc enable bits: disable pfc on tc 4, and enable pfc on tc 3
+        pfc_tcs = [QUEUE_3]
+        self.set_port_pfc(PORT_UNDER_TEST, pfc_tcs)
+
+        # Verify pfc enable bits change in ASIC_DB
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "8",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+
+        # Disable big red switch
+        self.disable_big_red_switch()
+        # Verify brs field removed from COUNTERS_DB
+        fields = [BIG_RED_SWITCH_MODE]
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fields)
+
+        # Verify pfc enable bits in ASIC_DB (stay unchanged)
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "8",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+
+        # clean up
+        # Stop pfc wd on port (i.e., remove pfc wd config from port)
+        self.stop_port_pfcwd(PORT_UNDER_TEST)
+        # Verify port level counter removed from FLEX_COUNTER_DB
+        self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid))
+        # Verify queue level counter removed from FLEX_COUNTER_DB
+        queue_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_4)
+        self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, queue_oid))
+        # Verify pfc wd fields removed from COUNTERS_DB
+        fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fields)
 
 
