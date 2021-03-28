@@ -209,6 +209,26 @@ void TeamMgr::doLagTask(Consumer &consumer)
             }
 
             setLagAdminStatus(alias, admin_status);
+            // Sub port cannot be configured admin up, if parent port is admin down
+            if (admin_status == "up")
+            {
+                for (const auto &subPort : m_lagSubPortSet[alias])
+                {
+                    const auto &subPortAdminStatus = m_subPortCfgMap[subPort].adminStatus;
+                    try
+                    {
+                        setSubPortAdminStatus(subPort, subPortAdminStatus);
+                        SWSS_LOG_NOTICE("Configure sub port %s admin status to %s",
+                                        subPort.c_str(), subPortAdminStatus.c_str());
+                    }
+                    catch (const std::runtime_error &e)
+                    {
+                        SWSS_LOG_NOTICE("Sub port ip link set admin status %s failure. Runtime error: %s.",
+                                        subPortAdminStatus.c_str(), e.what());
+                    }
+                }
+            }
+
             setLagMtu(alias, mtu);
             for (const auto &subPort : m_lagSubPortSet[alias])
             {
@@ -217,15 +237,17 @@ void TeamMgr::doLagTask(Consumer &consumer)
                     try
                     {
                         setSubPortMtu(subPort, mtu);
-                        SWSS_LOG_NOTICE("Configure sub port %s MTU to %s, inherited from parent port %s",
+                        SWSS_LOG_NOTICE("Configure sub port %s mtu to %s, inherited from parent port %s",
                                         subPort.c_str(), mtu.c_str(), alias.c_str());
                     }
                     catch (const std::runtime_error &e)
                     {
-                        SWSS_LOG_NOTICE("Sub port ip link set mtu failure. Runtime error: %s", e.what());
+                        SWSS_LOG_NOTICE("Sub port ip link set mtu %s failure. Runtime error: %s.",
+                                        mtu.c_str(), e.what());
                     }
                 }
             }
+
             if (!learn_mode.empty())
             {
                 setLagLearnMode(alias, learn_mode);
@@ -401,9 +423,6 @@ bool TeamMgr::setSubPortAdminStatus(const string &alias, const string &admin_sta
     // ip link set <sub_port_name> [up|down]
     cmd << IP_CMD << " link set " << shellquote(alias) << " " << shellquote(admin_status);
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
-
-    SWSS_LOG_NOTICE("Set sub port %s admin status to %s",
-                    alias.c_str(), admin_status.c_str());
 
     return true;
 }
@@ -772,7 +791,7 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
                     }
                     catch (const std::runtime_error &e)
                     {
-                        SWSS_LOG_NOTICE("Sub interface ip link add failure. Runtime error: %s", e.what());
+                        SWSS_LOG_NOTICE("Sub interface ip link add failure. Runtime error: %s.", e.what());
                         it++;
                         continue;
                     }
@@ -801,12 +820,12 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
                     try
                     {
                         setSubPortMtu(alias, mtu);
-                        SWSS_LOG_INFO("Configure sub port %s MTU to %s, inherited from parent port %s",
-                                      alias.c_str(), mtu.c_str(), parentAlias.c_str());
+                        SWSS_LOG_NOTICE("Configure sub port %s mtu to %s, inherited from parent port %s",
+                                        alias.c_str(), mtu.c_str(), parentAlias.c_str());
                     }
                     catch (const std::runtime_error &e)
                     {
-                        SWSS_LOG_NOTICE("Sub port ip link set mtu failure. Runtime error: %s", e.what());
+                        SWSS_LOG_NOTICE("Sub port ip link set mtu %s failure. Runtime error: %s.", mtu.c_str(), e.what());
                         it++;
                         continue;
                     }
@@ -815,15 +834,19 @@ void TeamMgr::doSubPortTask(Consumer &consumer)
                 try
                 {
                     setSubPortAdminStatus(alias, adminStatus);
+                    SWSS_LOG_NOTICE("Configure sub port %s admin status to %s",
+                                    alias.c_str(), adminStatus.c_str());
                 }
                 catch (const std::runtime_error &e)
                 {
-                    SWSS_LOG_NOTICE("Sub port ip link set admin status %s failure. Runtime error: %s", adminStatus.c_str(), e.what());
+                    SWSS_LOG_NOTICE("Sub port ip link set admin status %s failure. Runtime error: %s.",
+                                    adminStatus.c_str(), e.what());
                     it++;
                     continue;
                 }
 
                 m_subPortCfgMap[alias].mtu = mtu;
+                m_subPortCfgMap[alias].adminStatus = adminStatus;
                 // set STATE_DB port state
                 setSubPortStateOk(alias);
             }

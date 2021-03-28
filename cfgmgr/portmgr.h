@@ -33,6 +33,7 @@ private:
     struct SubPortCfg
     {
         std::string mtu;
+        std::string adminStatus;
     };
     std::unordered_map<std::string, SubPortCfg> m_subPortCfgMap;
 

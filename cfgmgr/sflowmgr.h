@@ -50,7 +50,7 @@ private:
     Table                  m_cfgSflowSessionTable;
     ProducerStateTable     m_appSflowTable;
     ProducerStateTable     m_appSflowSessionTable;
-    SflowPortConfMap  m_sflowPortConfMap;
+    SflowPortConfMap       m_sflowPortConfMap;
     bool                   m_intfAllConf;
     bool                   m_gEnable;
 
