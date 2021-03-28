@@ -180,9 +180,9 @@ class TestPfcWd:
         self.cnt_r.hdel("{}:{}".format(CNTR_COUNTERS_TABLE_NAME, queue_oid), DEBUG_STORM);
 
     def test_pfc_en_bits_user_wd_cfg_sep(self, dvs, testlog):
-        self.connect_dbs(dvs)
-
         PORT_UNDER_TEST = "Ethernet64"
+
+        self.connect_dbs(dvs)
 
         # Enable pfc wd flex counter polling
         self.enable_flex_counter(CFG_FLEX_COUNTER_TABLE_PFCWD_KEY)
