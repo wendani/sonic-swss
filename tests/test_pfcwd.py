@@ -257,7 +257,7 @@ class TestPfcWd:
         fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fields)
 
-        # Verify pfc enable bits stays unchanged in ASIC_DB
+        # Verify pfc enable bits stay unchanged in ASIC_DB
         fv_dict = {
             "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "16",
         }
