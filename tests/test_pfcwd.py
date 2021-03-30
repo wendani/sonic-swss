@@ -225,9 +225,9 @@ class TestPfcWd:
         self.check_db_key_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
                                     "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid))
         # Verify queue level counter to poll published to FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
-        queue_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_3)
+        q3_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_3)
         self.check_db_key_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
-                                    "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, queue_oid))
+                                    "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q3_oid))
 
         # Verify pfc enable bits stay unchanged in ASIC_DB
         time.sleep(2)
@@ -237,12 +237,12 @@ class TestPfcWd:
         self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
 
         # Start pfc storm on queue 3
-        self.start_queue_pfc_storm(queue_oid)
+        self.start_queue_pfc_storm(q3_oid)
         # Verify queue in storm from COUNTERS_DB
         fv_dict = {
             PFC_WD_STATUS: STORMED,
         }
-        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fv_dict)
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fv_dict)
 
         # Verify pfc enable bits change in ASIC_DB
         fv_dict = {
@@ -278,13 +278,14 @@ class TestPfcWd:
                                   "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid))
         # Verify queue level counter removed from FLEX_COUNTER_DB
         self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
-                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, queue_oid))
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q3_oid))
+        q4_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_4)
         self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
-                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_4)))
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q4_oid))
         # Verify pfc wd fields removed from COUNTERS_DB
         fields = [PFC_WD_STATUS]
-        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fields)
-        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_4), fields)
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
 
         # Verify pfc enable bits in ASIC_DB (stay unchanged)
         fv_dict = {
@@ -294,10 +295,10 @@ class TestPfcWd:
 
         # clean up
         # Stop pfc storm on queue 3
-        self.stop_queue_pfc_storm(queue_oid)
+        self.stop_queue_pfc_storm(q3_oid)
         # Verify DEBUG_STORM field removed from COUNTERS_DB
         fields = [DEBUG_STORM]
-        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fields)
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
 
     # brs: big red switch
     def test_pfc_en_bits_user_wd_cfg_sep_brs(self, dvs, testlog):
