@@ -277,12 +277,14 @@ class TestPfcWd:
         self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
                                   "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid))
         # Verify queue level counter removed from FLEX_COUNTER_DB
-        queue_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_3)
         self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
                                   "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, queue_oid))
+        self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_4)))
         # Verify pfc wd fields removed from COUNTERS_DB
         fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fields)
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_4), fields)
 
         # Verify pfc enable bits in ASIC_DB (stay unchanged)
         fv_dict = {
@@ -391,12 +393,14 @@ class TestPfcWd:
         self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
                                   "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid))
         # Verify queue level counter removed from FLEX_COUNTER_DB
-        queue_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_4)
         self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
                                   "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, queue_oid))
+        self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_3)))
         # Verify pfc wd fields removed from COUNTERS_DB
         fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fields)
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME,  self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_3), fields)
 
 
 # Add Dummy always-pass test at end as workaroud
