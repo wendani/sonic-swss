@@ -329,9 +329,9 @@ class TestPfcWd:
         self.check_db_key_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
                                     "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid))
         # Verify queue level counter to poll published to FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
-        queue_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_4)
+        q4_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_4)
         self.check_db_key_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
-                                    "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, queue_oid))
+                                    "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q4_oid))
 
         # Verify pfc enable bits stay unchanged in ASIC_DB
         time.sleep(2)
@@ -346,7 +346,7 @@ class TestPfcWd:
         fv_dict = {
             BIG_RED_SWITCH_MODE: ENABLE,
         }
-        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fv_dict)
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fv_dict)
 
         # Verify pfc enable bits change in ASIC_DB
         fv_dict = {
@@ -379,7 +379,7 @@ class TestPfcWd:
         self.disable_big_red_switch()
         # Verify brs field removed from COUNTERS_DB
         fields = [BIG_RED_SWITCH_MODE]
-        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fields)
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
 
         # Verify pfc enable bits in ASIC_DB (stay unchanged)
         fv_dict = {
@@ -395,13 +395,14 @@ class TestPfcWd:
                                   "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid))
         # Verify queue level counter removed from FLEX_COUNTER_DB
         self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
-                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, queue_oid))
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q4_oid))
+        q3_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_3)
         self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
-                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_3)))
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q3_oid))
         # Verify pfc wd fields removed from COUNTERS_DB
         fields = [PFC_WD_STATUS]
-        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, queue_oid, fields)
-        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME,  self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_3), fields)
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
 
 
 # Add Dummy always-pass test at end as workaroud
