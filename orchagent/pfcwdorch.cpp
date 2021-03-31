@@ -190,8 +190,7 @@ task_process_status PfcWdOrch<DropHandler, ForwardHandler>::createEntry(const st
     uint32_t detectionTime = 0;
     uint32_t restorationTime = 0;
     // According to requirements, drop action is default
-    PfcWdAction action = PfcWdAction::PFC_WD_ACTION_DROP;
-
+    PfcWdAction action = PfcWdAction::PFC_WD_ACTION_DROP; 
     Port port;
     if (!gPortsOrch->getPort(key, port))
     {
@@ -321,7 +320,7 @@ task_process_status PfcWdSwOrch<DropHandler, ForwardHandler>::createEntry(const 
             }
             else if (field == BIG_RED_SWITCH_FIELD)
             {
-                SWSS_LOG_NOTICE("Recieve brs mode set, %s", value.c_str());
+                SWSS_LOG_NOTICE("Receive brs mode set, %s", value.c_str());
                 setBigRedSwitchMode(value);
             }
         }
@@ -449,7 +448,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
     for (auto &it: allPorts)
     {
         Port port = it.second;
-        uint8_t pfcMaskStatus = 0;
+        uint8_t pfcMaskWdCfg = 0;
+        uint8_t dummy = 0;
 
         if (port.m_type != Port::PHY)
         {
@@ -457,7 +457,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
             continue;
         }
 
-        if (!gPortsOrch->getPortPfc(port.m_port_id, &pfcMaskStatus))
+        if (!gPortsOrch->getPortPfc(port.m_port_id, pfcMaskWdCfg, dummy))
         {
             SWSS_LOG_ERROR("Failed to get PFC mask on port %s", port.m_alias.c_str());
             return;
@@ -470,7 +470,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
             // is lossless, and is currently in PFC storm, with PFC action in act.
             // We pick up such a case to enable big red switch mode by checking if a corresponding
             // entry exists in m_entryMap
-            if ((pfcMaskStatus & (1 << i)) == 0 && m_entryMap.find(queueId) == m_entryMap.end())
+            if ((pfcMaskWdCfg & (1 << i)) == 0 && m_entryMap.find(queueId) == m_entryMap.end())
             {
                 continue;
             }
@@ -497,8 +497,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
     for (auto & it: allPorts)
     {
         Port port = it.second;
-        uint8_t pfcMaskStatus = 0;
-        uint8_t pfcMaskCfg = 0;
+        uint8_t pfcMaskWdCfg = 0;
+        uint8_t pfcMaskUserCfg = 0;
 
         if (port.m_type != Port::PHY)
         {
@@ -506,18 +506,18 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
             continue;
         }
 
-        if (!gPortsOrch->getPortPfc(port.m_port_id, &pfcMaskStatus, &pfcMaskCfg))
+        if (!gPortsOrch->getPortPfc(port.m_port_id, pfcMaskWdCfg, pfcMaskUserCfg))
         {
             SWSS_LOG_ERROR("Failed to get PFC mask on port %s", port.m_alias.c_str());
             return;
         }
-        // By removing action handler, we expect PFC bit mask status in asic to
-        // be the same as that in config
-        assert(pfcMaskStatus == pfcMaskCfg);
+        // By removing action handler, we expect PFC bit mask status in asic (pfcwd config) to
+        // be the same as user config
+        assert(pfcMaskWdCfg == pfcMaskUserCfg);
 
         for (uint8_t i = 0; i < PFC_WD_TC_MAX; i++)
         {
-            if ((pfcMaskCfg & (1 << i)) == 0)
+            if ((pfcMaskUserCfg & (1 << i)) == 0)
             {
                 continue;
             }
@@ -619,9 +619,10 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
 {
     SWSS_LOG_ENTER();
 
-    uint8_t pfcMaskCfg = 0;
+    uint8_t dummy = 0;
+    uint8_t pfcMaskUserCfg = 0;
 
-    if (!gPortsOrch->getPortPfc(port.m_port_id, nullptr, &pfcMaskCfg))
+    if (!gPortsOrch->getPortPfc(port.m_port_id, dummy, pfcMaskUserCfg))
     {
         SWSS_LOG_ERROR("Failed to get PFC mask on port %s", port.m_alias.c_str());
         return false;
@@ -630,7 +631,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
     set<uint8_t> losslessTc;
     for (uint8_t i = 0; i < PFC_WD_TC_MAX; i++)
     {
-        if ((pfcMaskCfg & (1 << i)) == 0)
+        if ((pfcMaskUserCfg & (1 << i)) == 0)
         {
             continue;
         }
@@ -640,7 +641,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::registerInWdDb(const Port& port,
     }
     if (losslessTc.empty())
     {
-        SWSS_LOG_INFO("No lossless TC found on port %s", port.m_alias.c_str());
+        SWSS_LOG_NOTICE("No lossless TC found on port %s", port.m_alias.c_str());
         return false;
     }
 
@@ -1023,7 +1024,7 @@ bool PfcWdSwOrch<DropHandler, ForwardHandler>::startWdActionOnQueue(const string
 
     if (m_bigRedSwitchFlag)
     {
-        SWSS_LOG_NOTICE("Big_RED_SWITCH mode is on, ingore syncd pfc watchdog notification");
+        SWSS_LOG_NOTICE("Big_RED_SWITCH mode is on, ignore syncd pfc watchdog notification");
     }
     else if (event == "storm")
     {

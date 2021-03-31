@@ -41,7 +41,7 @@ struct VlanInfo
 struct SystemPortInfo
 {
     std::string alias = "";
-    sai_system_port_type_t type;
+    sai_system_port_type_t type = SAI_SYSTEM_PORT_TYPE_LOCAL;
     sai_object_id_t local_port_oid = 0;
     uint32_t port_id = 0;
     uint32_t switch_id = 0;
@@ -49,6 +49,13 @@ struct SystemPortInfo
     uint32_t core_port_index = 0;
     uint32_t speed = 400000;
     uint32_t num_voq = 8;
+};
+
+struct SystemLagInfo
+{
+    std::string alias = "";
+    int32_t switch_id = -1;
+    int32_t spa_id = 0;
 };
 
 class Port
@@ -119,8 +126,8 @@ public:
     std::vector<sai_object_id_t> m_queue_ids;
     std::vector<sai_object_id_t> m_priority_group_ids;
     sai_port_priority_flow_control_mode_t m_pfc_asym = SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_COMBINED;
-    uint8_t   m_pfc_bitmask_cfg = 0;    // bitmask from config
-    uint8_t   m_pfc_bitmask_status = 0; // bitmask status in asic
+    uint8_t   m_pfc_bitmask_usercfg = 0;    // bitmask from user config
+    uint8_t   m_pfc_bitmask_wdcfg = 0;      // bitmask of pfcwd config / status in asic
     uint32_t  m_nat_zone_id = 0;
     uint32_t  m_vnid = VNID_NONE;
     uint32_t  m_fdb_count = 0;
@@ -143,6 +150,7 @@ public:
 
     sai_object_id_t  m_system_port_oid = 0;
     SystemPortInfo   m_system_port_info;
+    SystemLagInfo    m_system_lag_info;
 
 };
 
