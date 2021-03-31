@@ -56,6 +56,7 @@ void CounterCheckOrch::mcCounterCheck()
     {
         auto oid = i.first;
         auto mcCounters = i.second;
+        uint8_t dummy = 0;
         uint8_t pfcMaskCfg = 0;
 
         Port port;
@@ -67,7 +68,7 @@ void CounterCheckOrch::mcCounterCheck()
 
         auto newMcCounters = getQueueMcCounters(port);
 
-        if (!gPortsOrch->getPortPfc(port.m_port_id, nullptr, &pfcMaskCfg))
+        if (!gPortsOrch->getPortPfc(port.m_port_id, dummy, pfcMaskCfg))
         {
             SWSS_LOG_ERROR("Failed to get PFC mask on port %s", port.m_alias.c_str());
             continue;
@@ -104,6 +105,7 @@ void CounterCheckOrch::pfcFrameCounterCheck()
         auto oid = i.first;
         auto counters = i.second;
         auto newCounters = getPfcFrameCounters(oid);
+        uint8_t dummy = 0;
         uint8_t pfcMaskCfg = 0;
 
         Port port;
@@ -113,7 +115,7 @@ void CounterCheckOrch::pfcFrameCounterCheck()
             continue;
         }
 
-        if (!gPortsOrch->getPortPfc(port.m_port_id, nullptr, &pfcMaskCfg))
+        if (!gPortsOrch->getPortPfc(port.m_port_id, dummy, pfcMaskCfg))
         {
             SWSS_LOG_ERROR("Failed to get PFC mask on port %s", port.m_alias.c_str());
             continue;

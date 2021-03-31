@@ -12,6 +12,7 @@
 #include "flex_counter_manager.h"
 #include "gearboxutils.h"
 #include "saihelper.h"
+#include "lagid.h"
 
 
 #define FCS_LEN 4
@@ -22,7 +23,7 @@
 #define QUEUE_STAT_COUNTER_FLEX_COUNTER_GROUP "QUEUE_STAT_COUNTER"
 #define QUEUE_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP "QUEUE_WATERMARK_STAT_COUNTER"
 #define PG_WATERMARK_STAT_COUNTER_FLEX_COUNTER_GROUP "PG_WATERMARK_STAT_COUNTER"
-
+#define PG_DROP_STAT_COUNTER_FLEX_COUNTER_GROUP "PG_DROP_STAT_COUNTER"
 
 typedef std::vector<sai_uint32_t> PortSupportedSpeeds;
 
@@ -73,7 +74,7 @@ struct VlanMemberUpdate
 class PortsOrch : public Orch, public Subject
 {
 public:
-    PortsOrch(DBConnector *db, vector<table_name_with_pri_t> &tableNames);
+    PortsOrch(DBConnector *db, vector<table_name_with_pri_t> &tableNames, DBConnector *chassisAppDb);
 
     bool allPortsReady();
     bool isInitDone();
@@ -116,7 +117,7 @@ public:
     bool bindUnbindAclTableGroup(Port &port,
                                  bool ingress,
                                  bool bind);
-    bool getPortPfc(sai_object_id_t portId, uint8_t *pfc_bitmask_status, uint8_t *pfc_bitmask_cfg = nullptr);
+    bool getPortPfc(sai_object_id_t portId, uint8_t &pfc_bitmask_status, uint8_t &pfc_bitmask_cfg);
     bool setPortPfc(sai_object_id_t portId, uint8_t pfc_bitmask_cfg);
     bool setPortPfcStatus(sai_object_id_t portId, uint8_t pfc_bitmask_status);
 
@@ -162,6 +163,7 @@ private:
 
     std::string getQueueWatermarkFlexCounterTableKey(std::string s);
     std::string getPriorityGroupWatermarkFlexCounterTableKey(std::string s);
+    std::string getPriorityGroupDropPacketsFlexCounterTableKey(std::string s);
     std::string getPortRateFlexCounterTableKey(std::string s);
 
     shared_ptr<DBConnector> m_counter_db;
@@ -240,7 +242,7 @@ private:
     bool addVlan(string vlan);
     bool removeVlan(Port vlan);
 
-    bool addLag(string lag);
+    bool addLag(string lag, uint32_t spa_id, int32_t switch_id);
     bool removeLag(Port lag);
     bool addLagMember(Port &lag, Port &port, bool enableForwarding);
     bool removeLagMember(Port &lag, Port &port);
@@ -260,7 +262,7 @@ private:
     bool setPortFec(Port &port, sai_port_fec_mode_t mode);
     bool setPortPfcAsym(Port &port, string pfc_asym);
     bool getDestPortId(sai_object_id_t src_port_id, dest_port_type_t port_type, sai_object_id_t &des_port_id);
-    bool setPortPfcStatus(const Port &p, uint8_t pfc_bitmask_status);
+    bool setPortPfcStatus_(const Port &p, uint8_t pfc_bitmask_status);
 
     bool setBridgePortAdminStatus(sai_object_id_t id, bool up);
 
@@ -304,7 +306,14 @@ private:
     sai_uint32_t m_systemPortCount;
     bool getSystemPorts();
     bool addSystemPorts();
-    
+    unique_ptr<Table> m_tableVoqSystemLagTable;
+    unique_ptr<Table> m_tableVoqSystemLagMemberTable;
+    void voqSyncAddLag(Port &lag);
+    void voqSyncDelLag(Port &lag);
+    void voqSyncAddLagMember(Port &lag, Port &port);
+    void voqSyncDelLagMember(Port &lag, Port &port);
+    unique_ptr<LagIdAllocator> m_lagIdAllocator;
+
 };
 #endif /* SWSS_PORTSORCH_H */
 

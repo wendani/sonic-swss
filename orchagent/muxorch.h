@@ -38,7 +38,7 @@ class MuxStateOrch;
 class MuxAclHandler
 {
 public:
-    MuxAclHandler(sai_object_id_t port);
+    MuxAclHandler(sai_object_id_t port, string alias);
     ~MuxAclHandler(void);
 
 private:
@@ -48,6 +48,7 @@ private:
     // class shared dict: ACL table name -> ACL table
     static std::map<std::string, AclTable> acl_table_;
     sai_object_id_t port_ = SAI_NULL_OBJECT_ID;
+    string alias_;
 };
 
 // IP to nexthop index mapping
@@ -87,6 +88,7 @@ public:
     void setState(string state);
     string getState();
     bool isStateChangeInProgress() { return st_chg_in_progress_; }
+    bool isStateChangeFailed() { return st_chg_failed_; }
 
     bool isIpInSubnet(IpAddress ip);
     void updateNeighbor(NextHopKey nh, bool add);
@@ -100,13 +102,14 @@ private:
     bool stateInitActive();
     bool stateStandby();
 
-    bool aclHandler(sai_object_id_t, bool add = true);
+    bool aclHandler(sai_object_id_t port, string alias, bool add = true);
     bool nbrHandler(bool enable, bool update_routes = true);
 
     string mux_name_;
 
     MuxState state_ = MuxState::MUX_STATE_INIT;
     bool st_chg_in_progress_ = false;
+    bool st_chg_failed_ = false;
 
     IpPrefix srv_ip4_, srv_ip6_;
     IpAddress peer_ip4_;
@@ -152,7 +155,7 @@ public:
 class MuxOrch : public Orch2, public Observer, public Subject
 {
 public:
-    MuxOrch(DBConnector *db, const std::vector<std::string> &tables, TunnelDecapOrch*, NeighOrch*);
+    MuxOrch(DBConnector *db, const std::vector<std::string> &tables, TunnelDecapOrch*, NeighOrch*, FdbOrch*);
 
     using handler_pair = pair<string, bool (MuxOrch::*) (const Request& )>;
     using handler_map = map<string, bool (MuxOrch::*) (const Request& )>;
@@ -168,12 +171,12 @@ public:
     }
 
     MuxCable* findMuxCableInSubnet(IpAddress);
-    bool isNeighborActive(IpAddress nbr, string alias);
+    bool isNeighborActive(const IpAddress&, const MacAddress&, string&);
     void update(SubjectType, void *);
-    void updateNeighbor(const NeighborUpdate&);
 
-    void addNexthop(NextHopKey, string);
+    void addNexthop(NextHopKey, string = "");
     void removeNexthop(NextHopKey);
+    string getNexthopMuxName(NextHopKey);
     sai_object_id_t getNextHopId(const NextHopKey&);
 
     sai_object_id_t createNextHopTunnel(std::string tunnelKey, IpAddress& ipAddr);
@@ -187,8 +190,13 @@ private:
     bool handleMuxCfg(const Request&);
     bool handlePeerSwitch(const Request&);
 
+    void updateNeighbor(const NeighborUpdate&);
+    void updateFdb(const FdbUpdate&);
+
+    bool getMuxPort(const MacAddress&, const string&, string&);
+
     IpAddress mux_peer_switch_ = 0x0;
-    sai_object_id_t mux_tunnel_id_;
+    sai_object_id_t mux_tunnel_id_ = SAI_NULL_OBJECT_ID;
 
     MuxCableTb mux_cable_tb_;
     MuxTunnelNHs mux_tunnel_nh_;
@@ -198,6 +206,7 @@ private:
 
     TunnelDecapOrch *decap_orch_;
     NeighOrch *neigh_orch_;
+    FdbOrch *fdb_orch_;
 
     MuxCfgRequest request_;
 };
