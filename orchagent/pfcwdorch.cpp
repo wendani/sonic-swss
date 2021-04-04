@@ -397,7 +397,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::disableBigRedSwitchMode()
         }
 
         auto queueId = entry.first;
-        string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
+        string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator()
+            + sai_serialize_object_id(queueId);
         this->getCountersDb()->hdel(countersKey, "BIG_RED_SWITCH_MODE");
     }
 
@@ -490,6 +491,9 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
         {
             entry.second.handler->commitCounters();
             entry.second.handler = nullptr;
+            // Remove storm status in APPL_DB for warm-reboot purpose
+            string key = m_applTable->getTableName() + m_applTable->getTableNameSeparator() + entry.second.portAlias;
+            m_applDb->hdel(key, to_string(entry.second.index));
         }
     }
 
@@ -727,6 +731,9 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterQueueFromWdDb(const Por
     if (entry != m_entryMap.end() && entry->second.handler != nullptr)
     {
         entry->second.handler->commitCounters();
+        // Remove storm status in APPL_DB for warm-reboot purpose
+        string key = m_applTable->getTableName() + m_applTable->getTableNameSeparator() + entry->second.portAlias;
+        m_applDb->hdel(key, to_string(entry->second.index));
     }
 
     // If a queue is in PFC storm, a call to erase will detach queue
@@ -735,7 +742,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterQueueFromWdDb(const Por
     SWSS_LOG_NOTICE("Removed queue 0x%" PRIx64 " entry, queue index %d, port id 0x%" PRIx64, queueId, qIdx, port.m_port_id);
 
     // Clean up
-    string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
+    string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator()
+        + sai_serialize_object_id(queueId);
     this->getCountersDb()->hdel(countersKey, {"PFC_WD_DETECTION_TIME", "PFC_WD_RESTORATION_TIME", "PFC_WD_ACTION", "PFC_WD_STATUS"});
 }
 
