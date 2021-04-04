@@ -1001,7 +1001,10 @@ void BufferMgrDynamic::refreshSharedHeadroomPool(bool enable_state_updated_by_ra
             updateBufferPoolToDb(INGRESS_LOSSLESS_PG_POOL_NAME, ingressLosslessPool);
     }
 
-    checkSharedBufferPoolSize();
+    if (m_portInitDone)
+    {
+        checkSharedBufferPoolSize();
+    }
 }
 
 // Main flows
@@ -1609,8 +1612,8 @@ task_process_status BufferMgrDynamic::handleBufferProfileTable(KeyOpFieldsValues
         }
         for (auto i = kfvFieldsValues(tuple).begin(); i != kfvFieldsValues(tuple).end(); i++)
         {
-            string &field = fvField(*i);
-            string &value = fvValue(*i);
+            const string &field = fvField(*i);
+            string value = fvValue(*i);
 
             SWSS_LOG_DEBUG("field:%s, value:%s", field.c_str(), value.c_str());
             if (field == buffer_pool_field_name)
