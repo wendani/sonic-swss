@@ -636,6 +636,9 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterFromWdDb(const Port& po
         if (entry != m_entryMap.end() && entry->second.handler != nullptr)
         {
             entry->second.handler->commitCounters();
+            // Remove storm status in APPL_DB for warm-reboot purpose
+            string key = m_applTable->getTableName() + m_applTable->getTableNameSeparator() + entry->second.portAlias;
+            m_applDb->hdel(key, to_string(entry->second.index));
         }
 
         m_entryMap.erase(queueId);

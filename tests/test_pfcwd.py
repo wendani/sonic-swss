@@ -33,6 +33,8 @@ FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX = "PFC_WD"
 CNTR_COUNTERS_QUEUE_NAME_MAP = "COUNTERS_QUEUE_NAME_MAP"
 CNTR_COUNTERS_TABLE_NAME = "COUNTERS"
 
+APPL_PFC_WD_INSTORM_TABLE_NAME = "PFC_WD_TABLE_INSTORM"
+
 PFC_ENABLE = "pfc_enable"
 
 ACTION = "action"
@@ -51,6 +53,10 @@ PFC_WD_STATUS = "PFC_WD_STATUS"
 STORMED = "stormed"
 OPERATIONAL = "operational"
 BIG_RED_SWITCH_MODE = "BIG_RED_SWITCH_MODE"
+PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED = "PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED"
+PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED = "PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED"
+
+STORM = "storm"
 
 PORT_UNDER_TEST = "Ethernet64"
 
@@ -122,6 +128,7 @@ class TestPfcWd:
             dvs_acl.remove_acl_table(PFCWD_TABLE_NAME)
 
     def connect_dbs(self, dvs):
+        self.appl_db = dvs.get_app_db()
         self.asic_db = dvs.get_asic_db()
         self.config_db = dvs.get_config_db()
         self.flex_cntr_db = dvs.get_flex_db()
@@ -243,6 +250,11 @@ class TestPfcWd:
             PFC_WD_STATUS: STORMED,
         }
         self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fv_dict)
+        # Verify queue in storm from APPL_DB
+        fv_dict = {
+            QUEUE_3: STORM,
+        }
+        self.check_db_fvs(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST, fv_dict)
 
         # Verify pfc enable bits change in ASIC_DB
         fv_dict = {
@@ -286,6 +298,8 @@ class TestPfcWd:
         fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
+        # Verify queue in-storm status removed from APPL_DB
+        self.check_db_key_removal(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST)
 
         # Verify pfc enable bits in ASIC_DB (stay unchanged)
         fv_dict = {
@@ -345,6 +359,9 @@ class TestPfcWd:
         # Verify queue 4 in brs from COUNTERS_DB
         fv_dict = {
             BIG_RED_SWITCH_MODE: ENABLE,
+            PFC_WD_STATUS: STORMED,
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "1",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "0",
         }
         self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fv_dict)
 
@@ -380,6 +397,13 @@ class TestPfcWd:
         # Verify brs field removed from COUNTERS_DB
         fields = [BIG_RED_SWITCH_MODE]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
+        # Verify queue 4 operational from COUNTERS_DB
+        fv_dict = {
+            PFC_WD_STATUS: OPERATIONAL,
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "1",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "1",
+        }
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fv_dict)
 
         # Verify pfc enable bits in ASIC_DB (stay unchanged)
         fv_dict = {
