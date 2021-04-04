@@ -423,6 +423,9 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::enableBigRedSwitchMode()
         {
             entry.second.handler->commitCounters();
             entry.second.handler = nullptr;
+            // Remove storm status in APPL_DB for warm-reboot purpose
+            string key = m_applTable->getTableName() + m_applTable->getTableNameSeparator() + entry.second.portAlias;
+            m_applDb->hdel(key, to_string(entry.second.index));
         }
     }
 
