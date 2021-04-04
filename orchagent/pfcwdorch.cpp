@@ -362,7 +362,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::disableBigRedSwitchMode()
         }
 
         auto queueId = entry.first;
-        string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
+        string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator()
+            + sai_serialize_object_id(queueId);
         this->getCountersDb()->hdel(countersKey, "BIG_RED_SWITCH_MODE");
     }
 
@@ -647,7 +648,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::unregisterFromWdDb(const Port& po
         m_entryMap.erase(queueId);
 
         // Clean up
-        string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
+        string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator()
+            + sai_serialize_object_id(queueId);
         this->getCountersDb()->hdel(countersKey, {"PFC_WD_DETECTION_TIME", "PFC_WD_RESTORATION_TIME", "PFC_WD_ACTION", "PFC_WD_STATUS"});
     }
 
