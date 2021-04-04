@@ -1215,22 +1215,28 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::update(SubjectType type, void *cn
                 if ((port.m_pfc_bitmask_cfg & bitmask)
                         && !(update->pfc_enable & bitmask))
                 {
-                    if (m_bigRedSwitchFlag)
-                    {
-                        // Disable big red switch mode on PFC disabled queue
-                        disableBigRedSwitchModeOnQueue(port, qIdx);
-                    }
-
                     if (portCfgIt != this->m_portCfgMap.end())
                     {
                         // Stop watchdog state machine on and
                         // detach storm action, if present, from PFC disabled queue
                         unregisterQueueFromWdDb(port, qIdx);
                     }
+
+                    if (m_bigRedSwitchFlag)
+                    {
+                        // Disable big red switch mode on PFC disabled queue
+                        disableBigRedSwitchModeOnQueue(port, qIdx);
+                    }
                 }
                 else if (!(port.m_pfc_bitmask_cfg & bitmask)
                          && (update->pfc_enable & bitmask))
                 {
+                    if (m_bigRedSwitchFlag)
+                    {
+                        // Enable big red switch mode on PFC enabled queue
+                        enableBigRedSwitchModeOnQueue(port, qIdx);
+                    }
+
                     if (portCfgIt != this->m_portCfgMap.end())
                     {
                         // Start watchdog state machine on PFC enabled queue
@@ -1238,12 +1244,6 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::update(SubjectType type, void *cn
                                             portCfgIt->second.detectionTime,
                                             portCfgIt->second.restorationTime,
                                             portCfgIt->second.action);
-                    }
-
-                    if (m_bigRedSwitchFlag)
-                    {
-                        // Enable big red switch mode on PFC enabled queue
-                        enableBigRedSwitchModeOnQueue(port, qIdx);
                     }
                 }
 
