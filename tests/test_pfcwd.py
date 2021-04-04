@@ -33,6 +33,8 @@ FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX = "PFC_WD"
 CNTR_COUNTERS_QUEUE_NAME_MAP = "COUNTERS_QUEUE_NAME_MAP"
 CNTR_COUNTERS_TABLE_NAME = "COUNTERS"
 
+APPL_PFC_WD_INSTORM_TABLE_NAME = "PFC_WD_TABLE_INSTORM"
+
 PFC_ENABLE = "pfc_enable"
 
 ACTION = "action"
@@ -51,6 +53,10 @@ PFC_WD_STATUS = "PFC_WD_STATUS"
 STORMED = "stormed"
 OPERATIONAL = "operational"
 BIG_RED_SWITCH_MODE = "BIG_RED_SWITCH_MODE"
+PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED = "PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED"
+PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED = "PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED"
+
+STORM = "storm"
 
 PORT_UNDER_TEST = "Ethernet64"
 
@@ -122,6 +128,7 @@ class TestPfcWd:
             dvs_acl.remove_acl_table(PFCWD_TABLE_NAME)
 
     def connect_dbs(self, dvs):
+        self.appl_db = dvs.get_app_db()
         self.asic_db = dvs.get_asic_db()
         self.config_db = dvs.get_config_db()
         self.flex_cntr_db = dvs.get_flex_db()
@@ -243,6 +250,11 @@ class TestPfcWd:
             PFC_WD_STATUS: STORMED,
         }
         self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fv_dict)
+        # Verify queue in storm from APPL_DB
+        fv_dict = {
+            QUEUE_3: STORM,
+        }
+        self.check_db_fvs(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST, fv_dict)
 
         # Verify pfc enable bits change in ASIC_DB
         fv_dict = {
@@ -286,6 +298,8 @@ class TestPfcWd:
         fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
+        # Verify queue in-storm status removed from APPL_DB
+        self.check_db_key_removal(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST)
 
         # Verify pfc enable bits in ASIC_DB (stay unchanged)
         fv_dict = {
@@ -345,6 +359,9 @@ class TestPfcWd:
         # Verify queue 4 in brs from COUNTERS_DB
         fv_dict = {
             BIG_RED_SWITCH_MODE: ENABLE,
+            PFC_WD_STATUS: STORMED,
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "1",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "0",
         }
         self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fv_dict)
 
@@ -380,6 +397,13 @@ class TestPfcWd:
         # Verify brs field removed from COUNTERS_DB
         fields = [BIG_RED_SWITCH_MODE]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
+        # Verify queue 4 operational from COUNTERS_DB
+        fv_dict = {
+            PFC_WD_STATUS: OPERATIONAL,
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "1",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "1",
+        }
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fv_dict)
 
         # Verify pfc enable bits in ASIC_DB (stay unchanged)
         fv_dict = {
@@ -402,6 +426,102 @@ class TestPfcWd:
         # Verify pfc wd fields removed from COUNTERS_DB
         fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
+
+    # brs: big red switch
+    def test_appl_db_storm_status_removal_brs(self, dvs, testlog):
+        self.connect_dbs(dvs)
+
+        # Enable pfc wd flex counter polling
+        self.enable_flex_counter(CFG_FLEX_COUNTER_TABLE_PFCWD_KEY)
+        # Verify pfc wd flex counter status published to FLEX_COUNTER_DB FLEX_COUNTER_GROUP_TABLE by flex counter orch
+        fv_dict = {
+            FLEX_COUNTER_STATUS: ENABLE,
+        }
+        self.check_db_fvs(self.flex_cntr_db, FC_FLEX_COUNTER_GROUP_TABLE_NAME, FC_FLEX_COUNTER_GROUP_TABLE_PFC_WD_KEY, fv_dict)
+
+        # Enable pfc on tc 3
+        pfc_tcs = [QUEUE_3]
+        self.set_port_pfc(PORT_UNDER_TEST, pfc_tcs)
+        # Verify pfc enable bits in ASIC_DB
+        port_oid = dvs.asicdb.portnamemap[PORT_UNDER_TEST]
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "8",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+
+        # Start pfc wd (config) on port
+        self.start_port_pfcwd(PORT_UNDER_TEST)
+        # Verify port level counter to poll published to FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
+        self.check_db_key_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                    "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid))
+        # Verify queue level counter to poll published to FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
+        q3_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_3)
+        self.check_db_key_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                    "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q3_oid))
+
+        # Start pfc storm on queue 3
+        self.start_queue_pfc_storm(q3_oid)
+        # Verify queue in storm from COUNTERS_DB
+        fv_dict = {
+            PFC_WD_STATUS: STORMED,
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "1",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "0",
+        }
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fv_dict)
+        # Verify queue in storm from APPL_DB
+        fv_dict = {
+            QUEUE_3: STORM,
+        }
+        self.check_db_fvs(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST, fv_dict)
+
+        # Enable big red switch
+        self.enable_big_red_switch()
+        # Verify queue 3 in brs from COUNTERS_DB
+        fv_dict = {
+            BIG_RED_SWITCH_MODE: ENABLE,
+            PFC_WD_STATUS: STORMED,
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "2",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "1",
+        }
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fv_dict)
+
+        # Verify queue in-storm status removed from APPL_DB
+        self.check_db_key_removal(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST)
+
+        # Stop pfc storm on queue 3
+        self.stop_queue_pfc_storm(q3_oid)
+        # Verify DEBUG_STORM field removed from COUNTERS_DB
+        fields = [DEBUG_STORM]
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
+
+        # Disable big red switch
+        self.disable_big_red_switch()
+        # Verify brs field removed from COUNTERS_DB
+        fields = [BIG_RED_SWITCH_MODE]
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
+        # Verify queue operational from COUNTERS_DB
+        fv_dict = {
+            PFC_WD_STATUS: OPERATIONAL,
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "2",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "2",
+        }
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fv_dict)
+
+        # Verify queue in-storm status removed from APPL_DB
+        self.check_db_key_removal(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST)
+
+        # clean up
+        # Stop pfc wd on port (i.e., remove pfc wd config from port)
+        self.stop_port_pfcwd(PORT_UNDER_TEST)
+        # Verify port level counter removed from FLEX_COUNTER_DB
+        self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid))
+        # Verify queue level counter removed from FLEX_COUNTER_DB
+        self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q3_oid))
+        # Verify pfc wd fields removed from COUNTERS_DB
+        fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
 
 
