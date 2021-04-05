@@ -158,7 +158,10 @@ class TestPfcWd:
         self.config_db.create_entry(CFG_PFC_WD_TABLE_NAME, port_name, fvs)
 
     def start_queue_pfc_storm(self, queue_oid):
-        self.cnt_r.hset("{}:{}".format(CNTR_COUNTERS_TABLE_NAME, queue_oid), DEBUG_STORM, ENABLED);
+        fvs = {
+            DEBUG_STORM: ENABLED,
+        }
+        self.cntrs_db.create_entry(CNTR_COUNTERS_TABLE_NAME, queue_oid, fvs)
 
     def enable_big_red_switch(self):
         fvs = {
@@ -168,7 +171,7 @@ class TestPfcWd:
 
     def get_queue_oid(self, dvs, port_name, qidx):
         def _access_function():
-            queue_oid = self.cnt_r.hget(CNTR_COUNTERS_QUEUE_NAME_MAP, "{}:{}".format(port_name, qidx));
+            queue_oid = self.cnt_r.hget(CNTR_COUNTERS_QUEUE_NAME_MAP, "{}:{}".format(port_name, qidx))
             return (True if queue_oid else False, queue_oid)
 
         (queue_oid_found, queue_oid) = wait_for_result(_access_function)
@@ -196,13 +199,20 @@ class TestPfcWd:
         self.config_db.delete_entry(CFG_PFC_WD_TABLE_NAME, port_name)
 
     def stop_queue_pfc_storm(self, queue_oid):
-        self.cnt_r.hdel("{}:{}".format(CNTR_COUNTERS_TABLE_NAME, queue_oid), DEBUG_STORM);
+        self.cnt_r.hdel("{}:{}".format(CNTR_COUNTERS_TABLE_NAME, queue_oid), DEBUG_STORM)
 
     def disable_big_red_switch(self):
         fvs = {
             BIG_RED_SWITCH: DISABLE,
         }
         self.config_db.create_entry(CFG_PFC_WD_TABLE_NAME, CFG_PFC_WD_TABLE_GLOBAL_KEY, fvs)
+
+    def clear_queue_cntrs(self, queue_oid):
+        fvs = {
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "0",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "0",
+        }
+        self.cntrs_db.create_entry(CNTR_COUNTERS_TABLE_NAME, queue_oid, fvs)
 
     def test_pfc_en_bits_user_wd_cfg_sep(self, dvs, testlog):
         self.connect_dbs(dvs)
@@ -314,6 +324,9 @@ class TestPfcWd:
         # Verify DEBUG_STORM field removed from COUNTERS_DB
         fields = [DEBUG_STORM]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
+
+        # Clear queue 3 counters
+        self.clear_queue_cntrs(q3_oid)
 
     # brs: big red switch
     def test_pfc_en_bits_user_wd_cfg_sep_brs(self, dvs, testlog):
@@ -429,6 +442,10 @@ class TestPfcWd:
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
 
+        # Clear queue counters
+        self.clear_queue_cntrs(q3_oid)
+        self.clear_queue_cntrs(q4_oid)
+
     # brs: big red switch
     def test_appl_db_storm_status_removal_brs(self, dvs, testlog):
         self.connect_dbs(dvs)
@@ -525,6 +542,8 @@ class TestPfcWd:
         fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
 
+        # Clear queue 3 counters
+        self.clear_queue_cntrs(q3_oid)
 
 # Add Dummy always-pass test at end as workaroud
 # for issue when Flaky fail on final test it invokes module tear-down before retrying
