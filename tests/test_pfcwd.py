@@ -207,6 +207,13 @@ class TestPfcWd:
         }
         self.config_db.create_entry(CFG_PFC_WD_TABLE_NAME, CFG_PFC_WD_TABLE_GLOBAL_KEY, fvs)
 
+    def clear_queue_cntrs(self, queue_oid):
+        fvs = {
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "0",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "0",
+        }
+        self.cntrs_db.create_entry(CNTR_COUNTERS_TABLE_NAME, queue_oid, fvs)
+
     def test_pfc_en_bits_user_wd_cfg_sep(self, dvs, testlog):
         self.connect_dbs(dvs)
 
@@ -317,6 +324,9 @@ class TestPfcWd:
         # Verify DEBUG_STORM field removed from COUNTERS_DB
         fields = [DEBUG_STORM]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
+
+        # Clear queue 3 counters
+        self.clear_queue_cntrs(q3_oid)
 
     # brs: big red switch
     def test_pfc_en_bits_user_wd_cfg_sep_brs(self, dvs, testlog):
@@ -432,6 +442,10 @@ class TestPfcWd:
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
 
+        # Clear queue counters
+        self.clear_queue_cntrs(q3_oid)
+        self.clear_queue_cntrs(q4_oid)
+
     # brs: big red switch
     def test_appl_db_storm_status_removal_brs(self, dvs, testlog):
         self.connect_dbs(dvs)
@@ -528,6 +542,8 @@ class TestPfcWd:
         fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
 
+        # Clear queue 3 counters
+        self.clear_queue_cntrs(q3_oid)
 
 # Add Dummy always-pass test at end as workaroud
 # for issue when Flaky fail on final test it invokes module tear-down before retrying
