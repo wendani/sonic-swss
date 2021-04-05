@@ -158,7 +158,10 @@ class TestPfcWd:
         self.config_db.create_entry(CFG_PFC_WD_TABLE_NAME, port_name, fvs)
 
     def start_queue_pfc_storm(self, queue_oid):
-        self.cnt_r.hset("{}:{}".format(CNTR_COUNTERS_TABLE_NAME, queue_oid), DEBUG_STORM, ENABLED);
+        fvs = {
+            DEBUG_STORM: ENABLED,
+        }
+        self.cntrs_db.create_entry(CNTR_COUNTERS_TABLE_NAME, queue_oid, fvs)
 
     def enable_big_red_switch(self):
         fvs = {
@@ -168,7 +171,7 @@ class TestPfcWd:
 
     def get_queue_oid(self, dvs, port_name, qidx):
         def _access_function():
-            queue_oid = self.cnt_r.hget(CNTR_COUNTERS_QUEUE_NAME_MAP, "{}:{}".format(port_name, qidx));
+            queue_oid = self.cnt_r.hget(CNTR_COUNTERS_QUEUE_NAME_MAP, "{}:{}".format(port_name, qidx))
             return (True if queue_oid else False, queue_oid)
 
         (queue_oid_found, queue_oid) = wait_for_result(_access_function)
@@ -196,7 +199,7 @@ class TestPfcWd:
         self.config_db.delete_entry(CFG_PFC_WD_TABLE_NAME, port_name)
 
     def stop_queue_pfc_storm(self, queue_oid):
-        self.cnt_r.hdel("{}:{}".format(CNTR_COUNTERS_TABLE_NAME, queue_oid), DEBUG_STORM);
+        self.cnt_r.hdel("{}:{}".format(CNTR_COUNTERS_TABLE_NAME, queue_oid), DEBUG_STORM)
 
     def disable_big_red_switch(self):
         fvs = {
