@@ -298,6 +298,7 @@ class TestPfcWd:
         fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
+
         # Verify queue in-storm status removed from APPL_DB
         self.check_db_key_removal(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST)
 
