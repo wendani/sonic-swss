@@ -151,7 +151,10 @@ class TestPfcWd:
         self.config_db.create_entry(CFG_PFC_WD_TABLE_NAME, port_name, fvs)
 
     def start_queue_pfc_storm(self, queue_oid):
-        self.cnt_r.hset("{}:{}".format(CNTR_COUNTERS_TABLE_NAME, queue_oid), DEBUG_STORM, ENABLED);
+        fvs = {
+            DEBUG_STORM: ENABLED,
+        }
+        self.cntrs_db.create_entry(CNTR_COUNTERS_TABLE_NAME, queue_oid, fvs);
 
     def enable_big_red_switch(self):
         fvs = {
