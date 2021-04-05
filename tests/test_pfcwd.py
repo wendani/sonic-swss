@@ -400,9 +400,10 @@ class TestPfcWd:
         pfc_tcs = [QUEUE_3]
         self.set_port_pfc(PORT_UNDER_TEST, pfc_tcs)
 
-        # Verify pfc enable bits change in ASIC_DB
+        # Verify pfc enable bits in ASIC_DB (stay unchanged)
+        time.sleep(2)
         fv_dict = {
-            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "8",
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "0",
         }
         self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
 
@@ -419,7 +420,7 @@ class TestPfcWd:
         }
         self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fv_dict)
 
-        # Verify pfc enable bits in ASIC_DB (stay unchanged)
+        # Verify pfc enable bits change in ASIC_DB
         fv_dict = {
             "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "8",
         }

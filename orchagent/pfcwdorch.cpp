@@ -1196,7 +1196,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::update(SubjectType type, void *cn
             PortPfcUpdate *update = static_cast<PortPfcUpdate *>(cntx);
 
             const Port &port = update->port;
-            if (port.m_pfc_bitmask_cfg == update->pfc_enable)
+            if (port.m_pfc_bitmask_usercfg == update->pfc_enable)
             {
                 SWSS_LOG_NOTICE("No change on PFC enable bits. Skipping update");
                 return;
@@ -1212,7 +1212,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::update(SubjectType type, void *cn
             set<uint8_t> losslessTc;
             for (uint8_t qIdx = 0; qIdx < PFC_WD_TC_MAX; qIdx++)
             {
-                if ((port.m_pfc_bitmask_cfg & bitmask)
+                if ((port.m_pfc_bitmask_usercfg & bitmask)
                         && !(update->pfc_enable & bitmask))
                 {
                     if (portCfgIt != this->m_portCfgMap.end())
@@ -1228,7 +1228,7 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::update(SubjectType type, void *cn
                         disableBigRedSwitchModeOnQueue(port, qIdx);
                     }
                 }
-                else if (!(port.m_pfc_bitmask_cfg & bitmask)
+                else if (!(port.m_pfc_bitmask_usercfg & bitmask)
                          && (update->pfc_enable & bitmask))
                 {
                     if (m_bigRedSwitchFlag)
