@@ -427,7 +427,7 @@ class TestPfcWd:
 
         # Disable big red switch
         self.disable_big_red_switch()
-        # Verify brs, pfc wd status fields removed from COUNTERS_DB
+        # Verify queue 4 brs, pfc wd status fields removed from COUNTERS_DB
         fields = [
             BIG_RED_SWITCH_MODE,
             PFC_WD_STATUS,
@@ -642,7 +642,7 @@ class TestPfcWd:
         # Verify queue 3 counters removed from FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
         self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
                                   "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q3_oid))
-        # Verify pfc wd fields removed from COUNTERS_DB
+        # Verify queue 3 pfc wd fields removed from COUNTERS_DB
         fields = [PFC_WD_STATUS]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
         # Verify queue 3 deadlock counters from COUNTERS_DB
@@ -748,10 +748,10 @@ class TestPfcWd:
         # Verify queue 4 counters removed from FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
         self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
                                   "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q4_oid))
-        # Verify pfc wd fields removed from COUNTERS_DB
+        # Verify queue 4 brs, pfc wd status fields removed from COUNTERS_DB
         fields = [
-            PFC_WD_STATUS,
             BIG_RED_SWITCH_MODE,
+            PFC_WD_STATUS,
         ]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
         # Verify queue 4 deadlock counters from COUNTERS_DB
@@ -764,6 +764,35 @@ class TestPfcWd:
         # Verify queue in-storm status not exist in APPL_DB
         self.check_db_key_removal(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST)
 
+        # Change pfc enable bits: disable pfc on tc 3 (all pfc enable bits cleared)
+        pfc_tcs = []
+        self.set_port_pfc(PORT_UNDER_TEST, pfc_tcs)
+        # Verify pfc enable bits change in ASIC_DB (stay unchanged)
+        time.sleep(2)
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "0",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+
+        # Wd self adaptation
+        # Verify port level counters removed from FLEX_COUNTER_DB
+        self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid))
+        # Verify queue 3 counters removed from FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
+        self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q3_oid))
+        # Verify queue 3 brs, pfc wd status fields removed from COUNTERS_DB
+        fields = [
+            BIG_RED_SWITCH_MODE,
+            PFC_WD_STATUS,
+        ]
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
+        # Verify queue 3 deadlock counters from COUNTERS_DB
+        fv_dict = {
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "2",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "2",
+        }
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fv_dict)
 
 # Add Dummy always-pass test at end as workaroud
 # for issue when Flaky fail on final test it invokes module tear-down before retrying
