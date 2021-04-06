@@ -370,7 +370,8 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::disableBigRedSwitchModeOnQueue(co
 
     m_brsEntryMap.erase(entryIt);
 
-    string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator() + sai_serialize_object_id(queueId);
+    string countersKey = this->getCountersTable()->getTableName() + this->getCountersTable()->getTableNameSeparator()
+        + sai_serialize_object_id(queueId);
     this->getCountersDb()->hdel(countersKey, "BIG_RED_SWITCH_MODE");
 }
 
