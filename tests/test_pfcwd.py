@@ -794,6 +794,35 @@ class TestPfcWd:
         }
         self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fv_dict)
 
+        # clean up
+        # Stop pfc storm on queue 3
+        self.stop_queue_pfc_storm(q3_oid)
+        # Verify queue 3 DEBUG_STORM field removed from COUNTERS_DB
+        fields = [DEBUG_STORM]
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
+
+        # Stop pfc storm on queue 4
+        self.stop_queue_pfc_storm(q4_oid)
+        # Verify queue 4 DEBUG_STORM field removed from COUNTERS_DB
+        fields = [DEBUG_STORM]
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
+
+        # Disable big red switch
+        self.disable_big_red_switch()
+        # Verify queue 3 brs field removed from COUNTERS_DB
+        fields = [BIG_RED_SWITCH_MODE]
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
+        # Verify queue 4 brs field removed from COUNTERS_DB
+        fields = [BIG_RED_SWITCH_MODE]
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
+
+        # Clear queue 3 counters
+        self.clear_queue_cntrs(q3_oid)
+
+        # Clear queue 4 counters
+        self.clear_queue_cntrs(q4_oid)
+
+
 # Add Dummy always-pass test at end as workaroud
 # for issue when Flaky fail on final test it invokes module tear-down before retrying
 def test_nonflaky_dummy():
