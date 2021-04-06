@@ -1215,17 +1215,19 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::update(SubjectType type, void *cn
                 if ((port.m_pfc_bitmask_usercfg & bitmask)
                         && !(update->pfc_enable & bitmask))
                 {
+                    if (m_bigRedSwitchFlag)
+                    {
+                        // Disable big red switch mode on PFC disabled queue
+                        disableBigRedSwitchModeOnQueue(port, qIdx);
+                    }
+
+                    // Call after disableBigRedSwitchModeOnQueue so that PFC_WD_STATUS is removed
+                    // from COUNTERS_DB
                     if (portCfgIt != this->m_portCfgMap.end())
                     {
                         // Stop watchdog state machine on and
                         // detach storm action, if present, from PFC disabled queue
                         unregisterQueueFromWdDb(port, qIdx);
-                    }
-
-                    if (m_bigRedSwitchFlag)
-                    {
-                        // Disable big red switch mode on PFC disabled queue
-                        disableBigRedSwitchModeOnQueue(port, qIdx);
                     }
                 }
                 else if (!(port.m_pfc_bitmask_usercfg & bitmask)

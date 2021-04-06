@@ -202,8 +202,7 @@ class TestPfcWd:
     def check_db_fields_removal(self, db, table_name, key, fields):
         def _access_function():
             fvs = db.get_entry(table_name, key)
-            status = all(f not in fvs for f in fields)
-            return (status, None)
+            return (all(f not in fvs for f in fields), None)
 
         wait_for_result(_access_function)
 
@@ -607,14 +606,14 @@ class TestPfcWd:
 
         # Start pfc storm on queue 3
         self.start_queue_pfc_storm(q3_oid)
-        # Verify queue in storm from COUNTERS_DB
+        # Verify queue 3 in storm from COUNTERS_DB
         fv_dict = {
             PFC_WD_STATUS: STORMED,
             PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "1",
             PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "0",
         }
         self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fv_dict)
-        # Verify queue in storm from APPL_DB
+        # Verify queue 3 in storm from APPL_DB
         fv_dict = {
             QUEUE_3: STORM,
         }
@@ -665,6 +664,103 @@ class TestPfcWd:
         q4_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_4)
         self.check_db_key_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
                                     "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q4_oid))
+
+        # Start pfc storm on queue 4
+        self.start_queue_pfc_storm(q4_oid)
+        # Verify pfc enable bits in ASIC_DB
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "0",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+        # Verify queue 4 in storm from COUNTERS_DB
+        fv_dict = {
+            PFC_WD_STATUS: STORMED,
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "1",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "0",
+        }
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fv_dict)
+        # Verify queue 4 in storm from APPL_DB
+        fv_dict = {
+            QUEUE_4: STORM,
+        }
+        self.check_db_fvs(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST, fv_dict)
+
+        # Enable big red switch
+        self.enable_big_red_switch()
+        # Verify pfc enable bits in ASIC_DB (stay unchanged)
+        time.sleep(2)
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "0",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+        # Verify queue 4 in brs from COUNTERS_DB
+        fv_dict = {
+            BIG_RED_SWITCH_MODE: ENABLE,
+            PFC_WD_STATUS: STORMED,
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "2",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "1",
+        }
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fv_dict)
+        # Verify queue 4 in-storm status removed from APPL_DB
+        self.check_db_key_removal(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST)
+
+        # Change pfc enable bits: disable pfc on tc 4, and enable pfc on tc 3
+        pfc_tcs = [QUEUE_3]
+        self.set_port_pfc(PORT_UNDER_TEST, pfc_tcs)
+        # Verify pfc enable bits change in ASIC_DB (stay unchanged)
+        time.sleep(2)
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "0",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+
+        # Wd self adaptation
+        # Verify prio 3 pfc counters published to FLEX_COUNTER_DB port level counters by pfc wd orch
+        contents = [
+            SAI_PORT_STAT_PFC_3_RX_PKTS,
+            SAI_PORT_STAT_PFC_3_ON2OFF_RX_PKTS,
+        ]
+        self.check_db_value_contents_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                               "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid),
+                                               PORT_COUNTER_ID_LIST, contents)
+        # Verify queue 3 counters to poll published to FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
+        self.check_db_key_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                    "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q3_oid))
+        # Verify queue 3 in storm from COUNTERS_DB
+        fv_dict = {
+            BIG_RED_SWITCH_MODE: ENABLE,
+            PFC_WD_STATUS: STORMED,
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "2",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "1",
+        }
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fv_dict)
+
+        # Verify prio 4 pfc counters removed from FLEX_COUNTER_DB port level counters by pfc wd orch
+        contents = [
+            SAI_PORT_STAT_PFC_4_RX_PKTS,
+            SAI_PORT_STAT_PFC_4_ON2OFF_RX_PKTS,
+        ]
+        self.check_db_value_contents_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                             "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid),
+                                             PORT_COUNTER_ID_LIST, contents)
+        # Verify queue 4 counters removed from FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
+        self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q4_oid))
+        # Verify pfc wd fields removed from COUNTERS_DB
+        fields = [
+            PFC_WD_STATUS,
+            BIG_RED_SWITCH_MODE,
+        ]
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
+        # Verify queue 4 deadlock counters from COUNTERS_DB
+        fv_dict = {
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "2",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "2",
+        }
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fv_dict)
+
+        # Verify queue in-storm status not exist in APPL_DB
+        self.check_db_key_removal(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST)
 
 
 # Add Dummy always-pass test at end as workaroud
