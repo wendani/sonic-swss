@@ -427,12 +427,14 @@ class TestPfcWd:
 
         # Disable big red switch
         self.disable_big_red_switch()
-        # Verify brs field removed from COUNTERS_DB
-        fields = [BIG_RED_SWITCH_MODE]
+        # Verify brs, pfc wd status fields removed from COUNTERS_DB
+        fields = [
+            BIG_RED_SWITCH_MODE,
+            PFC_WD_STATUS,
+        ]
         self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q4_oid, fields)
-        # Verify queue 4 operational from COUNTERS_DB
+        # Verify queue 4 deadlock counters from COUNTERS_DB
         fv_dict = {
-            PFC_WD_STATUS: OPERATIONAL,
             PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "1",
             PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "1",
         }
