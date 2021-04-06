@@ -46,6 +46,11 @@ DISABLE = "disable"
 
 FLEX_COUNTER_STATUS = "FLEX_COUNTER_STATUS"
 ENABLE = "enable"
+PORT_COUNTER_ID_LIST = "PORT_COUNTER_ID_LIST"
+SAI_PORT_STAT_PFC_3_RX_PKTS = "SAI_PORT_STAT_PFC_3_RX_PKTS"
+SAI_PORT_STAT_PFC_3_ON2OFF_RX_PKTS = "SAI_PORT_STAT_PFC_3_ON2OFF_RX_PKTS"
+SAI_PORT_STAT_PFC_4_RX_PKTS = "SAI_PORT_STAT_PFC_4_RX_PKTS"
+SAI_PORT_STAT_PFC_4_ON2OFF_RX_PKTS = "SAI_PORT_STAT_PFC_4_ON2OFF_RX_PKTS"
 
 DEBUG_STORM = "DEBUG_STORM"
 ENABLED = "enabled"
@@ -184,6 +189,13 @@ class TestPfcWd:
     def check_db_fvs(self, db, table_name, key, fv_dict):
         db.wait_for_field_match(table_name, key, fv_dict)
 
+    def check_db_value_contents_existence(self, db, table_name, key, field, contents):
+        def _access_function():
+            value = db.get_entry(table_name, key).get(field, "")
+            return (all(content in value for content in contents), None)
+
+        wait_for_result(_access_function)
+
     def check_db_key_removal(self, db, table_name, key):
         db.wait_for_deleted_keys(table_name, [key])
 
@@ -192,6 +204,13 @@ class TestPfcWd:
             fvs = db.get_entry(table_name, key)
             status = all(f not in fvs for f in fields)
             return (status, None)
+
+        wait_for_result(_access_function)
+
+    def check_db_value_contents_removal(self, db, table_name, key, field, contents):
+        def _access_function():
+            value = db.get_entry(table_name, key).get(field, "")
+            return (all(content not in value for content in contents), None)
 
         wait_for_result(_access_function)
 
@@ -545,6 +564,108 @@ class TestPfcWd:
 
         # Clear queue 3 counters
         self.clear_queue_cntrs(q3_oid)
+
+    def test_pfc_en_bits_change_adaptation(self, dvs, testlog):
+        self.connect_dbs(dvs)
+
+        # Enable pfc wd flex counter polling
+        self.enable_flex_counter(CFG_FLEX_COUNTER_TABLE_PFCWD_KEY)
+        # Verify pfc wd flex counter status published to FLEX_COUNTER_DB FLEX_COUNTER_GROUP_TABLE by flex counter orch
+        fv_dict = {
+            FLEX_COUNTER_STATUS: ENABLE,
+        }
+        self.check_db_fvs(self.flex_cntr_db, FC_FLEX_COUNTER_GROUP_TABLE_NAME, FC_FLEX_COUNTER_GROUP_TABLE_PFC_WD_KEY, fv_dict)
+
+        # Start pfc wd (config) on port
+        self.start_port_pfcwd(PORT_UNDER_TEST)
+        # Make sure pfc wd config is processed before pfc enable on tc 3
+        time.sleep(2)
+
+        # Enable pfc on tc 3
+        pfc_tcs = [QUEUE_3]
+        self.set_port_pfc(PORT_UNDER_TEST, pfc_tcs)
+        # Verify pfc enable bits in ASIC_DB
+        port_oid = dvs.asicdb.portnamemap[PORT_UNDER_TEST]
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "8",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+
+        # Wd self adaptation
+        # Verify prio 3 pfc counters published to FLEX_COUNTER_DB port level counters by pfc wd orch
+        contents = [
+            SAI_PORT_STAT_PFC_3_RX_PKTS,
+            SAI_PORT_STAT_PFC_3_ON2OFF_RX_PKTS,
+        ]
+        self.check_db_value_contents_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                               "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid),
+                                               PORT_COUNTER_ID_LIST, contents)
+        # Verify queue 3 counters to poll published to FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
+        q3_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_3)
+        self.check_db_key_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                    "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q3_oid))
+
+        # Start pfc storm on queue 3
+        self.start_queue_pfc_storm(q3_oid)
+        # Verify queue in storm from COUNTERS_DB
+        fv_dict = {
+            PFC_WD_STATUS: STORMED,
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "1",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "0",
+        }
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fv_dict)
+        # Verify queue in storm from APPL_DB
+        fv_dict = {
+            QUEUE_3: STORM,
+        }
+        self.check_db_fvs(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST, fv_dict)
+
+        # Change pfc enable bits: disable pfc on tc 3, and enable pfc on tc 4
+        pfc_tcs = [QUEUE_4]
+        self.set_port_pfc(PORT_UNDER_TEST, pfc_tcs)
+        # Verify pfc enable bits change in ASIC_DB
+        fv_dict = {
+            "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL": "16",
+        }
+        self.check_db_fvs(self.asic_db, ASIC_PORT_TABLE_NAME, port_oid, fv_dict)
+
+        # Wd self adaptation
+        # Verify prio 3 pfc counters removed from FLEX_COUNTER_DB port level counters by pfc wd orch
+        contents = [
+            SAI_PORT_STAT_PFC_3_RX_PKTS,
+            SAI_PORT_STAT_PFC_3_ON2OFF_RX_PKTS,
+        ]
+        self.check_db_value_contents_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                             "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid),
+                                             PORT_COUNTER_ID_LIST, contents)
+        # Verify queue 3 counters removed from FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
+        self.check_db_key_removal(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                  "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q3_oid))
+        # Verify pfc wd fields removed from COUNTERS_DB
+        fields = [PFC_WD_STATUS]
+        self.check_db_fields_removal(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fields)
+        # Verify queue 3 deadlock counters from COUNTERS_DB
+        fv_dict = {
+            PFC_WD_QUEUE_STATS_DEADLOCK_DETECTED: "1",
+            PFC_WD_QUEUE_STATS_DEADLOCK_RESTORED: "1",
+        }
+        self.check_db_fvs(self.cntrs_db, CNTR_COUNTERS_TABLE_NAME, q3_oid, fv_dict)
+        # Verify queue 3 in-storm status removed from APPL_DB
+        self.check_db_key_removal(self.appl_db, APPL_PFC_WD_INSTORM_TABLE_NAME, PORT_UNDER_TEST)
+
+        # Verify prio 4 pfc counters published to FLEX_COUNTER_DB port level counters by pfc wd orch
+        contents = [
+            SAI_PORT_STAT_PFC_4_RX_PKTS,
+            SAI_PORT_STAT_PFC_4_ON2OFF_RX_PKTS,
+        ]
+        self.check_db_value_contents_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                               "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, port_oid),
+                                               PORT_COUNTER_ID_LIST, contents)
+        # Verify queue 4 counters to poll published to FLEX_COUNTER_DB FLEX_COUNTER_TABLE by pfc wd orch
+        q4_oid = self.get_queue_oid(dvs, PORT_UNDER_TEST, QUEUE_4)
+        self.check_db_key_existence(self.flex_cntr_db, FC_FLEX_COUNTER_TABLE_NAME,
+                                    "{}:{}".format(FC_FLEX_COUNTER_TABLE_PFC_WD_KEY_PREFIX, q4_oid))
+
 
 # Add Dummy always-pass test at end as workaroud
 # for issue when Flaky fail on final test it invokes module tear-down before retrying

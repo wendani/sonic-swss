@@ -1231,12 +1231,6 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::update(SubjectType type, void *cn
                 else if (!(port.m_pfc_bitmask_usercfg & bitmask)
                          && (update->pfc_enable & bitmask))
                 {
-                    if (m_bigRedSwitchFlag)
-                    {
-                        // Enable big red switch mode on PFC enabled queue
-                        enableBigRedSwitchModeOnQueue(port, qIdx);
-                    }
-
                     if (portCfgIt != this->m_portCfgMap.end())
                     {
                         // Start watchdog state machine on PFC enabled queue
@@ -1244,6 +1238,14 @@ void PfcWdSwOrch<DropHandler, ForwardHandler>::update(SubjectType type, void *cn
                                             portCfgIt->second.detectionTime,
                                             portCfgIt->second.restorationTime,
                                             portCfgIt->second.action);
+                    }
+
+                    // Call after registerQueueInWdDb so that PFC_WD_STATUS in COUNTERS_DB
+                    // is set stormed on enabling big red switch on queue
+                    if (m_bigRedSwitchFlag)
+                    {
+                        // Enable brs mode on PFC enabled queue
+                        enableBigRedSwitchModeOnQueue(port, qIdx);
                     }
                 }
 
