@@ -52,7 +52,7 @@ MirrorEntry::MirrorEntry(const string& platform) :
         dscp(8),
         ttl(255),
         queue(0),
-        sessionId(0),
+        sessionId(SAI_NULL_OBJECT_ID),
         refCount(0)
 {
     if (platform == MLNX_PLATFORM_SUBSTRING)
