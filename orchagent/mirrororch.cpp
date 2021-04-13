@@ -574,8 +574,9 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
     //    retrieved successfully, then continue.
     // 3) Otherwise, return false.
     NeighborEntry neighbor;
-    if (!m_neighOrch->getNeighborEntry(session.dstIp,
-                neighbor, session.neighborInfo.mac) &&
+    if ((session.nexthopInfo.nexthop.alias.empty() ||
+            !m_neighOrch->getNeighborEntry(session.dstIp,
+                neighbor, session.neighborInfo.mac)) &&
             (session.nexthopInfo.nexthop.ip_address.isZero() ||
             !m_neighOrch->getNeighborEntry(session.nexthopInfo.nexthop,
                 neighbor, session.neighborInfo.mac)))

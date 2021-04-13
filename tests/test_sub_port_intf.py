@@ -84,6 +84,7 @@ class TestSubPortIntf(object):
             assert port_name.startswith(LAG_PREFIX)
             tbl_name = CFG_LAG_TABLE_NAME
         self.config_db.create_entry(tbl_name, port_name, fvs)
+        time.sleep(1)
 
         if port_name.startswith(ETHERNET_PREFIX):
             self.set_parent_port_oper_status(dvs, port_name, "down")

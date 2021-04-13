@@ -6,6 +6,12 @@ import time
 from swsscommon import swsscommon
 from distutils.version import StrictVersion
 
+APPL_ROUTE_TABLE_NAME = "ROUTE_TABLE"
+
+ACTIVE = "active"
+INACTIVE = "inactive"
+NEXTHOP = "nexthop"
+IFNAME = "ifname"
 
 class TestMirror(object):
     def setup_db(self, dvs):
@@ -13,6 +19,11 @@ class TestMirror(object):
         self.adb = swsscommon.DBConnector(1, dvs.redis_sock, 0)
         self.cdb = swsscommon.DBConnector(4, dvs.redis_sock, 0)
         self.sdb = swsscommon.DBConnector(6, dvs.redis_sock, 0)
+
+    def set_lag_oper_status(self, dvs, port_name, status):
+        dvs.runcmd("bash -c 'echo " + ("1" if status == "up" else "0") + \
+                " > /sys/class/net/" + port_name + "/carrier'")
+        time.sleep(1)
 
     def set_interface_status(self, dvs, interface, admin_status):
         if interface.startswith("PortChannel"):
@@ -22,15 +33,14 @@ class TestMirror(object):
         else:
             tbl_name = "PORT"
         tbl = swsscommon.Table(self.cdb, tbl_name)
-        fvs = swsscommon.FieldValuePairs([("admin_status", "up")])
+        fvs = swsscommon.FieldValuePairs([("admin_status", admin_status)])
         tbl.set(interface, fvs)
         time.sleep(1)
 
         # when using FRR, route cannot be inserted if the neighbor is not
         # connected. thus it is mandatory to force the interface up manually
         if interface.startswith("PortChannel"):
-            dvs.runcmd("bash -c 'echo " + ("1" if admin_status == "up" else "0") +\
-                    " > /sys/class/net/" + interface + "/carrier'")
+            self.set_lag_oper_status(dvs, interface, admin_status)
 
     def add_ip_address(self, interface, ip):
         if interface.startswith("PortChannel"):
@@ -872,6 +882,118 @@ class TestMirror(object):
         self.remove_neighbor("Ethernet32", "20.0.0.1")
         self.remove_ip_address("Ethernet32", "20.0.0.0/31")
         self.set_interface_status(dvs, "Ethernet32", "down")
+
+    def test_MirrorToPortDestDirectSubnetSessionStatus(self, dvs, testlog):
+        self.setup_db(dvs)
+
+        session = "TEST_SESSION"
+        src_ip = "1.1.1.1"
+        dst_ip = "2.2.2.2"
+        gre_type= "0x6558"
+        dscp = "8"
+        ttl = "100"
+        queue = "0"
+
+        PORT_UNDER_TEST = "Ethernet16"
+        PORT_ADDR_UNDER_TEST = "2.2.2.1/30"
+        DIRECT_SUBNET_UNDER_TEST = "2.2.2.0/30"
+
+        # Create mirror session
+        self.create_mirror_session(session, src_ip, dst_ip, gre_type, dscp, ttl, queue)
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        self.set_interface_status(dvs, PORT_UNDER_TEST, "up")
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        self.add_ip_address(PORT_UNDER_TEST, PORT_ADDR_UNDER_TEST)
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        self.add_neighbor(PORT_UNDER_TEST, dst_ip, "02:04:06:08:10:12")
+        assert self.get_mirror_session_status(session) == ACTIVE
+
+        # Mimic host interface oper status down that causes frr to withdraw
+        # directly connected subnet prefix
+        rt_tbl = swsscommon.ProducerStateTable(self.pdb, APPL_ROUTE_TABLE_NAME)
+        rt_tbl._del(DIRECT_SUBNET_UNDER_TEST)
+        time.sleep(1)
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        # Mimic host interface oper status up
+        fvs = swsscommon.FieldValuePairs([(NEXTHOP, "0.0.0.0"),
+                                          (IFNAME, PORT_UNDER_TEST)])
+        rt_tbl.set(DIRECT_SUBNET_UNDER_TEST, fvs)
+        time.sleep(1)
+        assert self.get_mirror_session_status(session) == ACTIVE
+
+        # Clean up
+        self.remove_neighbor(PORT_UNDER_TEST, dst_ip)
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        self.remove_ip_address(PORT_UNDER_TEST, PORT_ADDR_UNDER_TEST)
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        self.set_interface_status(dvs, PORT_UNDER_TEST, "down")
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        # Remove mirror session
+        self.remove_mirror_session(session)
+
+    def test_MirrorToLagDestDirectSubnetSessionStatus(self, dvs, testlog):
+        self.setup_db(dvs)
+
+        session = "TEST_SESSION"
+        src_ip = "10.10.10.10"
+        dst_ip = "11.11.11.11"
+        gre_type= "0x6558"
+        dscp = "8"
+        ttl = "100"
+        queue = "0"
+
+        LAG_INDEX_UNDER_TEST = "008"
+        LAG_UNDER_TEST = "PortChannel" + LAG_INDEX_UNDER_TEST
+        LAG_MEMBER_UNDER_TEST = "Ethernet88"
+        LAG_ADDR_UNDER_TEST = "11.11.11.1/28"
+        DIRECT_SUBNET_UNDER_TEST = "11.11.11.0/28"
+
+        # Create mirror session
+        self.create_mirror_session(session, src_ip, dst_ip, gre_type, dscp, ttl, queue)
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        # Create lag
+        self.create_port_channel(dvs, LAG_INDEX_UNDER_TEST)
+        # Add lag member
+        self.create_port_channel_member(LAG_INDEX_UNDER_TEST, LAG_MEMBER_UNDER_TEST)
+
+        # Admin up lag
+        self.set_interface_status(dvs, LAG_UNDER_TEST, "up")
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        self.add_ip_address(LAG_UNDER_TEST, LAG_ADDR_UNDER_TEST)
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        self.add_neighbor(LAG_UNDER_TEST, dst_ip, "88:88:88:88:88:88")
+        assert self.get_mirror_session_status(session) == ACTIVE
+
+        # Oper down lag
+        self.set_lag_oper_status(dvs, LAG_UNDER_TEST, "down")
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        # Oper up lag
+        self.set_lag_oper_status(dvs, LAG_UNDER_TEST, "up")
+        assert self.get_mirror_session_status(session) == ACTIVE
+
+        # Clean up
+        self.remove_neighbor(LAG_UNDER_TEST, dst_ip)
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        self.remove_ip_address(LAG_UNDER_TEST, LAG_ADDR_UNDER_TEST)
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        self.remove_port_channel_member(LAG_INDEX_UNDER_TEST, LAG_MEMBER_UNDER_TEST)
+        self.remove_port_channel(dvs, LAG_INDEX_UNDER_TEST)
+
+        # Remove mirror session
+        self.remove_mirror_session(session)
 
 
 # Add Dummy always-pass test at end as workaroud
