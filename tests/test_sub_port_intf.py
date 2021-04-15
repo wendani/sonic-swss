@@ -518,6 +518,7 @@ class TestSubPortIntf(object):
         # Remove ip addresses from APPL_DB
         self.remove_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
         self.remove_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
+
         # Remove sub port interface from APPL_DB
         self.remove_sub_port_intf_profile_appl_db(sub_port_intf_name)
         self.check_sub_port_intf_profile_removal(rif_oid)
