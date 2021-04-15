@@ -29,6 +29,7 @@ ASIC_NEXT_HOP_GROUP_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_ME
 ASIC_LAG_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER"
 ASIC_HOSTIF_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF"
 ASIC_VIRTUAL_ROUTER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER"
+ASIC_PORT_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_PORT"
 ASIC_LAG_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG"
 
 ADMIN_STATUS = "admin_status"
@@ -161,6 +162,15 @@ class TestSubPortIntf(object):
 
     def check_vrf_removal(self, vrf_oid):
         self.asic_db.wait_for_deleted_keys(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
+
+    def remove_parent_port_appl_db(self, port_name):
+        if port_name.startswith(ETHERNET_PREFIX):
+            tbl_name = APP_PORT_TABLE_NAME
+        else:
+            assert port_name.startswith(LAG_PREFIX)
+            tbl_name = APP_LAG_TABLE_NAME
+        tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, tbl_name)
+        tbl._del(port_name)
 
     def remove_lag(self, lag):
         self.config_db.delete_entry(CFG_LAG_TABLE_NAME, lag)
@@ -735,11 +745,13 @@ class TestSubPortIntf(object):
             state_tbl_name = STATE_PORT_TABLE_NAME
             phy_ports = [parent_port]
             parent_port_oid = dvs.asicdb.portnamemap[parent_port]
+            asic_tbl_name = ASIC_PORT_TABLE
         else:
             assert parent_port.startswith(LAG_PREFIX)
             state_tbl_name = STATE_LAG_TABLE_NAME
             phy_ports = self.LAG_MEMBERS_UNDER_TEST
             old_lag_oids = self.get_oids(ASIC_LAG_TABLE)
+            asic_tbl_name = ASIC_LAG_TABLE
 
         vrf_oid = self.default_vrf_oid
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
@@ -747,9 +759,11 @@ class TestSubPortIntf(object):
         self.set_parent_port_admin_status(dvs, parent_port, "up")
         if parent_port.startswith(LAG_PREFIX):
             parent_port_oid = self.get_newly_created_oid(ASIC_LAG_TABLE, old_lag_oids)
-            # Add lag members to test physical port host interface vlan tag attribute
-            self.add_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
-            self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, len(self.LAG_MEMBERS_UNDER_TEST))
+            if removal_seq_test == False:
+                # Add lag members to test physical port host interface vlan tag attribute
+                self.add_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
+                self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, len(self.LAG_MEMBERS_UNDER_TEST))
+
         if vrf_name:
             self.create_vrf(vrf_name)
             vrf_oid = self.get_newly_created_oid(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
@@ -780,6 +794,14 @@ class TestSubPortIntf(object):
         self.check_sub_port_intf_fvs(self.app_db, APP_INTF_TABLE_NAME, sub_port_intf_name, fv_dict)
 
         if removal_seq_test == True:
+            obj_cnt = len(self.asic_db.get_keys(asic_tbl_name))
+            # Remove parent port before removing sub port interface
+            self.remove_parent_port_appl_db(parent_port)
+            time.sleep(2)
+
+            # Verify parent port persists in ASIC_DB
+            self.asic_db.wait_for_n_keys(asic_tbl_name, obj_cnt)
+
             # Remove a sub port interface before removing sub port interface IP addresses
             self.remove_sub_port_intf_profile(sub_port_intf_name)
             time.sleep(2)
@@ -852,13 +874,22 @@ class TestSubPortIntf(object):
         # Verify that sub port router interface entry is removed from ASIC_DB
         self.check_sub_port_intf_key_removal(self.asic_db, ASIC_RIF_TABLE, rif_oid)
 
-        # Verify physical port host interface vlan tag attribute
-        fv_dict = {
-            "SAI_HOSTIF_ATTR_VLAN_TAG": "SAI_HOSTIF_VLAN_TAG_STRIP",
-        }
-        for phy_port in phy_ports:
-            hostif_oid = dvs.asicdb.hostifnamemap[phy_port]
-            self.check_sub_port_intf_fvs(self.asic_db, ASIC_HOSTIF_TABLE, hostif_oid, fv_dict)
+        # Verify that parent port is removed from ASIC_DB
+        self.asic_db.wait_for_n_keys(asic_tbl_name, obj_cnt - 1)
+
+        if removal_seq_test == False:
+            # Verify physical port host interface vlan tag attribute
+            fv_dict = {
+                "SAI_HOSTIF_ATTR_VLAN_TAG": "SAI_HOSTIF_VLAN_TAG_STRIP",
+            }
+            for phy_port in phy_ports:
+                hostif_oid = dvs.asicdb.hostifnamemap[phy_port]
+                self.check_sub_port_intf_fvs(self.asic_db, ASIC_HOSTIF_TABLE, hostif_oid, fv_dict)
+
+            # Remove lag members from lag parent port
+            if parent_port.startswith(LAG_PREFIX):
+                self.remove_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
+                self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 0)
 
         # Remove vrf if created
         if vrf_name:
