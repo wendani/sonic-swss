@@ -92,6 +92,7 @@ class TestSubPortIntf(object):
             assert port_name.startswith(LAG_PREFIX)
             tbl_name = CFG_LAG_TABLE_NAME
         self.config_db.create_entry(tbl_name, port_name, fvs)
+        time.sleep(1)
 
         if port_name.startswith(ETHERNET_PREFIX):
             self.set_parent_port_oper_status(dvs, port_name, "down")
@@ -367,6 +368,11 @@ class TestSubPortIntf(object):
         self.remove_sub_port_intf_profile(sub_port_intf_name)
         self.check_sub_port_intf_profile_removal(rif_oid)
 
+        # Remove vrf if created
+        if vrf_name:
+            self.remove_vrf(vrf_name)
+            self.check_vrf_removal(vrf_oid)
+
         if parent_port.startswith(LAG_PREFIX):
             # Remove lag members from lag parent port
             self.remove_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
@@ -375,11 +381,6 @@ class TestSubPortIntf(object):
             # Remove lag
             self.remove_lag(parent_port)
             self.check_lag_removal(parent_port_oid)
-
-        # Remove vrf if created
-        if vrf_name:
-            self.remove_vrf(vrf_name)
-            self.check_vrf_removal(vrf_oid)
 
     def test_sub_port_intf_creation(self, dvs):
         self.connect_dbs(dvs)
@@ -450,6 +451,11 @@ class TestSubPortIntf(object):
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
 
+        # Remove lag
+        if parent_port.startswith(LAG_PREFIX):
+            self.remove_lag(parent_port)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
+
     def test_sub_port_intf_add_ip_addrs(self, dvs):
         self.connect_dbs(dvs)
 
@@ -506,15 +512,15 @@ class TestSubPortIntf(object):
         self.remove_sub_port_intf_profile_appl_db(sub_port_intf_name)
         self.check_sub_port_intf_profile_removal(rif_oid)
 
-        # Remove lag
-        if parent_port.startswith(LAG_PREFIX):
-            self.remove_lag(parent_port)
-            self.check_lag_removal(parent_port_oid)
-
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
+
+        # Remove lag
+        if parent_port.startswith(LAG_PREFIX):
+            self.remove_lag(parent_port)
+            self.check_lag_removal(parent_port_oid)
 
     def test_sub_port_intf_appl_db_proc_seq(self, dvs):
         self.connect_dbs(dvs)
@@ -621,6 +627,11 @@ class TestSubPortIntf(object):
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
 
+        # Remove lag
+        if parent_port.startswith(LAG_PREFIX):
+            self.remove_lag(parent_port)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
+
     def test_sub_port_intf_admin_status_change(self, dvs):
         self.connect_dbs(dvs)
 
@@ -690,6 +701,11 @@ class TestSubPortIntf(object):
         if vrf_name:
             self.remove_vrf(vrf_name)
             self.asic_db.wait_for_n_keys(ASIC_VIRTUAL_ROUTER_TABLE, 1)
+
+        # Remove lag
+        if parent_port.startswith(LAG_PREFIX):
+            self.remove_lag(parent_port)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
 
     def test_sub_port_intf_remove_ip_addrs(self, dvs):
         self.connect_dbs(dvs)
@@ -833,6 +849,11 @@ class TestSubPortIntf(object):
             hostif_oid = dvs.asicdb.hostifnamemap[phy_port]
             self.check_sub_port_intf_fvs(self.asic_db, ASIC_HOSTIF_TABLE, hostif_oid, fv_dict)
 
+        # Remove vrf if created
+        if vrf_name:
+            self.remove_vrf(vrf_name)
+            self.asic_db.wait_for_n_keys(ASIC_VIRTUAL_ROUTER_TABLE, 1)
+
         if parent_port.startswith(LAG_PREFIX):
             # Remove lag members from lag parent port
             self.remove_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
@@ -841,11 +862,6 @@ class TestSubPortIntf(object):
             # Remove lag
             self.remove_lag(parent_port)
             self.check_lag_removal(parent_port_oid)
-
-        # Remove vrf if created
-        if vrf_name:
-            self.remove_vrf(vrf_name)
-            self.asic_db.wait_for_n_keys(ASIC_VIRTUAL_ROUTER_TABLE, 1)
 
     def test_sub_port_intf_removal(self, dvs):
         self.connect_dbs(dvs)
@@ -906,6 +922,11 @@ class TestSubPortIntf(object):
         if vrf_name:
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
+
+        # Remove lag
+        if parent_port.startswith(LAG_PREFIX):
+            self.remove_lag(parent_port)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
 
     def test_sub_port_intf_mtu(self, dvs):
         self.connect_dbs(dvs)
@@ -1120,11 +1141,16 @@ class TestSubPortIntf(object):
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
 
-        # Make sure parent port is oper status up
         parent_port_idx = parent_port_idx_base
         for i in range(0, nhop_num):
             port_name = "{}{}".format(parent_port_prefix, parent_port_idx)
-            self.set_parent_port_oper_status(dvs, port_name, "up")
+            if parent_port.startswith(ETHERNET_PREFIX):
+                # Make sure physical port is oper status up
+                self.set_parent_port_oper_status(dvs, port_name, "up")
+            else:
+                # Remove lag
+                self.remove_lag(port_name)
+                self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, nhop_num - 1 - i)
 
             parent_port_idx += (4 if parent_port_prefix == ETHERNET_PREFIX else 1)
 
@@ -1256,11 +1282,16 @@ class TestSubPortIntf(object):
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
 
-        # Make sure parent port oper status is up
         parent_port_idx = parent_port_idx_base
         for i in range(0, nhop_num):
             port_name = "{}{}".format(parent_port_prefix, parent_port_idx)
-            self.set_parent_port_oper_status(dvs, port_name, "up")
+            if parent_port.startswith(ETHERNET_PREFIX):
+                # Make sure physical port oper status is up
+                self.set_parent_port_oper_status(dvs, port_name, "up")
+            else:
+                # Remove lag
+                self.remove_lag(port_name)
+                self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, nhop_num - 1 - i)
 
             parent_port_idx += (4 if parent_port_prefix == ETHERNET_PREFIX else 1)
 
