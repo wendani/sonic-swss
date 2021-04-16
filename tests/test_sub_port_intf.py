@@ -32,6 +32,7 @@ ASIC_NEXT_HOP_GROUP_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_ME
 ASIC_LAG_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER"
 ASIC_HOSTIF_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF"
 ASIC_VIRTUAL_ROUTER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER"
+ASIC_LAG_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG"
 ASIC_TUNNEL_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_TUNNEL"
 
 ADMIN_STATUS = "admin_status"
@@ -107,6 +108,7 @@ class TestSubPortIntf(object):
             assert port_name.startswith(LAG_PREFIX)
             tbl_name = CFG_LAG_TABLE_NAME
         self.config_db.create_entry(tbl_name, port_name, fvs)
+        time.sleep(1)
 
         if port_name.startswith(ETHERNET_PREFIX):
             self.set_parent_port_oper_status(dvs, port_name, "down")
@@ -198,6 +200,12 @@ class TestSubPortIntf(object):
 
     def check_vrf_removal(self, vrf_oid):
         self.asic_db.wait_for_deleted_keys(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
+
+    def remove_lag(self, lag):
+        self.config_db.delete_entry(CFG_LAG_TABLE_NAME, lag)
+
+    def check_lag_removal(self, lag_oid):
+        self.asic_db.wait_for_deleted_keys(ASIC_LAG_TABLE, [lag_oid])
 
     def remove_lag_members(self, lag, members):
         for member in members:
@@ -339,6 +347,7 @@ class TestSubPortIntf(object):
         if parent_port.startswith(ETHERNET_PREFIX):
             state_tbl_name = STATE_PORT_TABLE_NAME
             phy_ports = [parent_port]
+            parent_port_oid = dvs.asicdb.portnamemap[parent_port]
         else:
             assert parent_port.startswith(LAG_PREFIX)
             state_tbl_name = STATE_LAG_TABLE_NAME
@@ -346,10 +355,12 @@ class TestSubPortIntf(object):
 
         vrf_oid = self.default_vrf_oid
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
+        old_lag_oids = self.get_oids(ASIC_LAG_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
-        # Add lag members to test physical port host interface vlan tag attribute
         if parent_port.startswith(LAG_PREFIX):
+            parent_port_oid = self.get_newly_created_oid(ASIC_LAG_TABLE, old_lag_oids)
+            # Add lag members to test physical port host interface vlan tag attribute
             self.add_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
             self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, len(self.LAG_MEMBERS_UNDER_TEST))
         if vrf_name:
@@ -391,6 +402,7 @@ class TestSubPortIntf(object):
             "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE": "true",
             "SAI_ROUTER_INTERFACE_ATTR_MTU": DEFAULT_MTU,
             "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID": vrf_oid,
+            "SAI_ROUTER_INTERFACE_ATTR_PORT_ID": parent_port_oid,
         }
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
@@ -407,11 +419,6 @@ class TestSubPortIntf(object):
         self.remove_sub_port_intf_profile(sub_port_intf_name)
         self.check_sub_port_intf_profile_removal(rif_oid)
 
-        # Remove lag members from lag parent port
-        if parent_port.startswith(LAG_PREFIX):
-            self.remove_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
-            self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 0)
-
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
@@ -419,6 +426,15 @@ class TestSubPortIntf(object):
             if vrf_name.startswith(VNET_PREFIX):
                 self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
                 self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
+
+        if parent_port.startswith(LAG_PREFIX):
+            # Remove lag members from lag parent port
+            self.remove_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 0)
+
+            # Remove lag
+            self.remove_lag(parent_port)
+            self.check_lag_removal(parent_port_oid)
 
     def test_sub_port_intf_creation(self, dvs):
         self.connect_dbs(dvs)
@@ -501,6 +517,11 @@ class TestSubPortIntf(object):
                 self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
                 self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
 
+        # Remove lag
+        if parent_port.startswith(LAG_PREFIX):
+            self.remove_lag(parent_port)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
+
     def test_sub_port_intf_add_ip_addrs(self, dvs):
         self.connect_dbs(dvs)
 
@@ -520,8 +541,14 @@ class TestSubPortIntf(object):
 
         vrf_oid = self.default_vrf_oid
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
+        old_lag_oids = self.get_oids(ASIC_LAG_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
+        if parent_port.startswith(ETHERNET_PREFIX):
+            parent_port_oid = dvs.asicdb.portnamemap[parent_port]
+        else:
+            assert parent_port.startswith(LAG_PREFIX)
+            parent_port_oid = self.get_newly_created_oid(ASIC_LAG_TABLE, old_lag_oids)
         if vrf_name:
             self.create_vrf(vrf_name)
             vrf_oid = self.get_newly_created_oid(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
@@ -543,6 +570,7 @@ class TestSubPortIntf(object):
             "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE": "true" if admin_up == True else "false",
             "SAI_ROUTER_INTERFACE_ATTR_MTU": DEFAULT_MTU,
             "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID": vrf_oid,
+            "SAI_ROUTER_INTERFACE_ATTR_PORT_ID": parent_port_oid,
         }
         rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
         self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
@@ -563,6 +591,11 @@ class TestSubPortIntf(object):
             if vrf_name.startswith(VNET_PREFIX):
                 self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
                 self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
+
+        # Remove lag
+        if parent_port.startswith(LAG_PREFIX):
+            self.remove_lag(parent_port)
+            self.check_lag_removal(parent_port_oid)
 
     def test_sub_port_intf_appl_db_proc_seq(self, dvs):
         self.connect_dbs(dvs)
@@ -682,6 +715,11 @@ class TestSubPortIntf(object):
                 self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
                 self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
 
+        # Remove lag
+        if parent_port.startswith(LAG_PREFIX):
+            self.remove_lag(parent_port)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
+
     def test_sub_port_intf_admin_status_change(self, dvs):
         self.connect_dbs(dvs)
 
@@ -760,6 +798,11 @@ class TestSubPortIntf(object):
                 self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
                 self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
 
+        # Remove lag
+        if parent_port.startswith(LAG_PREFIX):
+            self.remove_lag(parent_port)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
+
     def test_sub_port_intf_remove_ip_addrs(self, dvs):
         self.connect_dbs(dvs)
 
@@ -779,6 +822,7 @@ class TestSubPortIntf(object):
         if parent_port.startswith(ETHERNET_PREFIX):
             state_tbl_name = STATE_PORT_TABLE_NAME
             phy_ports = [parent_port]
+            parent_port_oid = dvs.asicdb.portnamemap[parent_port]
         else:
             assert parent_port.startswith(LAG_PREFIX)
             state_tbl_name = STATE_LAG_TABLE_NAME
@@ -786,10 +830,12 @@ class TestSubPortIntf(object):
 
         vrf_oid = self.default_vrf_oid
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
+        old_lag_oids = self.get_oids(ASIC_LAG_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
-        # Add lag members to test physical port host interface vlan tag attribute
         if parent_port.startswith(LAG_PREFIX):
+            parent_port_oid = self.get_newly_created_oid(ASIC_LAG_TABLE, old_lag_oids)
+            # Add lag members to test physical port host interface vlan tag attribute
             self.add_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
             self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, len(self.LAG_MEMBERS_UNDER_TEST))
         if vrf_name:
@@ -858,6 +904,7 @@ class TestSubPortIntf(object):
                 "SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE": "true",
                 "SAI_ROUTER_INTERFACE_ATTR_MTU": DEFAULT_MTU,
                 "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID": vrf_oid,
+                "SAI_ROUTER_INTERFACE_ATTR_PORT_ID": parent_port_oid,
             }
             rif_oid = self.get_newly_created_oid(ASIC_RIF_TABLE, old_rif_oids)
             self.check_sub_port_intf_fvs(self.asic_db, ASIC_RIF_TABLE, rif_oid, fv_dict)
@@ -905,11 +952,6 @@ class TestSubPortIntf(object):
             hostif_oid = dvs.asicdb.hostifnamemap[phy_port]
             self.check_sub_port_intf_fvs(self.asic_db, ASIC_HOSTIF_TABLE, hostif_oid, fv_dict)
 
-        # Remove lag members from lag parent port
-        if parent_port.startswith(LAG_PREFIX):
-            self.remove_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
-            self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 0)
-
         # Remove vrf if created
         if vrf_name:
             self.remove_vrf(vrf_name)
@@ -917,6 +959,15 @@ class TestSubPortIntf(object):
             if vrf_name.startswith(VNET_PREFIX):
                 self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
                 self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
+
+        if parent_port.startswith(LAG_PREFIX):
+            # Remove lag members from lag parent port
+            self.remove_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 0)
+
+            # Remove lag
+            self.remove_lag(parent_port)
+            self.check_lag_removal(parent_port_oid)
 
     def test_sub_port_intf_removal(self, dvs):
         self.connect_dbs(dvs)
@@ -986,6 +1037,11 @@ class TestSubPortIntf(object):
             if vrf_name.startswith(VNET_PREFIX):
                 self.remove_vxlan_tunnel(self.TUNNEL_UNDER_TEST)
                 self.app_db.wait_for_n_keys(ASIC_TUNNEL_TABLE, 0)
+
+        # Remove lag
+        if parent_port.startswith(LAG_PREFIX):
+            self.remove_lag(parent_port)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
 
     def test_sub_port_intf_mtu(self, dvs):
         self.connect_dbs(dvs)
@@ -1203,11 +1259,16 @@ class TestSubPortIntf(object):
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
 
-        # Make sure parent port is oper status up
         parent_port_idx = parent_port_idx_base
         for i in range(0, nhop_num):
             port_name = "{}{}".format(parent_port_prefix, parent_port_idx)
-            self.set_parent_port_oper_status(dvs, port_name, "up")
+            if parent_port.startswith(ETHERNET_PREFIX):
+                # Make sure physical port is oper status up
+                self.set_parent_port_oper_status(dvs, port_name, "up")
+            else:
+                # Remove lag
+                self.remove_lag(port_name)
+                self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, nhop_num - 1 - i)
 
             parent_port_idx += (4 if parent_port_prefix == ETHERNET_PREFIX else 1)
 
@@ -1339,11 +1400,16 @@ class TestSubPortIntf(object):
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
 
-        # Make sure parent port oper status is up
         parent_port_idx = parent_port_idx_base
         for i in range(0, nhop_num):
             port_name = "{}{}".format(parent_port_prefix, parent_port_idx)
-            self.set_parent_port_oper_status(dvs, port_name, "up")
+            if parent_port.startswith(ETHERNET_PREFIX):
+                # Make sure physical port oper status is up
+                self.set_parent_port_oper_status(dvs, port_name, "up")
+            else:
+                # Remove lag
+                self.remove_lag(port_name)
+                self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, nhop_num - 1 - i)
 
             parent_port_idx += (4 if parent_port_prefix == ETHERNET_PREFIX else 1)
 
