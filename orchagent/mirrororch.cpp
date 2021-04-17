@@ -584,23 +584,34 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
         return false;
     }
 
-    SWSS_LOG_NOTICE("Mirror session %s neighbor is %s",
-            name.c_str(), neighbor.alias.c_str());
+    SWSS_LOG_NOTICE("Mirror session %s neighbor %s connected to local router interface %s",
+            name.c_str(), neighbor.ip_address.to_string().c_str(), neighbor.alias.c_str());
 
     // Get mirror session monitor port information
     m_portsOrch->getPort(neighbor.alias,
             session.neighborInfo.port);
 
-    switch (session.neighborInfo.port.m_type)
+    Port p = session.neighborInfo.port;
+    if (p.m_type == Port::SUBPORT)
+    {
+        if (!m_portsOrch->getPort(p.m_parent_port_id, p))
+        {
+            SWSS_LOG_ERROR("Neighbor %s connected to local sub interface %s whose parent port does not exist",
+                    neighbor.ip_address.to_string().c_str(), neighbor.alias.c_str());
+            return false;
+        }
+    }
+
+    switch (p.m_type)
     {
         case Port::PHY:
         {
-            session.neighborInfo.portId = session.neighborInfo.port.m_port_id;
+            session.neighborInfo.portId = p.m_port_id;
             return true;
         }
         case Port::LAG:
         {
-            if (session.neighborInfo.port.m_members.empty())
+            if (p.m_members.empty())
             {
                 return false;
             }
@@ -622,7 +633,7 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
             {
                 // Get the first member of the LAG
                 Port member;
-                string first_member_alias = *session.neighborInfo.port.m_members.begin();
+                string first_member_alias = *p.m_members.begin();
                 m_portsOrch->getPort(first_member_alias, member);
 
                 session.neighborInfo.portId = member.m_port_id;
@@ -633,7 +644,7 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
         case Port::VLAN:
         {
             SWSS_LOG_NOTICE("Get mirror session destination IP neighbor VLAN %d",
-                    session.neighborInfo.port.m_vlan_info.vlan_id);
+                    p.m_vlan_info.vlan_id);
 
             // Recover the VLAN member monitor port picked before warm reboot
             // since the FDB entries are not yet learned on the hardware
@@ -652,11 +663,11 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
             {
                 Port member;
                 if (!m_fdbOrch->getPort(session.neighborInfo.mac,
-                            session.neighborInfo.port.m_vlan_info.vlan_id, member))
+                            p.m_vlan_info.vlan_id, member))
                 {
                     SWSS_LOG_NOTICE("Waiting to get FDB entry MAC %s under VLAN %s",
                             session.neighborInfo.mac.to_string().c_str(),
-                            session.neighborInfo.port.m_alias.c_str());
+                            p.m_alias.c_str());
                     return false;
                 }
                 else
