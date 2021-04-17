@@ -1376,9 +1376,11 @@ void MirrorOrch::updateLagMember(const LagMemberUpdate& update)
             if (!m_portsOrch->getPort(p.m_parent_port_id, p))
             {
                 SWSS_LOG_ERROR("Parent lag of local sub interface %s does not exist",
-                        port.m_alias.c_str());
+                        p.m_alias.c_str());
                 continue;
             }
+
+            assert(p.m_type != Port::VLAN);
         }
 
         // Check the following two conditions:
