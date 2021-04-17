@@ -813,7 +813,6 @@ class TestSubPortIntf(object):
                 # Add lag members to test physical port host interface vlan tag attribute
                 self.add_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST)
                 self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, len(self.LAG_MEMBERS_UNDER_TEST))
-
         if vrf_name:
             self.create_vrf(vrf_name)
             vrf_oid = self.get_newly_created_oid(ASIC_VIRTUAL_ROUTER_TABLE, [vrf_oid])
