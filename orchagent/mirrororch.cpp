@@ -1110,7 +1110,8 @@ bool MirrorOrch::updateSessionType(const string& name, MirrorEntry& session)
     sai_attribute_t attr;
     vector<sai_attribute_t> attrs;
 
-    if (session.neighborInfo.port.m_type == Port::VLAN)
+    if (session.neighborInfo.port.m_type == Port::VLAN
+            || session.neighborInfo.port.m_type == Port::SUBPORT)
     {
         attr.id = SAI_MIRROR_SESSION_ATTR_VLAN_HEADER_VALID;
         attr.value.booldata = true;
@@ -1147,7 +1148,7 @@ bool MirrorOrch::updateSessionType(const string& name, MirrorEntry& session)
 
         if (status != SAI_STATUS_SUCCESS)
         {
-            SWSS_LOG_ERROR("Failed to update mirror session %s VLAN to %s, rv:%d",
+            SWSS_LOG_ERROR("Failed to update mirror session %s VLAN ID to %s, rv:%d",
                     name.c_str(), session.neighborInfo.port.m_alias.c_str(), status);
             task_process_status handle_status =  handleSaiSetStatus(SAI_API_MIRROR, status);
             if (handle_status != task_success)
@@ -1157,7 +1158,7 @@ bool MirrorOrch::updateSessionType(const string& name, MirrorEntry& session)
         }
     }
 
-    SWSS_LOG_NOTICE("Update mirror session %s VLAN to %s",
+    SWSS_LOG_NOTICE("Update mirror session %s VLAN ID to %s",
             name.c_str(), session.neighborInfo.port.m_alias.c_str());
 
     setSessionState(name, session, MIRROR_SESSION_VLAN_ID);
