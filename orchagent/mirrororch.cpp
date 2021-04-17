@@ -699,10 +699,20 @@ bool MirrorOrch::updateSession(const string& name, MirrorEntry& session)
         // Update corresponding attributes
         if (session.status)
         {
-            if (old_session.neighborInfo.port.m_type !=
-                    session.neighborInfo.port.m_type &&
-                (old_session.neighborInfo.port.m_type == Port::VLAN ||
-                 session.neighborInfo.port.m_type == Port::VLAN))
+            if (((old_session.neighborInfo.port.m_type == Port::VLAN
+                            || old_session.neighborInfo.port.m_type == Port::SUBPORT)
+                        && (session.neighborInfo.port.m_type != Port::VLAN
+                            && session.neighborInfo.port.m_type != Port::SUBPORT))
+                    || ((old_session.neighborInfo.port.m_type != Port::VLAN
+                            && old_session.neighborInfo.port.m_type != Port::SUBPORT)
+                        && (session.neighborInfo.port.m_type == Port::VLAN
+                            || session.neighborInfo.port.m_type == Port::SUBPORT))
+                    || (old_session.neighborInfo.port.m_type == Port::VLAN
+                        && session.neighborInfo.port.m_type == Port::SUBPORT
+                        && old_session.neighborInfo.port.m_vlan_info.vlan_id != session.neighborInfo.port.m_vlan_info.vlan_id)
+                    || (old_session.neighborInfo.port.m_type == Port::SUBPORT
+                        && session.neighborInfo.port.m_type == Port::VLAN
+                        && old_session.neighborInfo.port.m_vlan_info.vlan_id != session.neighborInfo.port.m_vlan_info.vlan_id))
             {
                 ret &= updateSessionType(name, session);
             }
