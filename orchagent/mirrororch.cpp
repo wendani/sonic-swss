@@ -1360,11 +1360,21 @@ void MirrorOrch::updateLagMember(const LagMemberUpdate& update)
             }
         }
 
+        Port p = session.neighborInfo.port;
+        if (p.m_type == Port::SUBPORT)
+        {
+            if (!m_portsOrch->getPort(p.m_parent_port_id, p))
+            {
+                SWSS_LOG_ERROR("Parent lag of local sub interface %s does not exist",
+                        port.m_alias.c_str());
+                continue;
+            }
+        }
+
         // Check the following two conditions:
         // 1) the neighbor is LAG
         // 2) the neighbor LAG matches the update LAG
-        if (session.neighborInfo.port.m_type != Port::LAG ||
-                session.neighborInfo.port != update.lag)
+        if (p.m_type != Port::LAG || p != update.lag)
         {
             continue;
         }
@@ -1394,7 +1404,7 @@ void MirrorOrch::updateLagMember(const LagMemberUpdate& update)
                 {
                     deactivateSession(name, session);
                 }
-                session.neighborInfo.portId = SAI_OBJECT_TYPE_NULL;
+                session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
             }
             // Switch to a new member of the LAG
             else
