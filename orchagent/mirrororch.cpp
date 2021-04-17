@@ -882,8 +882,9 @@ bool MirrorOrch::activateSession(const string& name, MirrorEntry& session)
         attr.value.s32 = SAI_MIRROR_SESSION_TYPE_ENHANCED_REMOTE;
         attrs.push_back(attr);
 
-        // Add the VLAN header when the packet is sent out from a VLAN
-        if (session.neighborInfo.port.m_type == Port::VLAN)
+        // Add the VLAN header when the packet is sent out from a VLAN or a sub port interface
+        if (session.neighborInfo.port.m_type == Port::VLAN
+                || session.neighborInfo.port.m_type == Port::SUBPORT)
         {
             attr.id = SAI_MIRROR_SESSION_ATTR_VLAN_HEADER_VALID;
             attr.value.booldata = true;
