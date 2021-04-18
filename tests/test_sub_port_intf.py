@@ -145,6 +145,12 @@ class TestSubPortIntf(object):
         tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, APP_INTF_TABLE_NAME)
         tbl.set(sub_port_intf_name + APPL_DB_SEPARATOR + ip_addr, fvs)
 
+    def add_route_appl_db(self, ip_prefix, nhop_ips, ifnames):
+        fvs = swsscommon.FieldValuePairs([("nexthop", ",".join(nhop_ips)), ("ifname", ",".join(ifnames))])
+
+        tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, APP_ROUTE_TABLE_NAME)
+        tbl.set(ip_prefix, fvs)
+
     def set_sub_port_intf_admin_status(self, sub_port_intf_name, status):
         fvs = {ADMIN_STATUS: status}
 
@@ -188,6 +194,10 @@ class TestSubPortIntf(object):
     def remove_sub_port_intf_ip_addr_appl_db(self, sub_port_intf_name, ip_addr):
         tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, APP_INTF_TABLE_NAME)
         tbl._del(sub_port_intf_name + APPL_DB_SEPARATOR + ip_addr)
+
+    def remove_route_appl_db(self, ip_prefix):
+        tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, APP_ROUTE_TABLE_NAME)
+        tbl._del(ip_prefix)
 
     def get_oids(self, table):
         return self.asic_db.get_keys(table)
@@ -1090,10 +1100,8 @@ class TestSubPortIntf(object):
         self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_TABLE, nhop_cnt + nhop_num if create_intf_on_parent_port == False else nhop_cnt + nhop_num * 2)
 
         # Create multi-next-hop route entry
-        rt_tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, APP_ROUTE_TABLE_NAME)
-        fvs = swsscommon.FieldValuePairs([("nexthop", ",".join(nhop_ips)), ("ifname", ",".join(ifnames))])
         ip_prefix = "2.2.2.0/24"
-        rt_tbl.set(vrf_name + APPL_DB_SEPARATOR + ip_prefix if vrf_name else ip_prefix, fvs)
+        self.add_route_appl_db(ip_prefix, nhop_ips, ifnames)
 
         # Verify route entry created in ASIC_DB and get next hop group oid
         nhg_oid = self.get_ip_prefix_nhg_oid(ip_prefix, vrf_oid)
@@ -1124,7 +1132,7 @@ class TestSubPortIntf(object):
         rif_cnt = len(self.asic_db.get_keys(ASIC_RIF_TABLE))
 
         # Remove ecmp route entry
-        rt_tbl._del(vrf_name + APPL_DB_SEPARATOR + ip_prefix if vrf_name else ip_prefix)
+        self.remove_route_appl_db(ip_prefix)
 
         # Remove sub port interfaces
         self.remove_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, int(vlan_id), nhop_num)
@@ -1233,10 +1241,8 @@ class TestSubPortIntf(object):
             self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_TABLE, nhop_cnt + nhop_num if create_intf_on_parent_port == False else nhop_cnt + nhop_num * 2)
 
             # Mimic pending multi-next-hop route entry task
-            rt_tbl = swsscommon.ProducerStateTable(self.app_db.db_connection, APP_ROUTE_TABLE_NAME)
-            fvs = swsscommon.FieldValuePairs([("nexthop", ",".join(nhop_ips)), ("ifname", ",".join(ifnames))])
             ip_prefix = "2.2.2.0/24"
-            rt_tbl.set(vrf_name + APPL_DB_SEPARATOR + ip_prefix if vrf_name else ip_prefix, fvs)
+            self.add_route_appl_db(ip_prefix, nhop_ips, ifnames)
 
             # Verify route entry created in ASIC_DB and get next hop group oid
             nhg_oid = self.get_ip_prefix_nhg_oid(ip_prefix, vrf_oid)
@@ -1262,7 +1268,7 @@ class TestSubPortIntf(object):
             if create_intf_on_parent_port == True:
                 self.remove_nhg_next_hop_objs(dvs, parent_port_prefix, parent_port_idx_base, 0, nhop_num)
             # Remove ecmp route entry
-            rt_tbl._del(vrf_name + APPL_DB_SEPARATOR + ip_prefix if vrf_name else ip_prefix)
+            self.remove_route_appl_db(ip_prefix)
             # Removal of next hop objects indicates the proper removal of route entry, nhg, and nhg members
             self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_TABLE, nhop_cnt - nhop_num if create_intf_on_parent_port == False else nhop_cnt - nhop_num * 2)
 
