@@ -83,8 +83,21 @@ class TestMirror(object):
         dvs.runcmd("ip route add " + prefix + " via " + nexthop)
         time.sleep(1)
 
+    def add_route_appl_db(self, dvs, prefix, nexthops, ifnames):
+        fvs = swsscommon.FieldValuePairs([(NEXTHOP, ",".join(nexthops)),
+                                          (IFNAME, ",".join(ifnames))])
+
+        tbl = swsscommon.ProducerStateTable(self.pdb, APPL_ROUTE_TABLE_NAME)
+        tbl.set(prefix, fvs)
+        time.sleep(1)
+
     def remove_route(self, dvs, prefix):
         dvs.runcmd("ip route del " + prefix)
+        time.sleep(1)
+
+    def remove_route_appl_db(self, dvs, prefix):
+        tbl = swsscommon.ProducerStateTable(self.pdb, APPL_ROUTE_TABLE_NAME)
+        tbl._del(prefix)
         time.sleep(1)
 
     def create_mirror_session(self, name, src, dst, gre, dscp, ttl, queue):
@@ -915,18 +928,13 @@ class TestMirror(object):
 
         # Mimic host interface oper status down that causes frr to withdraw
         # directly connected subnet prefix
-        rt_tbl = swsscommon.ProducerStateTable(self.pdb, APPL_ROUTE_TABLE_NAME)
-        rt_tbl._del(DIRECT_SUBNET_UNDER_TEST)
-        time.sleep(1)
+        self.remove_route_appl_db(dvs, DIRECT_SUBNET_UNDER_TEST)
         assert self.get_mirror_session_status(session) == INACTIVE
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 0
 
         # Mimic host interface oper status up
-        fvs = swsscommon.FieldValuePairs([(NEXTHOP, "0.0.0.0"),
-                                          (IFNAME, PORT_UNDER_TEST)])
-        rt_tbl.set(DIRECT_SUBNET_UNDER_TEST, fvs)
-        time.sleep(1)
+        self.add_route_appl_db(dvs, DIRECT_SUBNET_UNDER_TEST, ["0.0.0.0"], [PORT_UNDER_TEST])
         assert self.get_mirror_session_status(session) == ACTIVE
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 1
