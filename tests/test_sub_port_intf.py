@@ -30,6 +30,7 @@ ASIC_NEXT_HOP_GROUP_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_ME
 ASIC_LAG_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER"
 ASIC_HOSTIF_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF"
 ASIC_MIRROR_SESSION_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION"
+ASIC_LAG_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG"
 
 ADMIN_STATUS = "admin_status"
 UP = "up"
@@ -167,6 +168,9 @@ class TestSubPortIntf(object):
         fvs = {ADMIN_STATUS: status}
 
         self.config_db.create_entry(CFG_VLAN_SUB_INTF_TABLE_NAME, sub_port_intf_name, fvs)
+
+    def remove_lag(self, lag):
+        self.config_db.delete_entry(CFG_LAG_TABLE_NAME, lag)
 
     def remove_lag_members(self, lag, members):
         for member in members:
@@ -983,7 +987,13 @@ class TestSubPortIntf(object):
         parent_port_idx = parent_port_idx_base
         for i in range(0, nhop_num):
             port_name = "{}{}".format(parent_port_prefix, parent_port_idx)
-            self.set_parent_port_oper_status(dvs, port_name, "up")
+            if parent_port.startswith(ETHERNET_PREFIX):
+                # Make sure physical port oper status is up
+                self.set_parent_port_oper_status(dvs, port_name, "up")
+            else:
+                # Remove lag
+                self.remove_lag(port_name)
+                self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, nhop_num - 1 - i)
 
             parent_port_idx += (4 if parent_port_prefix == ETHERNET_PREFIX else 1)
 
@@ -1012,9 +1022,16 @@ class TestSubPortIntf(object):
         parent_port_idx = self.get_parent_port_index(parent_port)
         dst_mac = "00:00:00:{:02d}:{}:01".format(parent_port_idx, vlan_id)
         if parent_port.startswith(ETHERNET_PREFIX):
-            parent_port_oid = dvs.asicdb.portnamemap[parent_port]
+            phy_port = parent_port
+        else:
+            assert parent_port.startswith(LAG_PREFIX)
+            phy_port = self.LAG_MEMBERS_UNDER_TEST[0]
+        phy_port_oid = dvs.asicdb.portnamemap[phy_port]
 
         self.set_parent_port_admin_status(dvs, parent_port, UP)
+        if parent_port.startswith(LAG_PREFIX):
+            self.add_lag_members(parent_port, [phy_port])
+            self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 1)
         self.create_sub_port_intf_profile(sub_port_intf_name)
         time.sleep(1)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
@@ -1031,7 +1048,7 @@ class TestSubPortIntf(object):
         self.add_route_appl_db(ip_prefix, [self.IPV4_NEXT_HOP_UNDER_TEST], [sub_port_intf_name])
 
         fv_dict_asic_db = {
-            "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT": parent_port_oid,
+            "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT": phy_port_oid,
             "SAI_MIRROR_SESSION_ATTR_TYPE": "SAI_MIRROR_SESSION_TYPE_ENHANCED_REMOTE",
             "SAI_MIRROR_SESSION_ATTR_ERSPAN_ENCAPSULATION_TYPE": "SAI_ERSPAN_ENCAPSULATION_TYPE_MIRROR_L3_GRE_TUNNEL",
             "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION": "4",
@@ -1050,7 +1067,7 @@ class TestSubPortIntf(object):
         }
         fv_dict_state_db = {
             STATUS: ACTIVE,
-            MONITOR_PORT: parent_port,
+            MONITOR_PORT: phy_port,
             DST_MAC: dst_mac,
             ROUTE_PREFIX: ip_prefix,
             VLAN_ID: vlan_id,
@@ -1089,16 +1106,20 @@ class TestSubPortIntf(object):
         self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
         self.remove_sub_port_intf_profile(sub_port_intf_name)
 
-        # Remove lag
         if parent_port.startswith(LAG_PREFIX):
+            # Remove lag member from lag parent port
+            self.remove_lag_members(parent_port, [phy_port])
+            self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 0)
+            # Remove lag
             self.remove_lag(parent_port)
-            self.check_lag_removal(parent_port_oid)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
 
     @pytest.mark.usefixtures('dvs_mirror_manager')
     def test_sub_port_intf_mirror(self, dvs):
         self.connect_dbs(dvs)
 
         self._test_sub_port_intf_mirror(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
+        self._test_sub_port_intf_mirror(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
     def _test_sub_port_intf_mirror_dest_direct_subnet(self, dvs, sub_port_intf_name):
         session_name = "TEST_SESSION"
@@ -1117,9 +1138,16 @@ class TestSubPortIntf(object):
         parent_port_idx = self.get_parent_port_index(parent_port)
         dst_mac = "00:00:00:{:02d}:{}:01".format(parent_port_idx, vlan_id)
         if parent_port.startswith(ETHERNET_PREFIX):
-            parent_port_oid = dvs.asicdb.portnamemap[parent_port]
+            phy_port = parent_port
+        else:
+            assert parent_port.startswith(LAG_PREFIX)
+            phy_port = self.LAG_MEMBERS_UNDER_TEST[0]
+        phy_port_oid = dvs.asicdb.portnamemap[phy_port]
 
         self.set_parent_port_admin_status(dvs, parent_port, UP)
+        if parent_port.startswith(LAG_PREFIX):
+            self.add_lag_members(parent_port, [phy_port])
+            self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 1)
         self.create_sub_port_intf_profile(sub_port_intf_name)
         time.sleep(1)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
@@ -1131,7 +1159,7 @@ class TestSubPortIntf(object):
         self.add_neigh_appl_db(sub_port_intf_name, self.IPV4_NEXT_HOP_UNDER_TEST, dst_mac)
 
         fv_dict_asic_db = {
-            "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT": parent_port_oid,
+            "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT": phy_port_oid,
             "SAI_MIRROR_SESSION_ATTR_TYPE": "SAI_MIRROR_SESSION_TYPE_ENHANCED_REMOTE",
             "SAI_MIRROR_SESSION_ATTR_ERSPAN_ENCAPSULATION_TYPE": "SAI_ERSPAN_ENCAPSULATION_TYPE_MIRROR_L3_GRE_TUNNEL",
             "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION": "4",
@@ -1150,7 +1178,7 @@ class TestSubPortIntf(object):
         }
         fv_dict_state_db = {
             STATUS: ACTIVE,
-            MONITOR_PORT: parent_port,
+            MONITOR_PORT: phy_port,
             DST_MAC: dst_mac,
             ROUTE_PREFIX: self.IPV4_SUBNET_UNDER_TEST,
             VLAN_ID: vlan_id,
@@ -1158,14 +1186,22 @@ class TestSubPortIntf(object):
         }
         self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
 
-        # Mimic host interface oper status down that causes frr to withdraw
-        # directly connected subnet prefix
-        self.remove_route_appl_db(self.IPV4_SUBNET_UNDER_TEST)
+        if parent_port.startswith(ETHERNET_PREFIX):
+            # Mimic host interface oper status down that causes frr to withdraw
+            # directly connected subnet prefix
+            self.remove_route_appl_db(self.IPV4_SUBNET_UNDER_TEST)
+        else:
+            # Oper down lag
+            self.set_parent_port_oper_status(dvs, parent_port, "down")
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
         self.asic_db.wait_for_n_keys(ASIC_MIRROR_SESSION_TABLE, 0)
 
-        # Mimic host interface oper status up
-        self.add_route_appl_db(self.IPV4_SUBNET_UNDER_TEST, ["0.0.0.0"], [sub_port_intf_name])
+        if parent_port.startswith(ETHERNET_PREFIX):
+            # Mimic host interface oper status up
+            self.add_route_appl_db(self.IPV4_SUBNET_UNDER_TEST, ["0.0.0.0"], [sub_port_intf_name])
+        else:
+            # Oper up lag
+            self.set_parent_port_oper_status(dvs, parent_port, "up")
         self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
 
         # Clean up
@@ -1173,16 +1209,20 @@ class TestSubPortIntf(object):
         self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
         self.remove_sub_port_intf_profile(sub_port_intf_name)
 
-        # Remove lag
         if parent_port.startswith(LAG_PREFIX):
+            # Remove lag member from lag parent port
+            self.remove_lag_members(parent_port, [phy_port])
+            self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 0)
+            # Remove lag
             self.remove_lag(parent_port)
-            self.check_lag_removal(parent_port_oid)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
 
     @pytest.mark.usefixtures('dvs_mirror_manager')
     def test_sub_port_intf_mirror_dest_direct_subnet(self, dvs):
         self.connect_dbs(dvs)
 
         self._test_sub_port_intf_mirror_dest_direct_subnet(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
+        self._test_sub_port_intf_mirror_dest_direct_subnet(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
 
 # Add Dummy always-pass test at end as workaroud
