@@ -33,7 +33,7 @@ class TestMirror(object):
         else:
             tbl_name = "PORT"
         tbl = swsscommon.Table(self.cdb, tbl_name)
-        fvs = swsscommon.FieldValuePairs([("admin_status", admin_status)])
+        fvs = swsscommon.FieldValuePairs([("admin_status", "up")])
         tbl.set(interface, fvs)
         time.sleep(1)
 
@@ -376,9 +376,10 @@ class TestMirror(object):
         time.sleep(1)
 
     def remove_port_channel(self, dvs, channel):
+        tbl = swsscommon.Table(self.cdb, "PORTCHANNEL")
+        tbl._del("PortChannel" + channel)
         tbl = swsscommon.ProducerStateTable(self.pdb, "LAG_TABLE")
         tbl._del("PortChannel" + channel)
-        dvs.runcmd("ip link del PortChannel" + channel)
         tbl = swsscommon.Table(self.sdb, "LAG_TABLE")
         tbl._del("PortChannel" + channel)
         time.sleep(1)
