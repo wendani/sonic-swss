@@ -33,7 +33,7 @@ class TestMirror(object):
         else:
             tbl_name = "PORT"
         tbl = swsscommon.Table(self.cdb, tbl_name)
-        fvs = swsscommon.FieldValuePairs([("admin_status", admin_status)])
+        fvs = swsscommon.FieldValuePairs([("admin_status", "up")])
         tbl.set(interface, fvs)
         time.sleep(1)
 
@@ -83,8 +83,21 @@ class TestMirror(object):
         dvs.runcmd("ip route add " + prefix + " via " + nexthop)
         time.sleep(1)
 
+    def add_route_appl_db(self, dvs, prefix, nexthops, ifnames):
+        fvs = swsscommon.FieldValuePairs([(NEXTHOP, ",".join(nexthops)),
+                                          (IFNAME, ",".join(ifnames))])
+
+        tbl = swsscommon.ProducerStateTable(self.pdb, APPL_ROUTE_TABLE_NAME)
+        tbl.set(prefix, fvs)
+        time.sleep(1)
+
     def remove_route(self, dvs, prefix):
         dvs.runcmd("ip route del " + prefix)
+        time.sleep(1)
+
+    def remove_route_appl_db(self, dvs, prefix):
+        tbl = swsscommon.ProducerStateTable(self.pdb, APPL_ROUTE_TABLE_NAME)
+        tbl._del(prefix)
         time.sleep(1)
 
     def create_mirror_session(self, name, src, dst, gre, dscp, ttl, queue):
@@ -363,9 +376,10 @@ class TestMirror(object):
         time.sleep(1)
 
     def remove_port_channel(self, dvs, channel):
+        tbl = swsscommon.Table(self.cdb, "PORTCHANNEL")
+        tbl._del("PortChannel" + channel)
         tbl = swsscommon.ProducerStateTable(self.pdb, "LAG_TABLE")
         tbl._del("PortChannel" + channel)
-        dvs.runcmd("ip link del PortChannel" + channel)
         tbl = swsscommon.Table(self.sdb, "LAG_TABLE")
         tbl._del("PortChannel" + channel)
         time.sleep(1)
@@ -910,24 +924,27 @@ class TestMirror(object):
 
         self.add_neighbor(PORT_UNDER_TEST, dst_ip, "02:04:06:08:10:12")
         assert self.get_mirror_session_status(session) == ACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
 
         # Mimic host interface oper status down that causes frr to withdraw
         # directly connected subnet prefix
-        rt_tbl = swsscommon.ProducerStateTable(self.pdb, APPL_ROUTE_TABLE_NAME)
-        rt_tbl._del(DIRECT_SUBNET_UNDER_TEST)
-        time.sleep(1)
+        self.remove_route_appl_db(dvs, DIRECT_SUBNET_UNDER_TEST)
         assert self.get_mirror_session_status(session) == INACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
 
         # Mimic host interface oper status up
-        fvs = swsscommon.FieldValuePairs([(NEXTHOP, "0.0.0.0"),
-                                          (IFNAME, PORT_UNDER_TEST)])
-        rt_tbl.set(DIRECT_SUBNET_UNDER_TEST, fvs)
-        time.sleep(1)
+        self.add_route_appl_db(dvs, DIRECT_SUBNET_UNDER_TEST, ["0.0.0.0"], [PORT_UNDER_TEST])
         assert self.get_mirror_session_status(session) == ACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
 
         # Clean up
         self.remove_neighbor(PORT_UNDER_TEST, dst_ip)
         assert self.get_mirror_session_status(session) == INACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
 
         self.remove_ip_address(PORT_UNDER_TEST, PORT_ADDR_UNDER_TEST)
         assert self.get_mirror_session_status(session) == INACTIVE
@@ -973,18 +990,26 @@ class TestMirror(object):
 
         self.add_neighbor(LAG_UNDER_TEST, dst_ip, "88:88:88:88:88:88")
         assert self.get_mirror_session_status(session) == ACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
 
         # Oper down lag
         self.set_lag_oper_status(dvs, LAG_UNDER_TEST, "down")
         assert self.get_mirror_session_status(session) == INACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
 
         # Oper up lag
         self.set_lag_oper_status(dvs, LAG_UNDER_TEST, "up")
         assert self.get_mirror_session_status(session) == ACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
 
         # Clean up
         self.remove_neighbor(LAG_UNDER_TEST, dst_ip)
         assert self.get_mirror_session_status(session) == INACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
 
         self.remove_ip_address(LAG_UNDER_TEST, LAG_ADDR_UNDER_TEST)
         assert self.get_mirror_session_status(session) == INACTIVE
