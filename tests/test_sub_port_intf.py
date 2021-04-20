@@ -311,10 +311,10 @@ class TestSubPortIntf(object):
             assert parent_port.startswith(LAG_PREFIX)
             state_tbl_name = STATE_LAG_TABLE_NAME
             phy_ports = self.LAG_MEMBERS_UNDER_TEST
+            old_lag_oids = self.get_oids(ASIC_LAG_TABLE)
 
         vrf_oid = self.default_vrf_oid
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
-        old_lag_oids = self.get_oids(ASIC_LAG_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
         if parent_port.startswith(LAG_PREFIX):
@@ -738,10 +738,10 @@ class TestSubPortIntf(object):
             assert parent_port.startswith(LAG_PREFIX)
             state_tbl_name = STATE_LAG_TABLE_NAME
             phy_ports = self.LAG_MEMBERS_UNDER_TEST
+            old_lag_oids = self.get_oids(ASIC_LAG_TABLE)
 
         vrf_oid = self.default_vrf_oid
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
-        old_lag_oids = self.get_oids(ASIC_LAG_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
         if parent_port.startswith(LAG_PREFIX):
