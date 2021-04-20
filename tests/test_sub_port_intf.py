@@ -1096,6 +1096,29 @@ class TestSubPortIntf(object):
         fv_dict_state_db[DST_MAC] = dst_mac
         self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
 
+        if parent_port.startswith(LAG_PREFIX):
+            # Test lag member removal that deactivates mirror session
+            self.remove_lag_members(parent_port, [phy_port])
+            self.dvs_mirror.verify_session_status(session_name, INACTIVE)
+            self.asic_db.wait_for_n_keys(ASIC_MIRROR_SESSION_TABLE, 0)
+
+            # Restore lag member that activates mirror session
+            self.add_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST[1:2])
+            fv_dict_asic_db["SAI_MIRROR_SESSION_ATTR_MONITOR_PORT"] = dvs.asicdb.portnamemap[self.LAG_MEMBERS_UNDER_TEST[1]]
+            fv_dict_state_db[MONITOR_PORT] = self.LAG_MEMBERS_UNDER_TEST[1]
+            self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
+
+            # Add lag member
+            self.add_lag_members(parent_port, [phy_port])
+            # Monitor port stays unchanged
+            self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
+
+            # Test lag member removal that triggers monitor port update
+            self.remove_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST[1:2])
+            fv_dict_asic_db["SAI_MIRROR_SESSION_ATTR_MONITOR_PORT"] = phy_port_oid
+            fv_dict_state_db[MONITOR_PORT] = phy_port
+            self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
+
         # Test mirror session removal
         self.dvs_mirror.remove_mirror_session(session_name)
         self.dvs_mirror.verify_no_mirror()
