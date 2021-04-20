@@ -34,6 +34,7 @@ ASIC_LAG_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG"
 
 ADMIN_STATUS = "admin_status"
 UP = "up"
+DOWN = "down"
 
 ETHERNET_PREFIX = "Ethernet"
 LAG_PREFIX = "PortChannel"
@@ -1215,7 +1216,7 @@ class TestSubPortIntf(object):
             self.remove_route_appl_db(self.IPV4_SUBNET_UNDER_TEST)
         else:
             # Oper down lag
-            self.set_parent_port_oper_status(dvs, parent_port, "down")
+            self.set_parent_port_oper_status(dvs, parent_port, DOWN)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
         self.asic_db.wait_for_n_keys(ASIC_MIRROR_SESSION_TABLE, 0)
 
@@ -1224,7 +1225,7 @@ class TestSubPortIntf(object):
             self.add_route_appl_db(self.IPV4_SUBNET_UNDER_TEST, ["0.0.0.0"], [sub_port_intf_name])
         else:
             # Oper up lag
-            self.set_parent_port_oper_status(dvs, parent_port, "up")
+            self.set_parent_port_oper_status(dvs, parent_port, UP)
         self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
 
         # Clean up
