@@ -1372,16 +1372,40 @@ class TestSubPortIntf(object):
             nhop_ips.append(nhop_ip)
             dst_macs.append(dst_mac)
 
-        print(ifnames)
-        print(monitor_ports)
-        print(ip_addrs)
-        print(nhop_ips)
-        print(dst_macs)
         # Clean up
-        for i in range(0, len(ifnames)):
-            self.remove_neigh_appl_db(ifnames[i], ip_addr[i])
+        intf_cnt = len(ifnames)
 
+        nhop_cnt = len(self.asic_db.get_keys(ASIC_NEXT_HOP_TABLE))
+        rif_cnt = len(self.asic_db.get_keys(ASIC_RIF_TABLE))
+        for i in range(0, intf_cnt):
+            self.remove_neigh_appl_db(ifnames[i], nhop_ips[i])
 
+            if VLAN_SUB_INTERFACE_SEPARATOR in ifnames[i]:
+                self.remove_sub_port_intf_ip_addr(ifnames[i], ip_addrs[i])
+                self.remove_sub_port_intf_profile(ifnames[i])
+            else:
+                dvs.remove_ip_address(ifnames[i], ip_addrs[i])
+        self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_TABLE, nhop_cnt -intf_cnt)
+        self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt - intf_cnt)
+
+        self.remove_lag_members(self.LAG_SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[0], self.LAG_MEMBERS_UNDER_TEST[:1])
+        self.remove_lag(self.LAG_SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[0])
+        self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 0)
+        self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
+
+        vlan_cnt = len(self.asic_db.get_keys(ASIC_VLAN_TABLE))
+        vlan_member_cnt = len(self.asic_db.get_keys(ASIC_VLAN_MEMBER_TABLE))
+        for i in range(0, intf_cnt):
+            if ifnames[i].startswith(VLAN_PREFIX):
+                # Remove fdb entry
+
+                dvs.remove_vlan_member(ifnames[i][len(VLAN_PREFIX):], monitor_ports[i])
+                vlan_member_cnt -= 1
+                self.asic_db.wait_for_n_keys(ASIC_VLAN_MEMBER_TABLE, vlan_member_cnt)
+
+                dvs.remove_vlan(ifnames[i][len(VLAN_PREFIX):])
+                vlan_cnt -= 1
+                self.asic_db.wait_for_n_keys(ASIC_VLAN_TABLE, vlan_cnt)
 
     @pytest.mark.usefixtures('dvs_mirror_manager')
     def test_sub_port_intf_mirror_nhg_change(self, dvs):
