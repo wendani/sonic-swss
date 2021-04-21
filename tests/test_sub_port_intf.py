@@ -1370,14 +1370,14 @@ class TestSubPortIntf(object):
         rif_cnt = len(self.asic_db.get_keys(ASIC_RIF_TABLE))
         for i in range(0, intf_cnt):
             self.remove_neigh_appl_db(ifnames[i], nhop_ips[i])
+            self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_TABLE, nhop_cnt - 1 - i)
 
             if VLAN_SUB_INTERFACE_SEPARATOR in ifnames[i]:
                 self.remove_sub_port_intf_ip_addr(ifnames[i], ip_addrs[i])
                 self.remove_sub_port_intf_profile(ifnames[i])
             else:
                 dvs.remove_ip_address(ifnames[i], ip_addrs[i])
-        self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_TABLE, nhop_cnt -intf_cnt)
-        self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt - intf_cnt)
+            self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt - 1 - i)
 
         self.remove_lag_members(self.LAG_SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[0], self.LAG_MEMBERS_UNDER_TEST[:1])
         self.remove_lag(self.LAG_SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[0])
