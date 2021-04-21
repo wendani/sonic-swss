@@ -31,6 +31,8 @@ ASIC_LAG_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER"
 ASIC_HOSTIF_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF"
 ASIC_MIRROR_SESSION_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION"
 ASIC_LAG_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG"
+ASIC_VLAN_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_VLAN_MEMBER"
+ASIC_VLAN_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_VLAN"
 
 ADMIN_STATUS = "admin_status"
 UP = "up"
@@ -38,6 +40,7 @@ DOWN = "down"
 
 ETHERNET_PREFIX = "Ethernet"
 LAG_PREFIX = "PortChannel"
+VLAN_PREFIX = "Vlan"
 
 VLAN_SUB_INTERFACE_SEPARATOR = "."
 APPL_DB_SEPARATOR = ":"
@@ -1247,6 +1250,144 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_mirror_dest_direct_subnet(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_mirror_dest_direct_subnet(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
+
+    def check_mirror_session_on_nhg_change(self, dvs):
+        pass
+
+    def _test_sub_port_intf_mirror_nhg_change(self, dvs, sub_port_intf_name):
+        session_name = "TEST_SESSION"
+        src_ip = "1.1.1.1"
+        dst_ip = "2.2.2.2"
+        gre_type= "0x6558"
+        dscp = "8"
+        ttl = "100"
+        queue = "0"
+        self.dvs_mirror.create_erspan_session(session_name, src_ip, dst_ip, gre_type, dscp, ttl, queue)
+        self.dvs_mirror.verify_session_status(session_name, INACTIVE)
+
+        substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
+        parent_port = substrs[0]
+        vlan_id = substrs[1]
+        parent_port_idx = self.get_parent_port_index(parent_port)
+        if parent_port.startswith(ETHERNET_PREFIX):
+            phy_port = parent_port
+        else:
+            assert parent_port.startswith(LAG_PREFIX)
+            phy_port = self.LAG_MEMBERS_UNDER_TEST[0]
+        phy_port_oid = dvs.asicdb.portnamemap[phy_port]
+
+        # Create router interfaces for nhg change test
+        ifnames = []
+        monitor_ports = []
+        ip_addrs = []
+        nhop_ips = []
+        dst_macs = []
+
+        rif_cnt = len(self.asic_db.get_keys(ASIC_RIF_TABLE))
+        nhop_cnt = len(self.asic_db.get_keys(ASIC_NEXT_HOP_TABLE))
+        vlan_cnt = len(self.asic_db.get_keys(ASIC_VLAN_TABLE))
+        vlan_member_cnt = len(self.asic_db.get_keys(ASIC_VLAN_MEMBER_TABLE))
+
+        sub_port_intf_names = [
+            self.SUB_PORT_INTERFACE_UNDER_TEST,
+            self.LAG_SUB_PORT_INTERFACE_UNDER_TEST,
+        ]
+        for intf_name in sub_port_intf_names:
+            ifnames.append(intf_name)
+
+            substrs = intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
+            parent_port = substrs[0]
+            vlan_id = int(substrs[1])
+
+            self.set_parent_port_admin_status(dvs, parent_port, UP)
+            if parent_port.startswith(ETHERNET_PREFIX):
+                monitor_ports.append(parent_port)
+            else:
+                # Add lag member
+                self.add_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST[:1])
+                self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 1)
+                monitor_ports.append(self.LAG_MEMBERS_UNDER_TEST[0])
+            self.create_sub_port_intf_profile(intf_name)
+            rif_cnt += 1
+            self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt)
+
+            parent_port_idx = self.get_parent_port_index(parent_port)
+            ip_addr = "10.{}.{}.0/31".format(parent_port_idx, vlan_id)
+            self.add_sub_port_intf_ip_addr(intf_name, ip_addr)
+            ip_addrs.append(ip_addr)
+
+            nhop_ip = "10.{}.{}.1".format(parent_port_idx, vlan_id)
+            dst_mac = "00:00:00:{:02d}:{:02d}:01".format(parent_port_idx, vlan_id)
+            self.add_neigh_appl_db(intf_name, nhop_ip, dst_mac)
+            nhop_cnt += 1
+            self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_TABLE, nhop_cnt)
+            nhop_ips.append(nhop_ip)
+            dst_macs.append(dst_mac)
+
+        intf_names = [
+            self.SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[0],
+            self.LAG_SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[0],
+            VLAN_PREFIX + self.SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[1],
+            VLAN_PREFIX + self.LAG_SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[1],
+        ]
+        vlan_member_idx = 76
+        for intf_name in intf_names:
+            ifnames.append(intf_name)
+
+            port_idx = 0
+            vlan_id = 0
+            if intf_name.startswith(VLAN_PREFIX):
+                vlan_id = int(intf_name[len(VLAN_PREFIX):])
+                # Add vlan
+                dvs.create_vlan("{}".format(vlan_id))
+                vlan_cnt += 1
+                self.asic_db.wait_for_n_keys(ASIC_VLAN_TABLE, vlan_cnt)
+                # Add vlan member
+                vlan_member = "{}{}".format(ETHERNET_PREFIX, vlan_member_idx)
+                dvs.create_vlan_member("{}".format(vlan_id), vlan_member)
+                vlan_member_cnt += 1
+                self.asic_db.wait_for_n_keys(ASIC_VLAN_MEMBER_TABLE, vlan_member_cnt)
+                # Add fdb entry to vlan
+                dvs.set_interface_status(intf_name, UP)
+                monitor_ports.append(vlan_member)
+                vlan_member_idx += 4
+            else:
+                port_idx = self.get_parent_port_index(intf_name)
+                if intf_name.startswith(ETHERNET_PREFIX):
+                    monitor_ports.append(intf_name)
+                else:
+                    monitor_ports.append(self.LAG_MEMBERS_UNDER_TEST[0])
+
+            ip_addr = "10.{}.{}.0/{}".format(port_idx, vlan_id, 28 if intf_name.startswith(VLAN_PREFIX) else 31)
+            dvs.add_ip_address(intf_name, ip_addr)
+            rif_cnt += 1
+            self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt)
+            ip_addrs.append(ip_addr)
+
+            nhop_ip = "10.{}.{}.1".format(port_idx, vlan_id)
+            dst_mac = "00:00:00:{:02d}:{:02d}:01".format(port_idx, vlan_id)
+            self.add_neigh_appl_db(intf_name, nhop_ip, dst_mac)
+            nhop_cnt += 1
+            self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_TABLE, nhop_cnt)
+            nhop_ips.append(nhop_ip)
+            dst_macs.append(dst_mac)
+
+        print(ifnames)
+        print(monitor_ports)
+        print(ip_addrs)
+        print(nhop_ips)
+        print(dst_macs)
+        # Clean up
+        for i in range(0, len(ifnames)):
+            self.remove_neigh_appl_db(ifnames[i], ip_addr[i])
+
+
+
+    @pytest.mark.usefixtures('dvs_mirror_manager')
+    def test_sub_port_intf_mirror_nhg_change(self, dvs):
+        self.connect_dbs(dvs)
+
+        self._test_sub_port_intf_mirror_nhg_change(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
 
 
 # Add Dummy always-pass test at end as workaroud
