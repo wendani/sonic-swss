@@ -33,6 +33,7 @@ ASIC_MIRROR_SESSION_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION"
 ASIC_LAG_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG"
 ASIC_VLAN_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_VLAN_MEMBER"
 ASIC_VLAN_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_VLAN"
+ASIC_FDB_ENTRY_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_FDB_ENTRY"
 
 ADMIN_STATUS = "admin_status"
 UP = "up"
@@ -1287,6 +1288,7 @@ class TestSubPortIntf(object):
         nhop_cnt = len(self.asic_db.get_keys(ASIC_NEXT_HOP_TABLE))
         vlan_cnt = len(self.asic_db.get_keys(ASIC_VLAN_TABLE))
         vlan_member_cnt = len(self.asic_db.get_keys(ASIC_VLAN_MEMBER_TABLE))
+        fdb_cnt = len(self.asic_db.get_keys(ASIC_FDB_ENTRY_TABLE))
 
         sub_port_intf_names = [
             self.SUB_PORT_INTERFACE_UNDER_TEST,
@@ -1347,7 +1349,7 @@ class TestSubPortIntf(object):
                 dvs.create_vlan_member("{}".format(vlan_id), vlan_member)
                 vlan_member_cnt += 1
                 self.asic_db.wait_for_n_keys(ASIC_VLAN_MEMBER_TABLE, vlan_member_cnt)
-                # Add fdb entry to vlan
+
                 dvs.set_interface_status(intf_name, UP)
                 monitor_ports.append(vlan_member)
                 vlan_member_idx += 4
@@ -1366,6 +1368,11 @@ class TestSubPortIntf(object):
 
             nhop_ip = "10.{}.{}.1".format(port_idx, vlan_id)
             dst_mac = "00:00:00:{:02d}:{:02d}:01".format(port_idx, vlan_id)
+            if intf_name.startswith(VLAN_PREFIX):
+                # Add fdb entry to vlan
+                dvs.create_fdb("{}".format(vlan_id), dst_mac.replace(":", "-"), vlan_member)
+                fdb_cnt += 1
+                self.asic_db.wait_for_n_keys(ASIC_FDB_ENTRY_TABLE, fdb_cnt)
             self.add_neigh_appl_db(intf_name, nhop_ip, dst_mac)
             nhop_cnt += 1
             self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_TABLE, nhop_cnt)
@@ -1395,15 +1402,20 @@ class TestSubPortIntf(object):
 
         vlan_cnt = len(self.asic_db.get_keys(ASIC_VLAN_TABLE))
         vlan_member_cnt = len(self.asic_db.get_keys(ASIC_VLAN_MEMBER_TABLE))
+        fdb_cnt = len(self.asic_db.get_keys(ASIC_FDB_ENTRY_TABLE))
         for i in range(0, intf_cnt):
             if ifnames[i].startswith(VLAN_PREFIX):
+                vlan_id = ifnames[i][len(VLAN_PREFIX):]
                 # Remove fdb entry
+                dvs.remove_fdb(vlan_id, dst_macs[i].replace(":", "-"))
+                fdb_cnt -= 1
+                self.asic_db.wait_for_n_keys(ASIC_FDB_ENTRY_TABLE, fdb_cnt)
 
-                dvs.remove_vlan_member(ifnames[i][len(VLAN_PREFIX):], monitor_ports[i])
+                dvs.remove_vlan_member(vlan_id, monitor_ports[i])
                 vlan_member_cnt -= 1
                 self.asic_db.wait_for_n_keys(ASIC_VLAN_MEMBER_TABLE, vlan_member_cnt)
 
-                dvs.remove_vlan(ifnames[i][len(VLAN_PREFIX):])
+                dvs.remove_vlan(vlan_id)
                 vlan_cnt -= 1
                 self.asic_db.wait_for_n_keys(ASIC_VLAN_TABLE, vlan_cnt)
 

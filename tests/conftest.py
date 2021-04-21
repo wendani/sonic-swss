@@ -1053,12 +1053,12 @@ class DockerVirtualSwitch:
         self.runcmd("ip route change " + prefix + cmd)
         time.sleep(1)
 
-    # deps: acl, mirror_port_erspan
+    # deps: acl, mirror_port_erspan, sub port intf
     def remove_route(self, prefix):
         self.runcmd("ip route del " + prefix)
         time.sleep(1)
 
-    # deps: mirror_port_erspan
+    # deps: mirror_port_erspan, sub port intf
     def create_fdb(self, vlan, mac, interface):
         tbl = swsscommon.ProducerStateTable(self.pdb, "FDB_TABLE")
         fvs = swsscommon.FieldValuePairs([("port", interface),
