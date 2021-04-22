@@ -699,19 +699,20 @@ bool MirrorOrch::updateSession(const string& name, MirrorEntry& session)
         // Update corresponding attributes
         if (session.status)
         {
-            if (((old_session.neighborInfo.port.m_type == Port::VLAN
-                            || old_session.neighborInfo.port.m_type == Port::SUBPORT)
-                        && (session.neighborInfo.port.m_type != Port::VLAN
-                            && session.neighborInfo.port.m_type != Port::SUBPORT))
-                    || ((old_session.neighborInfo.port.m_type != Port::VLAN
+            // Update from non-vlan, non-subport to vlan or subport, and vice versa,
+            // Or update among vlan or subport, but to a different vlan id
+            if (((old_session.neighborInfo.port.m_type != Port::VLAN
                             && old_session.neighborInfo.port.m_type != Port::SUBPORT)
                         && (session.neighborInfo.port.m_type == Port::VLAN
                             || session.neighborInfo.port.m_type == Port::SUBPORT))
-                    || (old_session.neighborInfo.port.m_type == Port::VLAN
-                        && session.neighborInfo.port.m_type == Port::SUBPORT
-                        && old_session.neighborInfo.port.m_vlan_info.vlan_id != session.neighborInfo.port.m_vlan_info.vlan_id)
-                    || (old_session.neighborInfo.port.m_type == Port::SUBPORT
-                        && session.neighborInfo.port.m_type == Port::VLAN
+                    || ((old_session.neighborInfo.port.m_type == Port::VLAN
+                            || old_session.neighborInfo.port.m_type == Port::SUBPORT)
+                        && (session.neighborInfo.port.m_type != Port::VLAN
+                            && session.neighborInfo.port.m_type != Port::SUBPORT))
+                    || ((old_session.neighborInfo.port.m_type == Port::VLAN
+                            || old_session.neighborInfo.port.m_type == Port::SUBPORT)
+                        && (session.neighborInfo.port.m_type == Port::VLAN
+                            || session.neighborInfo.port.m_type == Port::SUBPORT)
                         && old_session.neighborInfo.port.m_vlan_info.vlan_id != session.neighborInfo.port.m_vlan_info.vlan_id))
             {
                 ret &= updateSessionType(name, session);
