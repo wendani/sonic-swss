@@ -1256,18 +1256,7 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_mirror_dest_direct_subnet(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_mirror_dest_direct_subnet(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
-    def _test_sub_port_intf_mirror_nhg_change(self, dvs, sub_port_intf_name):
-        session_name = "TEST_SESSION"
-        src_ip = "1.1.1.1"
-        dst_ip = "2.2.2.2"
-        gre_type= "0x6558"
-        dscp = "8"
-        ttl = "100"
-        queue = "0"
-        self.dvs_mirror.create_erspan_session(session_name, src_ip, dst_ip, gre_type, dscp, ttl, queue)
-        self.dvs_mirror.verify_session_status(session_name, INACTIVE)
-
-        # Create router interfaces for nhg change test
+    def create_mirror_router_intfs(self, dvs):
         ifnames = []
         monitor_ports = []
         ip_addrs = []
@@ -1372,12 +1361,66 @@ class TestSubPortIntf(object):
             nhop_ips.append(nhop_ip)
             dst_macs.append(dst_mac)
 
+        return (ifnames, monitor_ports, ip_addrs, nhop_ips, dst_macs, vlan_ids)
+
+    def remove_mirror_router_intfs(self, dvs, ifnames, monitor_ports, ip_addrs, nhop_ips, dst_macs, vlan_ids):
+        intf_cnt = len(ifnames)
+
+        nhop_cnt = len(self.asic_db.get_keys(ASIC_NEXT_HOP_TABLE))
+        rif_cnt = len(self.asic_db.get_keys(ASIC_RIF_TABLE))
+        for i in range(0, intf_cnt):
+            self.remove_neigh_appl_db(ifnames[i], nhop_ips[i])
+
+            if VLAN_SUB_INTERFACE_SEPARATOR in ifnames[i]:
+                self.remove_sub_port_intf_ip_addr(ifnames[i], ip_addrs[i])
+                self.remove_sub_port_intf_profile(ifnames[i])
+            else:
+                dvs.remove_ip_address(ifnames[i], ip_addrs[i])
+        self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_TABLE, nhop_cnt -intf_cnt)
+        self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt - intf_cnt)
+
+        self.remove_lag_members(self.LAG_SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[0], self.LAG_MEMBERS_UNDER_TEST[:1])
+        self.remove_lag(self.LAG_SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[0])
+        self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 0)
+        self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
+
+        vlan_cnt = len(self.asic_db.get_keys(ASIC_VLAN_TABLE))
+        vlan_member_cnt = len(self.asic_db.get_keys(ASIC_VLAN_MEMBER_TABLE))
+        fdb_cnt = len(self.asic_db.get_keys(ASIC_FDB_ENTRY_TABLE))
+        for i in range(0, intf_cnt):
+            if ifnames[i].startswith(VLAN_PREFIX):
+                # Remove fdb entry
+                dvs.remove_fdb(vlan_ids[i], dst_macs[i].replace(":", "-"))
+                fdb_cnt -= 1
+                self.asic_db.wait_for_n_keys(ASIC_FDB_ENTRY_TABLE, fdb_cnt)
+
+                dvs.remove_vlan_member(vlan_ids[i], monitor_ports[i])
+                vlan_member_cnt -= 1
+                self.asic_db.wait_for_n_keys(ASIC_VLAN_MEMBER_TABLE, vlan_member_cnt)
+
+                dvs.remove_vlan(vlan_ids[i])
+                vlan_cnt -= 1
+                self.asic_db.wait_for_n_keys(ASIC_VLAN_TABLE, vlan_cnt)
+
+    def _test_sub_port_intf_mirror_nhg_change(self, dvs, sub_port_intf_name):
+        session_name = "TEST_SESSION"
+        src_ip = "1.1.1.1"
+        dst_ip = "2.2.2.2"
+        gre_type= "0x6558"
+        dscp = "8"
+        ttl = "100"
+        queue = "0"
+        self.dvs_mirror.create_erspan_session(session_name, src_ip, dst_ip, gre_type, dscp, ttl, queue)
+        self.dvs_mirror.verify_session_status(session_name, INACTIVE)
+
+        # Create router interfaces for nhg change test
+        (ifnames, monitor_ports, ip_addrs, nhop_ips, dst_macs, vlan_ids) = self.create_mirror_router_intfs(dvs)
+
         intf_cnt = len(ifnames)
         sub_port_intf_idx = ifnames.index(sub_port_intf_name)
 
         ip_prefix = "2.2.2.0/24"
         self.add_route_appl_db(ip_prefix, [nhop_ips[sub_port_intf_idx]], [sub_port_intf_name])
-
         fv_dict_asic_db = {
             "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT": dvs.asicdb.portnamemap[monitor_ports[sub_port_intf_idx]],
             "SAI_MIRROR_SESSION_ATTR_TYPE": "SAI_MIRROR_SESSION_TYPE_ENHANCED_REMOTE",
@@ -1455,19 +1498,14 @@ class TestSubPortIntf(object):
 
         # Clean up
         self.remove_route_appl_db(ip_prefix)
+        self.remove_mirror_router_intfs(dvs, ifnames, monitor_ports, ip_addrs, nhop_ips, dst_macs, vlan_ids)
 
-        nhop_cnt = len(self.asic_db.get_keys(ASIC_NEXT_HOP_TABLE))
-        rif_cnt = len(self.asic_db.get_keys(ASIC_RIF_TABLE))
-        for i in range(0, intf_cnt):
-            self.remove_neigh_appl_db(ifnames[i], nhop_ips[i])
+    @pytest.mark.usefixtures('dvs_mirror_manager')
+    def test_sub_port_intf_mirror_nhg_change(self, dvs):
+        self.connect_dbs(dvs)
 
-            if VLAN_SUB_INTERFACE_SEPARATOR in ifnames[i]:
-                self.remove_sub_port_intf_ip_addr(ifnames[i], ip_addrs[i])
-                self.remove_sub_port_intf_profile(ifnames[i])
-            else:
-                dvs.remove_ip_address(ifnames[i], ip_addrs[i])
-        self.asic_db.wait_for_n_keys(ASIC_NEXT_HOP_TABLE, nhop_cnt -intf_cnt)
-        self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt - intf_cnt)
+        self._test_sub_port_intf_mirror_nhg_change(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
+        self._test_sub_port_intf_mirror_nhg_change(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
 
         self.remove_lag_members(self.LAG_SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[0], self.LAG_MEMBERS_UNDER_TEST[:1])
         self.remove_lag(self.LAG_SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[0])
