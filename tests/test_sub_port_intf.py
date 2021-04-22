@@ -862,15 +862,15 @@ class TestSubPortIntf(object):
         # Clean up
         rif_cnt = len(self.asic_db.get_keys(ASIC_RIF_TABLE))
 
+        # Remove ecmp route entry
+        self.remove_route_appl_db(ip_prefix)
+
         # Remove sub port interfaces
         self.remove_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, int(vlan_id), nhop_num)
 
         # Remove router interfaces on parent ports
         if create_intf_on_parent_port == True:
             self.remove_nhg_router_intfs(dvs, parent_port_prefix, parent_port_idx_base, 0, nhop_num)
-
-        # Remove ecmp route entry
-        self.remove_route_appl_db(ip_prefix)
 
         # Removal of router interfaces indicates the proper removal of nhg, nhg members, next hop objects, and neighbor entries
         self.asic_db.wait_for_n_keys(ASIC_RIF_TABLE, rif_cnt - nhop_num if create_intf_on_parent_port == False else rif_cnt - nhop_num * 2)
@@ -1038,15 +1038,15 @@ class TestSubPortIntf(object):
             self.add_lag_members(parent_port, [phy_port])
             self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 1)
         self.create_sub_port_intf_profile(sub_port_intf_name)
-        time.sleep(1)
+        time.sleep(2)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
-        time.sleep(1)
+        time.sleep(2)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
 
         self.add_neigh_appl_db(sub_port_intf_name, self.IPV4_NEXT_HOP_UNDER_TEST, dst_mac)
-        time.sleep(1)
+        time.sleep(2)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
 
         ip_prefix = "2.2.2.0/24"
@@ -1177,11 +1177,11 @@ class TestSubPortIntf(object):
             self.add_lag_members(parent_port, [phy_port])
             self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 1)
         self.create_sub_port_intf_profile(sub_port_intf_name)
-        time.sleep(1)
+        time.sleep(2)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
 
         self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
-        time.sleep(1)
+        time.sleep(2)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
 
         self.add_neigh_appl_db(sub_port_intf_name, self.IPV4_NEXT_HOP_UNDER_TEST, dst_mac)
@@ -1231,6 +1231,10 @@ class TestSubPortIntf(object):
             # Oper up lag
             self.set_parent_port_oper_status(dvs, parent_port, UP)
         self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
+
+        # Remove mirror session
+        self.dvs_mirror.remove_mirror_session(session_name)
+        self.dvs_mirror.verify_no_mirror()
 
         # Clean up
         self.remove_neigh_appl_db(sub_port_intf_name, self.IPV4_NEXT_HOP_UNDER_TEST)
