@@ -79,7 +79,8 @@ class DVSMirror(object):
             entry = dvs.asic_db.wait_for_entry("ASIC_STATE:SAI_OBJECT_TYPE_POLICER", policer_oid)
             assert entry["SAI_POLICER_ATTR_CIR"] == cir
             
-    def verify_session(self, dvs, name, asic_db=None, state_db=None, dst_oid=None, src_ports=None, direction="BOTH", policer=None, expected = 1, asic_size=None):
+    def verify_session(self, dvs, name, asic_db=None, state_db=None, dst_oid=None,
+                       src_ports=None, direction="BOTH", policer=None, expected=1, asic_size=None):
         member_ids = self.asic_db.wait_for_n_keys("ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION", expected)
         session_oid=member_ids[0]
         # with multiple sessions, match on dst_oid to get session_oid
