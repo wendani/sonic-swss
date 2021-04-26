@@ -600,6 +600,8 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
                     neighbor.ip_address.to_string().c_str(), neighbor.alias.c_str());
             return false;
         }
+
+        assert(p.m_type != Port::VLAN);
     }
 
     switch (p.m_type)
