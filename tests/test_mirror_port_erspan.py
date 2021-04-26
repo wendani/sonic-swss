@@ -7,6 +7,11 @@ import pytest
 @pytest.mark.usefixtures('dvs_mirror_manager')
 
 class TestMirror(object):
+    def set_lag_oper_status(self, dvs, lag_name, status):
+        dvs.runcmd("bash -c 'echo " + ("1" if status == "up" else "0") + \
+                " > /sys/class/net/" + lag_name + "/carrier'")
+        time.sleep(1)
+
     def test_PortMirrorERSpanAddRemove(self, dvs, testlog):
         """
         This test covers the basic ERSPANmirror session creation and removal operations
@@ -244,6 +249,7 @@ class TestMirror(object):
 
         # bring up port channel and port channel member
         dvs.set_interface_status("PortChannel008", "up")
+        self.set_lag_oper_status(dvs, "PortChannel008", "up")
         dvs.set_interface_status("Ethernet88", "up")
 
         # add ip address to port channel 008
@@ -535,6 +541,7 @@ class TestMirror(object):
 
         # bring up port channel and port channel member
         dvs.set_interface_status("PortChannel008", "up")
+        self.set_lag_oper_status(dvs, "PortChannel008", "up")
         dvs.set_interface_status("Ethernet88", "up")
 
         # add ip address to port channel 008

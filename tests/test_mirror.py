@@ -970,7 +970,6 @@ class TestMirror(object):
         LAG_UNDER_TEST = "PortChannel" + LAG_INDEX_UNDER_TEST
         LAG_MEMBER_UNDER_TEST = "Ethernet88"
         LAG_ADDR_UNDER_TEST = "11.11.11.1/28"
-        DIRECT_SUBNET_UNDER_TEST = "11.11.11.0/28"
 
         # Create mirror session
         self.create_mirror_session(session, src_ip, dst_ip, gre_type, dscp, ttl, queue)
