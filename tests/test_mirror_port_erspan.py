@@ -1,5 +1,6 @@
 # This test suite covers the functionality of mirror feature in SwSS
 import pytest
+import time
 
 @pytest.mark.usefixtures("testlog")
 @pytest.mark.usefixtures('dvs_vlan_manager')
