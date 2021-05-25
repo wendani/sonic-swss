@@ -368,7 +368,6 @@ class TestSubPortIntf(object):
 
         vrf_oid = self.default_vrf_oid
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
-        old_lag_oids = self.get_oids(ASIC_LAG_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
         if parent_port.startswith(LAG_PREFIX):
@@ -572,15 +571,9 @@ class TestSubPortIntf(object):
         # Remove ip addresses from APPL_DB
         self.remove_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
         self.remove_sub_port_intf_ip_addr_appl_db(sub_port_intf_name, self.IPV6_ADDR_UNDER_TEST)
-
         # Remove sub port interface from APPL_DB
         self.remove_sub_port_intf_profile_appl_db(sub_port_intf_name)
         self.check_sub_port_intf_profile_removal(rif_oid)
-
-        # Remove lag
-        if parent_port.startswith(LAG_PREFIX):
-            self.remove_lag(parent_port)
-            self.check_lag_removal(parent_port_oid)
 
         # Remove vrf if created
         if vrf_name:
@@ -804,7 +797,6 @@ class TestSubPortIntf(object):
 
         vrf_oid = self.default_vrf_oid
         old_rif_oids = self.get_oids(ASIC_RIF_TABLE)
-        old_lag_oids = self.get_oids(ASIC_LAG_TABLE)
 
         self.set_parent_port_admin_status(dvs, parent_port, "up")
         if parent_port.startswith(LAG_PREFIX):
