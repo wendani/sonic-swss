@@ -550,8 +550,8 @@ void MirrorOrch::setSessionState(const string& name, const MirrorEntry& session,
 
     if (attr.empty() || attr == MIRROR_SESSION_NEXT_HOP_IP)
     {
-     value = session.nexthopInfo.nexthop.to_string();
-     fvVector.emplace_back(MIRROR_SESSION_NEXT_HOP_IP, value);
+        value = session.nexthopInfo.nexthop.to_string();
+        fvVector.emplace_back(MIRROR_SESSION_NEXT_HOP_IP, value);
     }
 
     m_mirrorTable.set(name, fvVector);
