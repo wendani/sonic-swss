@@ -476,12 +476,13 @@ task_process_status MirrorOrch::deleteEntry(const string& name)
         return task_process_status::task_need_retry;
     }
 
+    if (session.type != MIRROR_SESSION_SPAN)
+    {
+        m_routeOrch->detach(this, session.dstIp);
+    }
+
     if (session.status)
     {
-        if (session.type != MIRROR_SESSION_SPAN)
-        {
-            m_routeOrch->detach(this, session.dstIp);
-        }
         if (!deactivateSession(name, session))
         {
             SWSS_LOG_ERROR("Failed to remove mirror session %s", name.c_str());
