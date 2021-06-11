@@ -1,7 +1,6 @@
 import time
 import re
 import json
-import pytest
 import itertools
 
 from swsscommon import swsscommon
