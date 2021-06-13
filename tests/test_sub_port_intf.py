@@ -536,6 +536,11 @@ class TestSubPortIntf(object):
             self.remove_vrf(vrf_name)
             self.check_vrf_removal(vrf_oid)
 
+        # Remove lag
+        if parent_port.startswith(LAG_PREFIX):
+            self.remove_lag(parent_port)
+            self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
+
     def test_sub_port_intf_parent_misconfig(self, dvs):
         self.connect_dbs(dvs)
 
