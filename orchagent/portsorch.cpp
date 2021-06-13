@@ -772,7 +772,7 @@ bool PortsOrch::addSubPort(Port &port, const string &alias, const bool &adminUp,
         case Port::PHY:
             if (parentPort.m_lag_member_id != SAI_NULL_OBJECT_ID)
             {
-                SWSS_LOG_ERROR("Sub interface %s Port object creation failed: parent port %s is a LAG member",
+                SWSS_LOG_INFO("Sub interface %s Port object creation failed: parent port %s is a LAG member",
                         alias.c_str(), parentAlias.c_str());
                 return false;
             }
@@ -791,13 +791,13 @@ bool PortsOrch::addSubPort(Port &port, const string &alias, const bool &adminUp,
                 //
                 // Thus, a non-NULL bridge port object id indicates the prohibition of a proper sub port usage on a
                 // physical port or LAG.
-                SWSS_LOG_ERROR("Sub interface %s Port object creation failed: parent port %s is associated with a .1Q bridge",
+                SWSS_LOG_INFO("Sub interface %s Port object creation failed: parent port %s is associated with a .1Q bridge",
                         alias.c_str(), parentAlias.c_str());
                 return false;
             }
             break;
         default:
-            SWSS_LOG_ERROR("Sub interface %s Port object creation failed: \
+            SWSS_LOG_INFO("Sub interface %s Port object creation failed: \
                     parent port %s of invalid type (must be physical port or LAG)", alias.c_str(), parentAlias.c_str());
             return false;
     }
