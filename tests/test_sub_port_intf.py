@@ -31,6 +31,8 @@ ASIC_HOSTIF_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF"
 ASIC_VIRTUAL_ROUTER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER"
 ASIC_PORT_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_PORT"
 ASIC_LAG_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_LAG"
+ASIC_VLAN_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_VLAN"
+ASIC_VLAN_MEMBER_TABLE = "ASIC_STATE:SAI_OBJECT_TYPE_VLAN_MEMBER"
 
 ADMIN_STATUS = "admin_status"
 UP = "up"
@@ -481,6 +483,17 @@ class TestSubPortIntf(object):
             self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, 1)
         else:
             assert grand_port.startswith(VLAN_PREFIX)
+            # Create vlan
+            vlan_cnt = len(self.asic_db.get_keys(ASIC_VLAN_TABLE))
+            vlan_id = int(grand_port[len(VLAN_PREFIX):])
+            dvs.create_vlan("{}".format(vlan_id))
+            vlan_cnt += 1
+            self.asic_db.wait_for_n_keys(ASIC_VLAN_TABLE, vlan_cnt)
+            # Add parent physical port to vlan
+            vlan_member_cnt = len(self.asic_db.get_keys(ASIC_VLAN_MEMBER_TABLE))
+            dvs.create_vlan_member("{}".format(vlan_id), parent_port)
+            vlan_member_cnt += 1
+            self.asic_db.wait_for_n_keys(ASIC_VLAN_MEMBER_TABLE, vlan_member_cnt)
 
         # Test injecting sub port interface profile directly to APPL_DB
         self.create_sub_port_intf_profile_appl_db(sub_port_intf_name, UP, vrf_name)
@@ -508,7 +521,15 @@ class TestSubPortIntf(object):
             self.remove_lag(grand_port)
             self.asic_db.wait_for_n_keys(ASIC_LAG_TABLE, 0)
         else:
-            pass
+            # Remove parent physical port from vlan
+            dvs.remove_vlan_member("{}".format(vlan_id), parent_port)
+            vlan_member_cnt -= 1
+            self.asic_db.wait_for_n_keys(ASIC_VLAN_MEMBER_TABLE, vlan_member_cnt)
+
+            # Remove vlan
+            dvs.remove_vlan("{}".format(vlan_id))
+            vlan_cnt -= 1
+            self.asic_db.wait_for_n_keys(ASIC_VLAN_TABLE, vlan_cnt)
 
         # Remove vrf if created
         if vrf_name:
@@ -519,8 +540,10 @@ class TestSubPortIntf(object):
         self.connect_dbs(dvs)
 
         self._test_sub_port_intf_parent_misconfig(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.LAG_UNDER_TEST)
+        self._test_sub_port_intf_parent_misconfig(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VLAN_UNDER_TEST)
 
         self._test_sub_port_intf_parent_misconfig(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.LAG_UNDER_TEST, self.VRF_UNDER_TEST)
+        self._test_sub_port_intf_parent_misconfig(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, self.VLAN_UNDER_TEST, self.VRF_UNDER_TEST)
 
     def _test_sub_port_intf_add_ip_addrs(self, dvs, sub_port_intf_name, vrf_name=None):
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
