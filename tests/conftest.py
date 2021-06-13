@@ -957,7 +957,7 @@ class DockerVirtualSwitch:
 
         return exists, extra_info
 
-    # deps: fdb_update, fdb
+    # deps: fdb_update, fdb, sub port intf
     def create_vlan(self, vlan):
         tbl = swsscommon.Table(self.cdb, "VLAN")
         fvs = swsscommon.FieldValuePairs([("vlanid", vlan)])
