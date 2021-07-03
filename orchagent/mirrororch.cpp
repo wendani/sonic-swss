@@ -44,6 +44,7 @@ extern sai_port_api_t *sai_port_api;
 
 extern sai_object_id_t  gSwitchId;
 extern PortsOrch*       gPortsOrch;
+extern string           gMySwitchType;
 
 using namespace std::rel_ops;
 
@@ -483,15 +484,16 @@ task_process_status MirrorOrch::deleteEntry(const string& name)
 
     if (session.status)
     {
-        if (session.type != MIRROR_SESSION_SPAN)
-        {
-            m_routeOrch->detach(this, session.dstIp);
-        }
         if (!deactivateSession(name, session))
         {
             SWSS_LOG_ERROR("Failed to remove mirror session %s", name.c_str());
             return task_process_status::task_failed;
         }
+    }
+
+    if (session.type != MIRROR_SESSION_SPAN)
+    {
+        m_routeOrch->detach(this, session.dstIp);
     }
 
     if (!session.policer.empty())
@@ -666,6 +668,10 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
                 }
             }
 
+            return true;
+        }
+        case Port::SYSTEM:
+        {
             return true;
         }
         default:
@@ -864,7 +870,21 @@ bool MirrorOrch::activateSession(const string& name, MirrorEntry& session)
     else
     {
         attr.id = SAI_MIRROR_SESSION_ATTR_MONITOR_PORT;
-        attr.value.oid = session.neighborInfo.portId;
+        // Set monitor port to recirc port in voq switch.
+        if (gMySwitchType == "voq")
+        {
+            Port recirc_port;
+            if (!m_portsOrch->getRecircPort(recirc_port, "Rec"))
+            {
+                SWSS_LOG_ERROR("Failed to get recirc prot");
+                return false;
+            }
+            attr.value.oid = recirc_port.m_port_id;
+        }
+        else
+        {
+            attr.value.oid = session.neighborInfo.portId;
+        }
         attrs.push_back(attr);
 
         attr.id = SAI_MIRROR_SESSION_ATTR_TYPE;
@@ -926,7 +946,15 @@ bool MirrorOrch::activateSession(const string& name, MirrorEntry& session)
         attrs.push_back(attr);
 
         attr.id = SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS;
-        memcpy(attr.value.mac, session.neighborInfo.mac.getMac(), sizeof(sai_mac_t));
+        // Use router mac as mirror dst mac in voq switch.
+        if (gMySwitchType == "voq")
+        {
+            memcpy(attr.value.mac, gMacAddress.getMac(), sizeof(sai_mac_t));
+        }
+        else
+        {
+            memcpy(attr.value.mac, session.neighborInfo.mac.getMac(), sizeof(sai_mac_t));
+        }
         attrs.push_back(attr);
 
         attr.id = SAI_MIRROR_SESSION_ATTR_GRE_PROTOCOL_TYPE;
