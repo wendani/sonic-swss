@@ -124,6 +124,7 @@ class TestMirror(object):
         session = "TEST_SESSION"
         src_ip = "1.1.1.1"
         dst_ip = "2.2.2.2"
+        intf_addr = "10.0.0.0/31"
 
         marker = dvs.add_log_marker()
         # create mirror session
@@ -136,7 +137,7 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # add IP address to Ethernet16
-        self.add_ip_address("Ethernet16", "10.0.0.0/31")
+        self.add_ip_address("Ethernet16", intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # add neighbor to Ethernet16
@@ -193,7 +194,7 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove IP address
-        self.remove_ip_address("Ethernet16", "10.0.0.0/31")
+        self.remove_ip_address("Ethernet16", intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # bring down Ethernet16
