@@ -34,7 +34,8 @@
 
 #define MIRROR_SESSION_DEFAULT_VLAN_PRI 0
 #define MIRROR_SESSION_DEFAULT_VLAN_CFI 0
-#define MIRROR_SESSION_DEFAULT_IP_HDR_VER 4
+#define MIRROR_SESSION_IP_HDR_VER_4     4
+#define MIRROR_SESSION_IP_HDR_VER_6     6
 #define MIRROR_SESSION_DSCP_SHIFT       2
 #define MIRROR_SESSION_DSCP_MIN         0
 #define MIRROR_SESSION_DSCP_MAX         63
@@ -343,7 +344,7 @@ task_process_status MirrorOrch::createEntry(const string& key, const vector<Fiel
             if (fvField(i) == MIRROR_SESSION_SRC_IP)
             {
                 entry.srcIp = fvValue(i);
-                if (!entry.srcIp.isV4())
+                if (!entry.srcIp.isV4() and !entry.srcIp.isV6())
                 {
                     SWSS_LOG_ERROR("Unsupported version of sessions %s source IP address", key.c_str());
                     return task_process_status::task_invalid_entry;
@@ -352,7 +353,7 @@ task_process_status MirrorOrch::createEntry(const string& key, const vector<Fiel
             else if (fvField(i) == MIRROR_SESSION_DST_IP)
             {
                 entry.dstIp = fvValue(i);
-                if (!entry.dstIp.isV4())
+                if (!entry.dstIp.isV4() and !entry.dstIp.isV6())
                 {
                     SWSS_LOG_ERROR("Unsupported version of sessions %s destination IP address", key.c_str());
                     return task_process_status::task_invalid_entry;
@@ -434,6 +435,11 @@ task_process_status MirrorOrch::createEntry(const string& key, const vector<Fiel
             SWSS_LOG_ERROR("Failed to parse session %s attribute %s. Unknown error has been occurred", key.c_str(), fvField(i).c_str());
             return task_process_status::task_failed;
         }
+    }
+    if (entry.srcIp.getIp().family != entry.dstIp.getIp().family)
+    {
+        SWSS_LOG_ERROR("Address family of source and destination IPs is different");
+        return task_process_status::task_invalid_entry;
     }
 
     m_syncdMirrors.emplace(key, entry);
@@ -913,7 +919,7 @@ bool MirrorOrch::activateSession(const string& name, MirrorEntry& session)
         attrs.push_back(attr);
 
         attr.id = SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION;
-        attr.value.u8 = MIRROR_SESSION_DEFAULT_IP_HDR_VER;
+        attr.value.u8 = session.dstIp.isV6() ? MIRROR_SESSION_IP_HDR_VER_6 : MIRROR_SESSION_IP_HDR_VER_4;
         attrs.push_back(attr);
 
         // TOS value format is the following:
