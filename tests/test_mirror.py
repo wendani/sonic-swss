@@ -122,12 +122,14 @@ class TestMirror(object):
         self.setup_db(dvs)
 
         session = "TEST_SESSION"
+        src_ip = "1.1.1.1"
+        dst_ip = "2.2.2.2"
 
         marker = dvs.add_log_marker()
         # create mirror session
-        self.create_mirror_session(session, "1.1.1.1", "2.2.2.2", "0x6558", "8", "100", "0")
+        self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
-        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP 2.2.2.2", 1)
+        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # bring up Ethernet16
         self.set_interface_status(dvs, "Ethernet16", "up")
@@ -170,9 +172,9 @@ class TestMirror(object):
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_TTL":
                 assert fv[1] == "100"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_SRC_IP_ADDRESS":
-                assert fv[1] == "1.1.1.1"
+                assert fv[1] == src_ip
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_IP_ADDRESS":
-                assert fv[1] == "2.2.2.2"
+                assert fv[1] == dst_ip
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_SRC_MAC_ADDRESS":
                 assert fv[1] == dvs.runcmd("bash -c \"ip link show eth0 | grep ether | awk '{print $2}'\"")[1].strip().upper()
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
@@ -183,7 +185,7 @@ class TestMirror(object):
                 assert False
 
         # remove route
-        self.remove_route(dvs, "2.2.2.2")
+        self.remove_route(dvs, dst_ip)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove neighbor
@@ -201,7 +203,7 @@ class TestMirror(object):
         marker = dvs.add_log_marker()
         # remove mirror session
         self.remove_mirror_session(session)
-        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP 2.2.2.2", 1)
+        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
 
     def create_vlan(self, dvs, vlan):
         #dvs.runcmd("ip link del Bridge")
