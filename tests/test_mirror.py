@@ -478,7 +478,7 @@ class TestMirror(object):
         self._test_MirrorToLagAddRemove(dvs, testlog)
         self._test_MirrorToLagAddRemove(dvs, testlog, v6_encap=True)
 
-    def _test_MirrorDestMoveVlan(self, dvs, testlog):
+    def _test_MirrorDestMoveVlan(self, dvs, testlog, v6_encap=False):
         """
         This test tests mirror session destination move from non-VLAN to VLAN
         and back to non-VLAN port
@@ -492,13 +492,13 @@ class TestMirror(object):
         8. Remove mirror session
         """
         session = "TEST_SESSION"
-        src_ip = "7.7.7.7"
-        dst_ip = "8.8.8.8"
-        port_intf_addr = "80.0.0.0/31"
-        port_nhop_ip = "80.0.0.1"
-        port_ip_prefix = "8.8.0.0/16"
+        src_ip = "7.7.7.7" if v6_encap == False else "fc00::7:7:7:7"
+        dst_ip = "8.8.8.8" if v6_encap == False else "fc00::8:8:8:8"
+        port_intf_addr = "80.0.0.0/31" if v6_encap == False else "fc00::80:0:0:0/126"
+        port_nhop_ip = "80.0.0.1" if v6_encap == False else "fc00::80:0:0:1"
+        port_ip_prefix = "8.8.0.0/16" if v6_encap == False else "fc00::8:8:0:0/96"
         # dst ip moves to directly connected vlan subnet
-        vlan_intf_addr = "8.8.8.0/24"
+        vlan_intf_addr = "8.8.8.0/24" if v6_encap == False else "fc00::8:8:8:0/112"
 
         # create mirror session
         self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
@@ -532,6 +532,8 @@ class TestMirror(object):
 
         # add ip address to vlan 9
         self.add_ip_address("Vlan9", vlan_intf_addr)
+        time.sleep(1)
+        # inactive due to no neighbor mac or fdb entry
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # create neighbor to vlan 9
@@ -607,6 +609,7 @@ class TestMirror(object):
         self.setup_db(dvs)
 
         self._test_MirrorDestMoveVlan(dvs, testlog)
+        self._test_MirrorDestMoveVlan(dvs, testlog, v6_encap=True)
 
     def test_MirrorDestMoveLag(self, dvs, testlog):
         """
