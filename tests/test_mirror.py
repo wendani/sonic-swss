@@ -617,7 +617,7 @@ class TestMirror(object):
         self._test_MirrorDestMoveVlan(dvs, testlog)
         self._test_MirrorDestMoveVlan(dvs, testlog, v6_encap=True)
 
-    def test_MirrorDestMoveLag(self, dvs, testlog, v6_encap=False):
+    def _test_MirrorDestMoveLag(self, dvs, testlog, v6_encap=False):
         """
         This test tests mirror session destination move from non-LAG to LAG
         and back to non-LAG port
@@ -630,8 +630,6 @@ class TestMirror(object):
         7. Disable non-LAG monitor port
         8. Remove mirror session
         """
-        self.setup_db(dvs)
-
         session = "TEST_SESSION"
         src_ip = "12.12.12.12"
         dst_ip = "13.13.13.13"
@@ -755,6 +753,10 @@ class TestMirror(object):
         # remove mirror session
         self.remove_mirror_session(session)
 
+    def test_MirrorDestMoveLag(self, dvs, testlog):
+        self.setup_db(dvs)
+
+        self._test_MirrorDestMoveLag(dvs, testlog)
 
     def create_acl_table(self, table, interfaces):
         tbl = swsscommon.Table(self.cdb, "ACL_TABLE")
