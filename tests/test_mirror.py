@@ -248,11 +248,7 @@ class TestMirror(object):
         tbl._del("Vlan" + vlan + ":" + mac)
         time.sleep(1)
 
-
-    # Ignore testcase in Debian Jessie
-    # TODO: Remove this skip if Jessie support is no longer needed
-    @pytest.mark.skipif(StrictVersion(distro.linux_distribution()[1]) <= StrictVersion('8.9'), reason="Debian 8.9 or before has no support")
-    def test_MirrorToVlanAddRemove(self, dvs, testlog):
+    def _test_MirrorToVlanAddRemove(self, dvs, testlog):
         """
         This test covers basic mirror session creation and removal operation
         with destination port sits in a VLAN
@@ -263,7 +259,6 @@ class TestMirror(object):
         3. Remove FDB; remove neighbor; remove IP; remove VLAN
         4. Remove mirror session
         """
-        self.setup_db(dvs)
 
         session = "TEST_SESSION"
         src_ip = "5.5.5.5"
@@ -365,6 +360,14 @@ class TestMirror(object):
         # remove mirror session
         self.remove_mirror_session(session)
         self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
+
+    # Ignore testcase in Debian Jessie
+    # TODO: Remove this skip if Jessie support is no longer needed
+    @pytest.mark.skipif(StrictVersion(distro.linux_distribution()[1]) <= StrictVersion('8.9'), reason="Debian 8.9 or before has no support")
+    def test_MirrorToVlanAddRemove(self, dvs, testlog):
+        self.setup_db(dvs)
+
+        self._test_MirrorToVlanAddRemove(dvs, testlog)
 
     def create_port_channel(self, dvs, channel):
         tbl = swsscommon.ProducerStateTable(self.pdb, "LAG_TABLE")
