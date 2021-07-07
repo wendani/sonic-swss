@@ -392,7 +392,7 @@ class TestMirror(object):
         time.sleep(1)
 
 
-    def test_MirrorToLagAddRemove(self, dvs, testlog):
+    def _test_MirrorToLagAddRemove(self, dvs, testlog):
         """
         This test covers basic mirror session creation and removal operations
         with destination port sits in a LAG
@@ -404,7 +404,6 @@ class TestMirror(object):
         4. Remove mirror session
 
         """
-        self.setup_db(dvs)
 
         session = "TEST_SESSION"
         src_ip = "10.10.10.10"
@@ -467,6 +466,10 @@ class TestMirror(object):
         self.remove_mirror_session(session)
         self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
 
+    def test_MirrorToLagAddRemove(self, dvs, testlog):
+        self.setup_db(dvs)
+
+        self._test_MirrorToLagAddRemove(dvs, testlog)
 
     # Ignore testcase in Debian Jessie
     # TODO: Remove this skip if Jessie support is no longer needed
