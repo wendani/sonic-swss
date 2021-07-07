@@ -119,7 +119,6 @@ class TestMirror(object):
            The session becomes inactive again till the end
         4. Remove miror session
         """
-
         session = "TEST_SESSION"
         src_ip = "1.1.1.1" if v6_encap == False else "fc00::1:1:1:1"
         dst_ip = "2.2.2.2" if v6_encap == False else "fc00::2:2:2:2"
@@ -259,7 +258,6 @@ class TestMirror(object):
         3. Remove FDB; remove neighbor; remove IP; remove VLAN
         4. Remove mirror session
         """
-
         session = "TEST_SESSION"
         src_ip = "5.5.5.5" if v6_encap == False else "fc00::5:5:5:5"
         # dst ip in directly connected vlan subnet
@@ -411,7 +409,6 @@ class TestMirror(object):
         4. Remove mirror session
 
         """
-
         session = "TEST_SESSION"
         src_ip = "10.10.10.10" if v6_encap == False else "fc00::10:10:10:10"
         dst_ip = "11.11.11.11" if v6_encap == False else "fc00::11:11:11:11"
@@ -481,10 +478,7 @@ class TestMirror(object):
         self._test_MirrorToLagAddRemove(dvs, testlog)
         self._test_MirrorToLagAddRemove(dvs, testlog, v6_encap=True)
 
-    # Ignore testcase in Debian Jessie
-    # TODO: Remove this skip if Jessie support is no longer needed
-    @pytest.mark.skipif(StrictVersion(distro.linux_distribution()[1]) <= StrictVersion('8.9'), reason="Debian 8.9 or before has no support")
-    def test_MirrorDestMoveVlan(self, dvs, testlog):
+    def _test_MirrorDestMoveVlan(self, dvs, testlog):
         """
         This test tests mirror session destination move from non-VLAN to VLAN
         and back to non-VLAN port
@@ -497,8 +491,6 @@ class TestMirror(object):
         7. Disable non-VLAN monitor port
         8. Remove mirror session
         """
-        self.setup_db(dvs)
-
         session = "TEST_SESSION"
         src_ip = "7.7.7.7"
         dst_ip = "8.8.8.8"
@@ -608,6 +600,13 @@ class TestMirror(object):
         # remove mirror session
         self.remove_mirror_session(session)
 
+    # Ignore testcase in Debian Jessie
+    # TODO: Remove this skip if Jessie support is no longer needed
+    @pytest.mark.skipif(StrictVersion(distro.linux_distribution()[1]) <= StrictVersion('8.9'), reason="Debian 8.9 or before has no support")
+    def test_MirrorDestMoveVlan(self, dvs, testlog):
+        self.setup_db(dvs)
+
+        self._test_MirrorDestMoveVlan(dvs, testlog)
 
     def test_MirrorDestMoveLag(self, dvs, testlog):
         """
