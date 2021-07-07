@@ -500,16 +500,23 @@ class TestMirror(object):
         self.setup_db(dvs)
 
         session = "TEST_SESSION"
+        src_ip = "7.7.7.7"
+        dst_ip = "8.8.8.8"
+        port_intf_addr = "80.0.0.0/31"
+        port_nhop_ip = "80.0.0.1"
+        port_ip_prefix = "8.8.0.0/16"
+        # dst ip moves to directly connected vlan subnet
+        vlan_intf_addr = "8.8.8.0/24"
 
         # create mirror session
-        self.create_mirror_session(session, "7.7.7.7", "8.8.8.8", "0x6558", "8", "100", "0")
+        self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # bring up port; add ip; add neighbor; add route
         self.set_interface_status(dvs, "Ethernet32", "up")
-        self.add_ip_address("Ethernet32", "80.0.0.0/31")
-        self.add_neighbor("Ethernet32", "80.0.0.1", "02:04:06:08:10:12")
-        self.add_route(dvs, "8.8.0.0/16", "80.0.0.1")
+        self.add_ip_address("Ethernet32", port_intf_addr)
+        self.add_neighbor("Ethernet32", port_nhop_ip, "02:04:06:08:10:12")
+        self.add_route(dvs, port_ip_prefix, port_nhop_ip)
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # check monitor port
@@ -532,11 +539,11 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # add ip address to vlan 9
-        self.add_ip_address("Vlan9", "8.8.8.0/24")
+        self.add_ip_address("Vlan9", vlan_intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # create neighbor to vlan 9
-        self.add_neighbor("Vlan9", "8.8.8.8", "88:88:88:88:88:88")
+        self.add_neighbor("Vlan9", dst_ip, "88:88:88:88:88:88")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # create fdb entry to ethernet48
@@ -568,11 +575,11 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove neighbor
-        self.remove_neighbor("Vlan9", "8.8.8.8")
+        self.remove_neighbor("Vlan9", dst_ip)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove ip address
-        self.remove_ip_address("Vlan9", "8.8.8.0/24")
+        self.remove_ip_address("Vlan9", vlan_intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # check monitor port
@@ -593,9 +600,9 @@ class TestMirror(object):
         self.remove_vlan("9")
 
         # remove route; remove neighbor; remove ip; bring down port
-        self.remove_route(dvs, "8.8.8.0/24")
-        self.remove_neighbor("Ethernet32", "80.0.0.1")
-        self.remove_ip_address("Ethernet32", "80.0.0.0/31")
+        self.remove_route(dvs, vlan_intf_addr)
+        self.remove_neighbor("Ethernet32", port_nhop_ip)
+        self.remove_ip_address("Ethernet32", port_intf_addr)
         self.set_interface_status(dvs, "Ethernet32", "down")
 
         # remove mirror session
