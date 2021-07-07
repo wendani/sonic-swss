@@ -248,7 +248,7 @@ class TestMirror(object):
         tbl._del("Vlan" + vlan + ":" + mac)
         time.sleep(1)
 
-    def _test_MirrorToVlanAddRemove(self, dvs, testlog):
+    def _test_MirrorToVlanAddRemove(self, dvs, testlog, v6_encap=False):
         """
         This test covers basic mirror session creation and removal operation
         with destination port sits in a VLAN
@@ -261,10 +261,10 @@ class TestMirror(object):
         """
 
         session = "TEST_SESSION"
-        src_ip = "5.5.5.5"
+        src_ip = "5.5.5.5" if v6_encap == False else "fc00::5:5:5:5"
         # dst ip in directly connected vlan subnet
-        dst_ip = "6.6.6.6"
-        intf_addr = "6.6.6.0/24"
+        dst_ip = "6.6.6.6" if v6_encap == False else "fc00::6:6:6:6"
+        intf_addr = "6.6.6.0/24" if v6_encap == False else "fc00::6:6:6:0/112"
 
         marker = dvs.add_log_marker()
         # create mirror session
@@ -308,7 +308,7 @@ class TestMirror(object):
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_ERSPAN_ENCAPSULATION_TYPE":
                 assert fv[1] == "SAI_ERSPAN_ENCAPSULATION_TYPE_MIRROR_L3_GRE_TUNNEL"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION":
-                assert fv[1] == "4"
+                assert fv[1] == "4" if v6_encap == False else "6"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_TOS":
                 assert fv[1] == "32"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_TTL":
@@ -368,6 +368,7 @@ class TestMirror(object):
         self.setup_db(dvs)
 
         self._test_MirrorToVlanAddRemove(dvs, testlog)
+        self._test_MirrorToVlanAddRemove(dvs, testlog, v6_encap=True)
 
     def create_port_channel(self, dvs, channel):
         tbl = swsscommon.ProducerStateTable(self.pdb, "LAG_TABLE")
