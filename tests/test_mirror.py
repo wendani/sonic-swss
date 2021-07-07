@@ -209,7 +209,7 @@ class TestMirror(object):
     def test_MirrorAddRemove(self, dvs, testlog):
         self.setup_db(dvs)
 
-        #self._test_MirrorAddRemove(dvs, testlog)
+        self._test_MirrorAddRemove(dvs, testlog)
         self._test_MirrorAddRemove(dvs, testlog, v6_encap=True)
 
     def create_vlan(self, dvs, vlan):
