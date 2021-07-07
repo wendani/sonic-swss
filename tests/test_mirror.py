@@ -392,7 +392,7 @@ class TestMirror(object):
         time.sleep(1)
 
 
-    def _test_MirrorToLagAddRemove(self, dvs, testlog):
+    def _test_MirrorToLagAddRemove(self, dvs, testlog, v6_encap=False):
         """
         This test covers basic mirror session creation and removal operations
         with destination port sits in a LAG
@@ -406,10 +406,10 @@ class TestMirror(object):
         """
 
         session = "TEST_SESSION"
-        src_ip = "10.10.10.10"
-        dst_ip = "11.11.11.11"
+        src_ip = "10.10.10.10" if v6_encap == False else "fc00::10:10:10:10"
+        dst_ip = "11.11.11.11" if v6_encap == False else "fc00::11:11:11:11"
         # dst ip in directly connected subnet
-        intf_addr = "11.11.11.0/24"
+        intf_addr = "11.11.11.0/24" if v6_encap == False else "fc00::11:11:11:0/112"
 
         marker = dvs.add_log_marker()
         # create mirror session
@@ -470,6 +470,7 @@ class TestMirror(object):
         self.setup_db(dvs)
 
         self._test_MirrorToLagAddRemove(dvs, testlog)
+        self._test_MirrorToLagAddRemove(dvs, testlog, v6_encap=True)
 
     # Ignore testcase in Debian Jessie
     # TODO: Remove this skip if Jessie support is no longer needed
