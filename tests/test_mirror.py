@@ -399,7 +399,6 @@ class TestMirror(object):
         tbl._del("PortChannel" + channel + ":" + interface)
         time.sleep(1)
 
-
     def _test_MirrorToLagAddRemove(self, dvs, testlog, v6_encap=False):
         """
         This test covers basic mirror session creation and removal operations
@@ -452,6 +451,8 @@ class TestMirror(object):
                 assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet88"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
                 assert fv[1] == "88:88:88:88:88:88"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION":
+                assert fv[1] == "4" if v6_encap == False else "6"
 
         # remove neighbor
         self.remove_neighbor("PortChannel008", dst_ip)
