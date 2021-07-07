@@ -407,12 +407,16 @@ class TestMirror(object):
         self.setup_db(dvs)
 
         session = "TEST_SESSION"
+        src_ip = "10.10.10.10"
+        dst_ip = "11.11.11.11"
+        # dst ip in directly connected subnet
+        intf_addr = "11.11.11.0/24"
 
         marker = dvs.add_log_marker()
         # create mirror session
-        self.create_mirror_session(session, "10.10.10.10", "11.11.11.11", "0x6558", "8", "100", "0")
+        self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
-        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP 11.11.11.11", 1)
+        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # create port channel; create port channel member
         self.create_port_channel(dvs, "008")
@@ -423,11 +427,11 @@ class TestMirror(object):
         self.set_interface_status(dvs, "Ethernet88", "up")
 
         # add ip address to port channel 008
-        self.add_ip_address("PortChannel008", "11.11.11.0/24")
+        self.add_ip_address("PortChannel008", intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # create neighbor to port channel 008
-        self.add_neighbor("PortChannel008", "11.11.11.11", "88:88:88:88:88:88")
+        self.add_neighbor("PortChannel008", dst_ip, "88:88:88:88:88:88")
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # check asic database
@@ -443,11 +447,11 @@ class TestMirror(object):
                 assert fv[1] == "88:88:88:88:88:88"
 
         # remove neighbor
-        self.remove_neighbor("PortChannel008", "11.11.11.11")
+        self.remove_neighbor("PortChannel008", dst_ip)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove ip address
-        self.remove_ip_address("PortChannel008", "11.11.11.0/24")
+        self.remove_ip_address("PortChannel008", intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # bring down port channel and port channel member
@@ -461,7 +465,7 @@ class TestMirror(object):
         marker = dvs.add_log_marker()
         # remove mirror session
         self.remove_mirror_session(session)
-        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP 11.11.11.11", 1)
+        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
 
 
     # Ignore testcase in Debian Jessie
