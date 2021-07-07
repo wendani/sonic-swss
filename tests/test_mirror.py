@@ -266,12 +266,16 @@ class TestMirror(object):
         self.setup_db(dvs)
 
         session = "TEST_SESSION"
+        src_ip = "5.5.5.5"
+        # dst ip in directly connected vlan subnet
+        dst_ip = "6.6.6.6"
+        intf_addr = "6.6.6.0/24"
 
         marker = dvs.add_log_marker()
         # create mirror session
-        self.create_mirror_session(session, "5.5.5.5", "6.6.6.6", "0x6558", "8", "100", "0")
+        self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
-        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP 6.6.6.6", 1)
+        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # create vlan; create vlan member
         self.create_vlan(dvs, "6")
@@ -282,11 +286,11 @@ class TestMirror(object):
         self.set_interface_status(dvs, "Ethernet4", "up")
 
         # add ip address to vlan 6
-        self.add_ip_address("Vlan6", "6.6.6.0/24")
+        self.add_ip_address("Vlan6", intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # create neighbor to vlan 6
-        self.add_neighbor("Vlan6", "6.6.6.6", "66:66:66:66:66:66")
+        self.add_neighbor("Vlan6", dst_ip, "66:66:66:66:66:66")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # create fdb entry to ethernet4
@@ -315,9 +319,9 @@ class TestMirror(object):
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_TTL":
                 assert fv[1] == "100"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_SRC_IP_ADDRESS":
-                assert fv[1] == "5.5.5.5"
+                assert fv[1] == src_ip
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_IP_ADDRESS":
-                assert fv[1] == "6.6.6.6"
+                assert fv[1] == dst_ip
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_SRC_MAC_ADDRESS":
                 assert fv[1] == dvs.runcmd("bash -c \"ip link show eth0 | grep ether | awk '{print $2}'\"")[1].strip().upper()
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
@@ -342,11 +346,11 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove neighbor
-        self.remove_neighbor("Vlan6", "6.6.6.6")
+        self.remove_neighbor("Vlan6", dst_ip)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove ip address
-        self.remove_ip_address("Vlan6", "6.6.6.0/24")
+        self.remove_ip_address("Vlan6", intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # bring down vlan and member
@@ -360,7 +364,7 @@ class TestMirror(object):
         marker = dvs.add_log_marker()
         # remove mirror session
         self.remove_mirror_session(session)
-        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP 6.6.6.6", 1)
+        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
 
     def create_port_channel(self, dvs, channel):
         tbl = swsscommon.ProducerStateTable(self.pdb, "LAG_TABLE")
