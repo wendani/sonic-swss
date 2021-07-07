@@ -107,7 +107,7 @@ class TestMirror(object):
         (ec, out) = dvs.runcmd(['sh', '-c', "awk \'/%s/,ENDFILE {print;}\' /var/log/syslog | grep \'%s\' | wc -l" % (marker, log)])
         assert out.strip() == str(expected_cnt)
 
-    def test_MirrorAddRemove(self, dvs, testlog):
+    def _test_MirrorAddRemove(self, dvs, testlog, v6_encap=False):
         """
         This test covers the basic mirror session creation and removal operations
         Operation flow:
@@ -119,13 +119,12 @@ class TestMirror(object):
            The session becomes inactive again till the end
         4. Remove miror session
         """
-        self.setup_db(dvs)
 
         session = "TEST_SESSION"
-        src_ip = "1.1.1.1"
-        dst_ip = "2.2.2.2"
-        intf_addr = "10.0.0.0/31"
-        nhop_ip = "10.0.0.1"
+        src_ip = "1.1.1.1" if v6_encap == False else "fc00::1:1:1:1"
+        dst_ip = "2.2.2.2" if v6_encap == False else "fc00::2:2:2:2"
+        intf_addr = "10.0.0.0/31" if v6_encap == False else "fc00::/126"
+        nhop_ip = "10.0.0.1" if v6_encap == False else "fc00::1"
 
         marker = dvs.add_log_marker()
         # create mirror session
@@ -150,7 +149,7 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["status"] == "active"
         assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet16"
         assert self.get_mirror_session_state(session)["dst_mac"] == "02:04:06:08:10:12"
-        assert self.get_mirror_session_state(session)["route_prefix"] == "{}/{}".format(dst_ip, 32)
+        assert self.get_mirror_session_state(session)["route_prefix"] == "{}/{}".format(dst_ip, 32 if v6_encap == False else 128)
 
         # check asic database
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
@@ -168,7 +167,7 @@ class TestMirror(object):
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_ERSPAN_ENCAPSULATION_TYPE":
                 assert fv[1] == "SAI_ERSPAN_ENCAPSULATION_TYPE_MIRROR_L3_GRE_TUNNEL"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION":
-                assert fv[1] == "4"
+                assert fv[1] == "4" if v6_encap == False else "6"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_TOS":
                 assert fv[1] == "32"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_TTL":
@@ -206,6 +205,12 @@ class TestMirror(object):
         # remove mirror session
         self.remove_mirror_session(session)
         self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
+
+    def test_MirrorAddRemove(self, dvs, testlog):
+        self.setup_db(dvs)
+
+        #self._test_MirrorAddRemove(dvs, testlog)
+        self._test_MirrorAddRemove(dvs, testlog, v6_encap=True)
 
     def create_vlan(self, dvs, vlan):
         #dvs.runcmd("ip link del Bridge")
