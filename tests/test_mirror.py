@@ -457,9 +457,23 @@ class TestMirror(object):
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
                 assert fv[1] == "88:88:88:88:88:88"
 
+        # Oper down lag
+        self.set_lag_oper_status(dvs, "PortChannel008", "down")
+        assert self.get_mirror_session_status(session) == INACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+
+        # Oper up lag
+        self.set_lag_oper_status(dvs, "PortChannel008", "up")
+        assert self.get_mirror_session_status(session) == ACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
         # remove neighbor
         self.remove_neighbor("PortChannel008", "11.11.11.11")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
 
         # remove ip address
         self.remove_ip_address("PortChannel008", "11.11.11.0/24")
@@ -988,70 +1002,6 @@ class TestMirror(object):
 
         self.set_interface_status(dvs, PORT_UNDER_TEST, "down")
         assert self.get_mirror_session_status(session) == INACTIVE
-
-        # Remove mirror session
-        self.remove_mirror_session(session)
-
-    def test_MirrorToLagDestDirectSubnetSessionStatus(self, dvs, testlog):
-        self.setup_db(dvs)
-
-        session = "TEST_SESSION"
-        src_ip = "10.10.10.10"
-        dst_ip = "11.11.11.11"
-        gre_type= "0x6558"
-        dscp = "8"
-        ttl = "100"
-        queue = "0"
-
-        LAG_INDEX_UNDER_TEST = "008"
-        LAG_UNDER_TEST = "PortChannel" + LAG_INDEX_UNDER_TEST
-        LAG_MEMBER_UNDER_TEST = "Ethernet88"
-        LAG_ADDR_UNDER_TEST = "11.11.11.1/28"
-
-        # Create mirror session
-        self.create_mirror_session(session, src_ip, dst_ip, gre_type, dscp, ttl, queue)
-        assert self.get_mirror_session_status(session) == INACTIVE
-
-        # Create lag
-        self.create_port_channel(dvs, LAG_INDEX_UNDER_TEST)
-        # Add lag member
-        self.create_port_channel_member(LAG_INDEX_UNDER_TEST, LAG_MEMBER_UNDER_TEST)
-
-        # Admin up lag
-        self.set_interface_status(dvs, LAG_UNDER_TEST, "up")
-        assert self.get_mirror_session_status(session) == INACTIVE
-
-        self.add_ip_address(LAG_UNDER_TEST, LAG_ADDR_UNDER_TEST)
-        assert self.get_mirror_session_status(session) == INACTIVE
-
-        self.add_neighbor(LAG_UNDER_TEST, dst_ip, "88:88:88:88:88:88")
-        assert self.get_mirror_session_status(session) == ACTIVE
-        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
-        assert len(tbl.getKeys()) == 1
-
-        # Oper down lag
-        self.set_lag_oper_status(dvs, LAG_UNDER_TEST, "down")
-        assert self.get_mirror_session_status(session) == INACTIVE
-        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
-        assert len(tbl.getKeys()) == 0
-
-        # Oper up lag
-        self.set_lag_oper_status(dvs, LAG_UNDER_TEST, "up")
-        assert self.get_mirror_session_status(session) == ACTIVE
-        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
-        assert len(tbl.getKeys()) == 1
-
-        # Clean up
-        self.remove_neighbor(LAG_UNDER_TEST, dst_ip)
-        assert self.get_mirror_session_status(session) == INACTIVE
-        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
-        assert len(tbl.getKeys()) == 0
-
-        self.remove_ip_address(LAG_UNDER_TEST, LAG_ADDR_UNDER_TEST)
-        assert self.get_mirror_session_status(session) == INACTIVE
-
-        self.remove_port_channel_member(LAG_INDEX_UNDER_TEST, LAG_MEMBER_UNDER_TEST)
-        self.remove_port_channel(dvs, LAG_INDEX_UNDER_TEST)
 
         # Remove mirror session
         self.remove_mirror_session(session)
