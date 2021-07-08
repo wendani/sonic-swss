@@ -631,12 +631,14 @@ class TestMirror(object):
         8. Remove mirror session
         """
         session = "TEST_SESSION"
-        src_ip = "12.12.12.12"
-        dst_ip = "13.13.13.13"
-        port_intf_addr = "100.0.0.0/31"
-        port_nhop_ip = "100.0.0.1"
-        lag_intf_addr = "200.0.0.0/31"
-        lag_nhop_ip = "200.0.0.1"
+        src_ip = "12.12.12.12" if v6_encap == False else "fc00::12:12:12:12"
+        dst_ip = "13.13.13.13" if v6_encap == False else "fc00::13:13:13:13"
+        port_intf_addr = "100.0.0.0/31" if v6_encap == False else "fc00::100:0:0:0/126"
+        port_nhop_ip = "100.0.0.1" if v6_encap == False else "fc00::100:0:0:1"
+        port_ip_prefix = "13.13.0.0/16" if v6_encap == False else "fc00::13:13:0:0/96"
+        lag_intf_addr = "200.0.0.0/31" if v6_encap == False else "fc00::200:0:0:0/126"
+        lag_nhop_ip = "200.0.0.1" if v6_encap == False else "fc00::200:0:0:1"
+        lag_ip_prefix = "13.13.13.0/24" if v6_encap == False else "fc00::13:13:13:0/112"
 
         # create mirror session
         self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
@@ -646,7 +648,7 @@ class TestMirror(object):
         self.set_interface_status(dvs, "Ethernet64", "up")
         self.add_ip_address("Ethernet64", port_intf_addr)
         self.add_neighbor("Ethernet64", port_nhop_ip, "02:04:06:08:10:12")
-        self.add_route(dvs, "13.13.0.0/16", port_nhop_ip)
+        self.add_route(dvs, port_ip_prefix, port_nhop_ip)
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # check monitor port
@@ -675,7 +677,7 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # add route
-        self.add_route(dvs, "13.13.13.0/24", lag_nhop_ip)
+        self.add_route(dvs, lag_ip_prefix, lag_nhop_ip)
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # check monitor port
@@ -716,7 +718,7 @@ class TestMirror(object):
 
         # mirror session move round 4
         # remove route
-        self.remove_route(dvs, "13.13.13.0/24")
+        self.remove_route(dvs, lag_ip_prefix)
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # check monitor port
@@ -744,7 +746,7 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # remove route; remove neighbor; remove ip; bring down port
-        self.remove_route(dvs, "13.13.0.0/16")
+        self.remove_route(dvs, port_ip_prefix)
         self.remove_neighbor("Ethernet64", port_nhop_ip)
         self.remove_ip_address("Ethernet64", port_intf_addr)
         self.set_interface_status(dvs, "Ethernet64", "down")
