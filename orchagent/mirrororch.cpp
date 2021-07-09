@@ -1249,7 +1249,7 @@ void MirrorOrch::updateNextHop(const NextHopUpdate& update)
         else
         {
             string alias = "";
-            session.nexthopInfo.nexthop = NextHopKey("0.0.0.0", alias);
+            session.nexthopInfo.nexthop = session.dstIp.isV6() ? NextHopKey("::", alias) : NextHopKey("0.0.0.0", alias);
         }
 
         // Update State DB Nexthop

@@ -129,6 +129,7 @@ class TestMirror(object):
         # create mirror session
         self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
+        assert self.get_mirror_session_state(session)["next_hop_ip"] == ("0.0.0.0@" if v6_encap == False else "::@")
         self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # bring up Ethernet16
@@ -268,6 +269,7 @@ class TestMirror(object):
         # create mirror session
         self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
+        assert self.get_mirror_session_state(session)["next_hop_ip"] == ("0.0.0.0@" if v6_encap == False else "::@")
         self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # create vlan; create vlan member
@@ -419,6 +421,7 @@ class TestMirror(object):
         # create mirror session
         self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
+        assert self.get_mirror_session_state(session)["next_hop_ip"] == ("0.0.0.0@" if v6_encap == False else "::@")
         self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # create port channel; create port channel member
@@ -503,6 +506,7 @@ class TestMirror(object):
         # create mirror session
         self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
+        assert self.get_mirror_session_state(session)["next_hop_ip"] == ("0.0.0.0@" if v6_encap == False else "::@")
 
         # bring up port; add ip; add neighbor; add route
         self.set_interface_status(dvs, "Ethernet32", "up")
@@ -643,6 +647,7 @@ class TestMirror(object):
         # create mirror session
         self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
+        assert self.get_mirror_session_state(session)["next_hop_ip"] == ("0.0.0.0@" if v6_encap == False else "::@")
 
         # bring up port; add ip; add neighbor; add route
         self.set_interface_status(dvs, "Ethernet64", "up")
