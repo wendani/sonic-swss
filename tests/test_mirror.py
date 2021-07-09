@@ -764,6 +764,7 @@ class TestMirror(object):
         self.setup_db(dvs)
 
         self._test_MirrorDestMoveLag(dvs, testlog)
+        self._test_MirrorDestMoveLag(dvs, testlog, v6_encap=True)
 
     def create_acl_table(self, table, interfaces):
         tbl = swsscommon.Table(self.cdb, "ACL_TABLE")
