@@ -1012,24 +1012,23 @@ class TestMirror(object):
         self._test_AclBindMirror(dvs, testlog)
         self._test_AclBindMirror(dvs, testlog, create_seq_test=True)
 
-    def test_MirrorToPortDestDirectSubnetSessionStatus(self, dvs, testlog):
-        self.setup_db(dvs)
-
+    def _test_MirrorToPortDestDirectSubnetSessionStatus(self, dvs, testlog, v6_encap=False):
         session = "TEST_SESSION"
-        src_ip = "1.1.1.1"
-        dst_ip = "2.2.2.2"
+        src_ip = "1.1.1.1" if v6_encap == False else "fc00::1:1:1:1"
+        dst_ip = "2.2.2.2" if v6_encap == False else "fc00::2:2:2:2"
         gre_type= "0x6558"
         dscp = "8"
         ttl = "100"
         queue = "0"
 
         PORT_UNDER_TEST = "Ethernet16"
-        PORT_ADDR_UNDER_TEST = "2.2.2.1/30"
-        DIRECT_SUBNET_UNDER_TEST = "2.2.2.0/30"
+        PORT_ADDR_UNDER_TEST = "2.2.2.1/30" if v6_encap == False else "fc00::2:2:2:1/126"
+        DIRECT_SUBNET_UNDER_TEST = "2.2.2.0/30" if v6_encap == False else "fc00::2:2:2:0/126"
 
         # Create mirror session
         self.create_mirror_session(session, src_ip, dst_ip, gre_type, dscp, ttl, queue)
         assert self.get_mirror_session_status(session) == INACTIVE
+        assert self.get_mirror_session_state(session)["next_hop_ip"] == ("0.0.0.0@" if v6_encap == False else "::@")
 
         self.set_interface_status(dvs, PORT_UNDER_TEST, "up")
         assert self.get_mirror_session_status(session) == INACTIVE
@@ -1050,7 +1049,7 @@ class TestMirror(object):
         assert len(tbl.getKeys()) == 0
 
         # Mimic host interface oper status up
-        self.add_route_appl_db(dvs, DIRECT_SUBNET_UNDER_TEST, ["0.0.0.0"], [PORT_UNDER_TEST])
+        self.add_route_appl_db(dvs, DIRECT_SUBNET_UNDER_TEST, ["0.0.0.0" if v6_encap == False else "::"], [PORT_UNDER_TEST])
         assert self.get_mirror_session_status(session) == ACTIVE
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 1
@@ -1069,6 +1068,12 @@ class TestMirror(object):
 
         # Remove mirror session
         self.remove_mirror_session(session)
+
+    def test_MirrorToPortDestDirectSubnetSessionStatus(self, dvs, testlog):
+        self.setup_db(dvs)
+
+        self._test_MirrorToPortDestDirectSubnetSessionStatus(dvs, testlog)
+        self._test_MirrorToPortDestDirectSubnetSessionStatus(dvs, testlog, v6_encap=True)
 
 
 # Add Dummy always-pass test at end as workaroud
