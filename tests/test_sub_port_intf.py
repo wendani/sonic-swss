@@ -1580,7 +1580,7 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_mirror(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, v6_encap=True)
         self._test_sub_port_intf_mirror(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, v6_encap=True)
 
-    def _test_sub_port_intf_mirror_dest_direct_subnet(self, dvs, sub_port_intf_name):
+    def _test_sub_port_intf_mirror_dest_direct_subnet(self, dvs, sub_port_intf_name, v6_encap=False):
         session_name = "TEST_SESSION"
         src_ip = "1.1.1.1"
         dst_ip = self.IPV4_NEXT_HOP_UNDER_TEST
@@ -1588,8 +1588,15 @@ class TestSubPortIntf(object):
         dscp = "8"
         ttl = "100"
         queue = "0"
+        intf_addr = self.IPV4_ADDR_UNDER_TEST
+        nhop_ip = self.IPV4_NEXT_HOP_UNDER_TEST
+        direct_subnet = self.IPV4_SUBNET_UNDER_TEST if v6_encap == False else self.IPV6_SUBNET_UNDER_TEST
+
+        marker = dvs.add_log_marker()
         self.dvs_mirror.create_erspan_session(session_name, src_ip, dst_ip, gre_type, dscp, ttl, queue)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
+        self.dvs_mirror.verify_session_next_hop_ip(session_name, "0.0.0.0@" if v6_encap == False else "::@")
+        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
@@ -1611,17 +1618,17 @@ class TestSubPortIntf(object):
         time.sleep(2)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
 
-        self.add_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
+        self.add_sub_port_intf_ip_addr(sub_port_intf_name, intf_addr)
         time.sleep(2)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
 
-        self.add_neigh_appl_db(sub_port_intf_name, self.IPV4_NEXT_HOP_UNDER_TEST, dst_mac)
+        self.add_neigh_appl_db(sub_port_intf_name, dst_ip, dst_mac)
 
         fv_dict_asic_db = {
             "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT": phy_port_oid,
             "SAI_MIRROR_SESSION_ATTR_TYPE": "SAI_MIRROR_SESSION_TYPE_ENHANCED_REMOTE",
             "SAI_MIRROR_SESSION_ATTR_ERSPAN_ENCAPSULATION_TYPE": "SAI_ERSPAN_ENCAPSULATION_TYPE_MIRROR_L3_GRE_TUNNEL",
-            "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION": "4",
+            "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION": "4" if v6_encap == False else "6",
             "SAI_MIRROR_SESSION_ATTR_TOS": "{}".format(int(dscp) << 2),
             "SAI_MIRROR_SESSION_ATTR_TTL": ttl,
             "SAI_MIRROR_SESSION_ATTR_SRC_IP_ADDRESS": src_ip,
@@ -1639,16 +1646,16 @@ class TestSubPortIntf(object):
             STATUS: ACTIVE,
             MONITOR_PORT: phy_port,
             DST_MAC: dst_mac,
-            ROUTE_PREFIX: self.IPV4_SUBNET_UNDER_TEST,
+            ROUTE_PREFIX: direct_subnet,
             VLAN_ID: vlan_id,
-            NEXT_HOP_IP: "{}@{}".format("0.0.0.0", sub_port_intf_name),
+            NEXT_HOP_IP: "{}@{}".format("0.0.0.0" if v6_encap == False else "::", sub_port_intf_name),
         }
         self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
 
         if parent_port.startswith(ETHERNET_PREFIX):
             # Mimic host interface oper status down that causes frr to withdraw
             # directly connected subnet prefix
-            self.remove_route_appl_db(self.IPV4_SUBNET_UNDER_TEST)
+            self.remove_route_appl_db(direct_subnet)
         else:
             # Oper down lag
             self.set_parent_port_oper_status(dvs, parent_port, DOWN)
@@ -1657,7 +1664,7 @@ class TestSubPortIntf(object):
 
         if parent_port.startswith(ETHERNET_PREFIX):
             # Mimic host interface oper status up
-            self.add_route_appl_db(self.IPV4_SUBNET_UNDER_TEST, ["0.0.0.0"], [sub_port_intf_name])
+            self.add_route_appl_db(direct_subnet, ["0.0.0.0" if v6_encap == False else "::"], [sub_port_intf_name])
         else:
             # Oper up lag
             self.set_parent_port_oper_status(dvs, parent_port, UP)
@@ -1668,8 +1675,8 @@ class TestSubPortIntf(object):
         self.dvs_mirror.verify_no_mirror()
 
         # Clean up
-        self.remove_neigh_appl_db(sub_port_intf_name, self.IPV4_NEXT_HOP_UNDER_TEST)
-        self.remove_sub_port_intf_ip_addr(sub_port_intf_name, self.IPV4_ADDR_UNDER_TEST)
+        self.remove_neigh_appl_db(sub_port_intf_name, dst_ip)
+        self.remove_sub_port_intf_ip_addr(sub_port_intf_name, intf_addr)
         self.remove_sub_port_intf_profile(sub_port_intf_name)
 
         if parent_port.startswith(LAG_PREFIX):
