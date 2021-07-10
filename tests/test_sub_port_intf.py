@@ -1582,14 +1582,13 @@ class TestSubPortIntf(object):
 
     def _test_sub_port_intf_mirror_dest_direct_subnet(self, dvs, sub_port_intf_name, v6_encap=False):
         session_name = "TEST_SESSION"
-        src_ip = "1.1.1.1"
-        dst_ip = self.IPV4_NEXT_HOP_UNDER_TEST
+        src_ip = "1.1.1.1" if v6_encap == False else "fc00::1:1:1:1"
+        dst_ip = self.IPV4_NEXT_HOP_UNDER_TEST if v6_encap == False else self.IPV6_NEXT_HOP_UNDER_TEST
         gre_type= "0x6558"
         dscp = "8"
         ttl = "100"
         queue = "0"
-        intf_addr = self.IPV4_ADDR_UNDER_TEST
-        nhop_ip = self.IPV4_NEXT_HOP_UNDER_TEST
+        intf_addr = self.IPV4_ADDR_UNDER_TEST if v6_encap == False else self.IPV6_ADDR_UNDER_TEST
         direct_subnet = self.IPV4_SUBNET_UNDER_TEST if v6_encap == False else self.IPV6_SUBNET_UNDER_TEST
 
         marker = dvs.add_log_marker()
@@ -1671,8 +1670,10 @@ class TestSubPortIntf(object):
         self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
 
         # Remove mirror session
+        marker = dvs.add_log_marker()
         self.dvs_mirror.remove_mirror_session(session_name)
         self.dvs_mirror.verify_no_mirror()
+        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
 
         # Clean up
         self.remove_neigh_appl_db(sub_port_intf_name, dst_ip)
@@ -1693,6 +1694,9 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_mirror_dest_direct_subnet(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_mirror_dest_direct_subnet(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
+
+        self._test_sub_port_intf_mirror_dest_direct_subnet(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, v6_encap=True)
+        self._test_sub_port_intf_mirror_dest_direct_subnet(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, v6_encap=True)
 
     def create_mirror_router_intfs(self, dvs):
         ifnames = []
