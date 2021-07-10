@@ -38,8 +38,8 @@ class DVSMirror(object):
         if src_ports:
             mirror_entry["src_port"] = src_ports
 
-            if direction:
-                mirror_entry["direction"] = direction
+        if direction:
+            mirror_entry["direction"] = direction
 
         self.config_db.create_entry("MIRROR_SESSION", name, mirror_entry)
 

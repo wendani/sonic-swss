@@ -484,15 +484,16 @@ task_process_status MirrorOrch::deleteEntry(const string& name)
 
     if (session.status)
     {
-        if (session.type != MIRROR_SESSION_SPAN)
-        {
-            m_routeOrch->detach(this, session.dstIp);
-        }
         if (!deactivateSession(name, session))
         {
             SWSS_LOG_ERROR("Failed to remove mirror session %s", name.c_str());
             return task_process_status::task_failed;
         }
+    }
+
+    if (session.type != MIRROR_SESSION_SPAN)
+    {
+        m_routeOrch->detach(this, session.dstIp);
     }
 
     if (!session.policer.empty())
@@ -551,8 +552,8 @@ void MirrorOrch::setSessionState(const string& name, const MirrorEntry& session,
 
     if (attr.empty() || attr == MIRROR_SESSION_NEXT_HOP_IP)
     {
-     value = session.nexthopInfo.nexthop.to_string();
-     fvVector.emplace_back(MIRROR_SESSION_NEXT_HOP_IP, value);
+        value = session.nexthopInfo.nexthop.to_string();
+        fvVector.emplace_back(MIRROR_SESSION_NEXT_HOP_IP, value);
     }
 
     m_mirrorTable.set(name, fvVector);
@@ -789,7 +790,7 @@ bool MirrorOrch::setUnsetPortMirror(Port port,
             status = sai_port_api->set_port_attribute(p.m_port_id, &port_attr);
             if (status != SAI_STATUS_SUCCESS)
             {
-                SWSS_LOG_ERROR("Failed to configure %s session on port %s: %s, status %d, sessionId %x",
+                SWSS_LOG_ERROR("Failed to configure %s session on port %s: %s, status %d, sessionId %lx",
                                 ingress ? "RX" : "TX", port.m_alias.c_str(),
                                 p.m_alias.c_str(), status, sessionId);
                 task_process_status handle_status =  handleSaiSetStatus(SAI_API_PORT, status);
@@ -805,7 +806,7 @@ bool MirrorOrch::setUnsetPortMirror(Port port,
         status = sai_port_api->set_port_attribute(port.m_port_id, &port_attr);
         if (status != SAI_STATUS_SUCCESS)
         {
-            SWSS_LOG_ERROR("Failed to configure %s session on port %s, status %d, sessionId %x",
+            SWSS_LOG_ERROR("Failed to configure %s session on port %s, status %d, sessionId %lx",
                             ingress ? "RX" : "TX", port.m_alias.c_str(), status, sessionId);
             task_process_status handle_status =  handleSaiSetStatus(SAI_API_PORT, status);
             if (handle_status != task_success)

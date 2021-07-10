@@ -231,8 +231,14 @@ public:
             {
                 return nullptr;
             }
-            m_port_id = std::make_unique<sai_object_id_t>(port->m_port_id);
-            // TODO: If the MACsec was enabled at the gearbox, should use line port id as the port id.
+            if (port->m_line_side_id != SAI_NULL_OBJECT_ID)
+            {
+                m_port_id = std::make_unique<sai_object_id_t>(port->m_line_side_id);
+            }
+            else
+            {
+                m_port_id = std::make_unique<sai_object_id_t>(port->m_port_id);
+            }
         }
         return m_port_id.get();
     }
@@ -241,12 +247,22 @@ public:
     {
         if (m_switch_id == nullptr)
         {
-            if (gSwitchId == SAI_NULL_OBJECT_ID)
+            auto port = get_port();
+            sai_object_id_t switchId;
+            if (port == nullptr || port->m_switch_id == SAI_NULL_OBJECT_ID)
+            {
+                switchId = gSwitchId;
+            }
+            else
+            {
+                switchId = port->m_switch_id;
+            }
+            if (switchId == SAI_NULL_OBJECT_ID)
             {
                 SWSS_LOG_ERROR("Switch ID cannot be found");
                 return nullptr;
             }
-            m_switch_id = std::make_unique<sai_object_id_t>(gSwitchId);
+            m_switch_id = std::make_unique<sai_object_id_t>(switchId);
         }
         return m_switch_id.get();
     }
@@ -838,15 +854,20 @@ bool MACsecOrch::initMACsecObject(sai_object_id_t switch_id)
     attrs.clear();
     attr.id = SAI_MACSEC_ATTR_SCI_IN_INGRESS_MACSEC_ACL;
     attrs.push_back(attr);
-    if (sai_macsec_api->get_macsec_attribute(
-            macsec_obj.first->second.m_ingress_id,
-            static_cast<uint32_t>(attrs.size()),
-            attrs.data()) != SAI_STATUS_SUCCESS)
+    status = sai_macsec_api->get_macsec_attribute(
+                    macsec_obj.first->second.m_ingress_id,
+                    static_cast<uint32_t>(attrs.size()),
+                    attrs.data());
+    if (status != SAI_STATUS_SUCCESS)
     {
         SWSS_LOG_WARN(
             "Cannot get MACsec attribution SAI_MACSEC_ATTR_SCI_IN_INGRESS_MACSEC_ACL at the switch 0x%" PRIx64,
             switch_id);
-        return false;
+        task_process_status handle_status = handleSaiGetStatus(SAI_API_MACSEC, status);
+        if (handle_status != task_process_status::task_success)
+        {
+            return false;
+        }
     }
     macsec_obj.first->second.m_sci_in_ingress_macsec_acl = attrs.front().value.booldata;
 
@@ -1106,13 +1127,13 @@ bool MACsecOrch::updateMACsecPort(MACsecPort &macsec_port, const TaskArgs &port_
                     SWSS_LOG_WARN("Cannot change the ACL entry action from packet action to MACsec flow");
                     return false;
                 }
-                auto an = macsec_sc->m_encoding_an;
+                auto entry_id = macsec_sc->m_entry_id;
                 auto flow_id = macsec_sc->m_flow_id;
-                recover.add_action([this, an, flow_id]() { this->setMACsecFlowActive(an, flow_id, false); });
+                recover.add_action([this, entry_id, flow_id]() { this->setMACsecFlowActive(entry_id, flow_id, false); });
             }
             else
             {
-                setMACsecFlowActive(macsec_sc->m_encoding_an, macsec_sc->m_flow_id, false);
+                setMACsecFlowActive(macsec_sc->m_entry_id, macsec_sc->m_flow_id, false);
             }
         }
     }
@@ -1696,7 +1717,7 @@ task_process_status MACsecOrch::createMACsecSA(
         }
         recover.add_action([this, sc]() {
             this->setMACsecFlowActive(
-                sc->m_encoding_an,
+                sc->m_entry_id,
                 sc->m_flow_id,
                 false);
         });
