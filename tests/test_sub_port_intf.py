@@ -74,6 +74,7 @@ class TestSubPortIntf(object):
     IPV6_ADDR_UNDER_TEST = "fc00::41/126"
     IPV6_TOME_UNDER_TEST = "fc00::41/128"
     IPV6_SUBNET_UNDER_TEST = "fc00::40/126"
+    IPV6_NEXT_HOP_UNDER_TEST = "fc00::40"
 
     VRF_UNDER_TEST = "Vrf0"
 
@@ -1432,13 +1433,13 @@ class TestSubPortIntf(object):
     def _test_sub_port_intf_mirror(self, dvs, sub_port_intf_name, v6_encap=False):
         session_name = "TEST_SESSION"
         src_ip = "1.1.1.1" if v6_encap == False else "fc00::1:1:1:1"
-        dst_ip = "2.2.2.2" if v6_encap == False else "fc00::2.2.2.2"
+        dst_ip = "2.2.2.2" if v6_encap == False else "fc00::2:2:2:2"
         gre_type= "0x6558"
         dscp = "8"
         ttl = "100"
         queue = "0"
-        intf_addr = self.IPV4_ADDR_UNDER_TEST
-        nhop_ip = self.IPV4_NEXT_HOP_UNDER_TEST
+        intf_addr = self.IPV4_ADDR_UNDER_TEST if v6_encap == False else self.IPV6_ADDR_UNDER_TEST
+        nhop_ip = self.IPV4_NEXT_HOP_UNDER_TEST if v6_encap == False else self.IPV6_NEXT_HOP_UNDER_TEST
 
         marker = dvs.add_log_marker()
         self.dvs_mirror.create_erspan_session(session_name, src_ip, dst_ip, gre_type, dscp, ttl, queue)
@@ -1474,7 +1475,7 @@ class TestSubPortIntf(object):
         time.sleep(2)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
 
-        ip_prefix = "2.2.2.0/24"
+        ip_prefix = "2.2.2.0/24" if v6_encap == False else "fc00::2:2:2:0/112"
         self.add_route_appl_db(ip_prefix, [nhop_ip], [sub_port_intf_name])
 
         fv_dict_asic_db = {
@@ -1575,6 +1576,9 @@ class TestSubPortIntf(object):
 
         self._test_sub_port_intf_mirror(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST)
         self._test_sub_port_intf_mirror(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST)
+
+        self._test_sub_port_intf_mirror(dvs, self.SUB_PORT_INTERFACE_UNDER_TEST, v6_encap=True)
+        self._test_sub_port_intf_mirror(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST, v6_encap=True)
 
     def _test_sub_port_intf_mirror_dest_direct_subnet(self, dvs, sub_port_intf_name):
         session_name = "TEST_SESSION"
