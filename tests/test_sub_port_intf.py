@@ -1688,6 +1688,10 @@ class TestSubPortIntf(object):
         sub_port_intf_names = [
             self.SUB_PORT_INTERFACE_UNDER_TEST,
             self.LAG_SUB_PORT_INTERFACE_UNDER_TEST,
+            self.SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[0] + VLAN_SUB_INTERFACE_SEPARATOR
+                + self.LAG_SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[1],
+            self.LAG_SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[0] + VLAN_SUB_INTERFACE_SEPARATOR
+                + self.SUB_PORT_INTERFACE_UNDER_TEST.split(VLAN_SUB_INTERFACE_SEPARATOR)[1],
         ]
         for intf_name in sub_port_intf_names:
             ifnames.append(intf_name)
