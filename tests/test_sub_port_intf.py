@@ -1425,6 +1425,10 @@ class TestSubPortIntf(object):
         self._test_sub_port_intf_oper_down_with_pending_neigh_route_tasks(dvs, self.LAG_SUB_PORT_INTERFACE_UNDER_TEST,
                                                                           create_intf_on_parent_port=True, vrf_name=self.VRF_UNDER_TEST)
 
+    def check_syslog(self, dvs, marker, log, expected_cnt):
+        (ec, out) = dvs.runcmd(['sh', '-c', "awk \'/%s/,ENDFILE {print;}\' /var/log/syslog | grep \'%s\' | wc -l" % (marker, log)])
+        assert out.strip() == str(expected_cnt)
+
     def _test_sub_port_intf_mirror(self, dvs, sub_port_intf_name):
         session_name = "TEST_SESSION"
         src_ip = "1.1.1.1"
@@ -1433,8 +1437,10 @@ class TestSubPortIntf(object):
         dscp = "8"
         ttl = "100"
         queue = "0"
+        marker = dvs.add_log_marker()
         self.dvs_mirror.create_erspan_session(session_name, src_ip, dst_ip, gre_type, dscp, ttl, queue)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
+        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
@@ -1540,8 +1546,10 @@ class TestSubPortIntf(object):
             self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
 
         # Test mirror session removal
+        marker = dvs.add_log_marker()
         self.dvs_mirror.remove_mirror_session(session_name)
         self.dvs_mirror.verify_no_mirror()
+        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
 
         # Clean up
         self.remove_route_appl_db(ip_prefix)
@@ -1572,8 +1580,10 @@ class TestSubPortIntf(object):
         dscp = "8"
         ttl = "100"
         queue = "0"
+        marker = dvs.add_log_marker()
         self.dvs_mirror.create_erspan_session(session_name, src_ip, dst_ip, gre_type, dscp, ttl, queue)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
+        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         substrs = sub_port_intf_name.split(VLAN_SUB_INTERFACE_SEPARATOR)
         parent_port = substrs[0]
@@ -1648,8 +1658,10 @@ class TestSubPortIntf(object):
         self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
 
         # Remove mirror session
+        marker = dvs.add_log_marker()
         self.dvs_mirror.remove_mirror_session(session_name)
         self.dvs_mirror.verify_no_mirror()
+        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
 
         # Clean up
         self.remove_neigh_appl_db(sub_port_intf_name, self.IPV4_NEXT_HOP_UNDER_TEST)
@@ -1829,8 +1841,10 @@ class TestSubPortIntf(object):
         dscp = "8"
         ttl = "100"
         queue = "0"
+        marker = dvs.add_log_marker()
         self.dvs_mirror.create_erspan_session(session_name, src_ip, dst_ip, gre_type, dscp, ttl, queue)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
+        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # Create router interfaces for nhg change test
         (ifnames, monitor_ports, ip_addrs, nhop_ips, dst_macs, vlan_ids) = self.create_mirror_router_intfs(dvs)
@@ -1912,8 +1926,10 @@ class TestSubPortIntf(object):
             self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
 
         # Remove mirror session
+        marker = dvs.add_log_marker()
         self.dvs_mirror.remove_mirror_session(session_name)
         self.dvs_mirror.verify_no_mirror()
+        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
 
         # Clean up
         self.remove_route_appl_db(ip_prefix)
@@ -1934,8 +1950,10 @@ class TestSubPortIntf(object):
         dscp = "8"
         ttl = "100"
         queue = "0"
+        marker = dvs.add_log_marker()
         self.dvs_mirror.create_erspan_session(session_name, src_ip, dst_ip, gre_type, dscp, ttl, queue)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
+        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # Create router interfaces for lpm change test
         (ifnames, monitor_ports, ip_addrs, nhop_ips, dst_macs, vlan_ids) = self.create_mirror_router_intfs(dvs)
@@ -2012,8 +2030,10 @@ class TestSubPortIntf(object):
             self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
 
         # Remove mirror session
+        marker = dvs.add_log_marker()
         self.dvs_mirror.remove_mirror_session(session_name)
         self.dvs_mirror.verify_no_mirror()
+        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
 
         # Clean up
         self.remove_route_appl_db(ip_prefix)
