@@ -1867,6 +1867,7 @@ class TestSubPortIntf(object):
         marker = dvs.add_log_marker()
         self.dvs_mirror.create_erspan_session(session_name, src_ip, dst_ip, gre_type, dscp, ttl, queue)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
+        self.dvs_mirror.verify_session_next_hop_ip(session_name, "0.0.0.0@" if v6_encap == False else "::@")
         self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # Create router interfaces for nhg change test
@@ -1979,6 +1980,7 @@ class TestSubPortIntf(object):
         marker = dvs.add_log_marker()
         self.dvs_mirror.create_erspan_session(session_name, src_ip, dst_ip, gre_type, dscp, ttl, queue)
         self.dvs_mirror.verify_session_status(session_name, INACTIVE)
+        self.dvs_mirror.verify_session_next_hop_ip(session_name, "0.0.0.0@" if v6_encap == False else "::@")
         self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # Create router interfaces for lpm change test
