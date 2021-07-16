@@ -538,7 +538,7 @@ class TestMirror(object):
 
         # add ip address to vlan 9
         self.add_ip_address("Vlan9", vlan_intf_addr)
-        time.sleep(1)
+        time.sleep(2)
         # inactive due to no neighbor mac or fdb entry
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
