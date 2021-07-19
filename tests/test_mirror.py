@@ -252,8 +252,6 @@ class TestMirror(object):
 
     def flush_fdb(self, op, data):
         ntf = swsscommon.NotificationProducer(self.adb, "FLUSHFDBREQUEST")
-        op = "ALL"
-        data = "ALL"
         fvs = swsscommon.FieldValuePairs()
         ntf.send(op, data, fvs)
         time.sleep(1)
