@@ -439,7 +439,6 @@ void FdbOrch::update(sai_fdb_event_t        type,
             SWSS_LOG_ERROR("Unsupported FDB Flush: [ %s , %s ] = { port: - }",
                            update.entry.mac.to_string().c_str(),
                            vlanName.c_str());
-
         }
         else
         {
@@ -666,7 +665,6 @@ void FdbOrch::doTask(Consumer& consumer)
                 it = consumer.m_toSync.erase(it);
             else
                 it++;
-
         }
         else
         {
