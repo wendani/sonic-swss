@@ -646,6 +646,7 @@ void FdbOrch::doTask(Consumer& consumer)
                 port = tunnel_orch->getTunnelPortName(remote_ip);
             }
 
+            entry.port_name = port;
 
             FdbData fdbData;
             fdbData.bridge_port_id = SAI_NULL_OBJECT_ID;
