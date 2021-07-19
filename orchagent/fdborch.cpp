@@ -163,8 +163,8 @@ void FdbOrch::update(sai_fdb_event_t        type,
     update.type = "dynamic";
     Port vlan;
 
-    SWSS_LOG_INFO("FDB event:%d, MAC: %s , BVID: 0x%" PRIx64 " , \
-                   bridge port ID: 0x%" PRIx64 ".",
+    SWSS_LOG_INFO("FDB event:%d, MAC: %s , BVID: 0x%" PRIx64 " , "
+                   "bridge port ID: 0x%" PRIx64 ".",
                    type, update.entry.mac.to_string().c_str(),
                    entry->bv_id, bridge_port_id);
 
@@ -362,8 +362,8 @@ void FdbOrch::update(sai_fdb_event_t        type,
     }
     case SAI_FDB_EVENT_FLUSHED:
 
-        SWSS_LOG_INFO("FDB Flush event received: [ %s , 0x%" PRIx64 " ], \
-                       bridge port ID: 0x%" PRIx64 ".",
+        SWSS_LOG_INFO("FDB Flush event received: [ %s , 0x%" PRIx64 " ], "
+                       "bridge port ID: 0x%" PRIx64 ".",
                        update.entry.mac.to_string().c_str(), entry->bv_id,
                        bridge_port_id);
 
@@ -373,8 +373,8 @@ void FdbOrch::update(sai_fdb_event_t        type,
 
             if (!m_portsOrch->getPort(entry->bv_id, vlan))
             {
-                SWSS_LOG_NOTICE("FdbOrch notification: Failed to locate vlan\
-                                port from bv_id 0x%" PRIx64, entry->bv_id);
+                SWSS_LOG_NOTICE("FdbOrch notification: Failed to locate vlan "
+                                "port from bv_id 0x%" PRIx64, entry->bv_id);
                 return;
             }
             vlanName = "Vlan" + to_string(vlan.m_vlan_info.vlan_id);
@@ -881,8 +881,8 @@ void FdbOrch::notifyObserversFDBFlush(Port &port, sai_object_id_t& bvid)
         if ((itr->first.port_name == port.m_alias) &&
             (itr->first.bv_id == bvid))
         {
-            SWSS_LOG_INFO("Adding MAC learnt on [ port:%s , bvid:0x%" PRIx64 "]\
-                           to ARP flush", port.m_alias.c_str(), bvid);
+            SWSS_LOG_INFO("Adding MAC learnt on [ port:%s , bvid:0x%" PRIx64 "] "
+                          "to ARP flush", port.m_alias.c_str(), bvid);
             FdbEntry entry;
             entry.mac = itr->first.mac;
             entry.bv_id = itr->first.bv_id;
