@@ -14,6 +14,15 @@ class TestMirror(object):
         self.cdb = swsscommon.DBConnector(4, dvs.redis_sock, 0)
         self.sdb = swsscommon.DBConnector(6, dvs.redis_sock, 0)
 
+    def set_port_oper_status(self, dvs, port_name, status):
+        if port_name.startswith("Ethernet"):
+            srv_idx = int(port_name[len("Ethernet"):]) // 4
+            dvs.servers[srv_idx].runcmd("ip link set dev eth0 " + status)
+        elif port_name.startswith("PortChannel"):
+            dvs.runcmd("bash -c 'echo " + ("1" if status == "up" else "0") + \
+                    " > /sys/class/net/" + port_name + "/carrier'")
+        time.sleep(1)
+
     def set_interface_status(self, dvs, interface, admin_status):
         if interface.startswith("PortChannel"):
             tbl_name = "PORTCHANNEL"
@@ -26,11 +35,13 @@ class TestMirror(object):
         tbl.set(interface, fvs)
         time.sleep(1)
 
-        # when using FRR, route cannot be inserted if the neighbor is not
-        # connected. thus it is mandatory to force the interface up manually
         if interface.startswith("PortChannel"):
-            dvs.runcmd("bash -c 'echo " + ("1" if admin_status == "up" else "0") +\
-                    " > /sys/class/net/" + interface + "/carrier'")
+            # when using FRR, route cannot be inserted if the neighbor is not
+            # connected. thus it is mandatory to force the interface up manually
+            self.set_port_oper_status(dvs, interface, admin_status)
+        elif interface.startswith("Ethernet"):
+            self.set_port_oper_status(dvs, interface, "down")
+            self.set_port_oper_status(dvs, interface, "up")
 
     def add_ip_address(self, interface, ip):
         if interface.startswith("PortChannel"):
