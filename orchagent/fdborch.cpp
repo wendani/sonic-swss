@@ -919,7 +919,6 @@ void FdbOrch::updatePortOperState(const PortOperStateUpdate& update)
             }
             notifyObserversFDBFlush(p, vlan.m_vlan_info.vlan_oid);
         }
-
     }
     return;
 }
