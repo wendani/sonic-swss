@@ -266,6 +266,12 @@ static char* hostif_vlan_tag[] = {
     [SAI_HOSTIF_VLAN_TAG_KEEP]      = "SAI_HOSTIF_VLAN_TAG_KEEP",
     [SAI_HOSTIF_VLAN_TAG_ORIGINAL]  = "SAI_HOSTIF_VLAN_TAG_ORIGINAL"
 };
+
+static bool isValidPortTypeForLagMember(const Port& port)
+{
+    return (port.m_type == Port::Type::PHY || port.m_type == Port::Type::SYSTEM);
+}
+
 /*
  * Initialize PortsOrch
  * 0) If Gearbox is enabled, then initialize the external PHYs as defined in
@@ -1794,7 +1800,7 @@ void PortsOrch::getPortSupportedSpeeds(const std::string& alias, sai_object_id_t
         }
 
         // if our guess was wrong, retry with the correct value
-        speeds.resize(attr.value.u32list.count); 
+        speeds.resize(attr.value.u32list.count);
     }
 
     if (status == SAI_STATUS_SUCCESS)
@@ -2279,7 +2285,7 @@ sai_status_t PortsOrch::removePort(sai_object_id_t port_id)
 
     Port port;
 
-    /* 
+    /*
      * Make sure to bring down admin state.
      * SET would have replaced with DEL
      */
@@ -2848,7 +2854,7 @@ void PortsOrch::doPortTask(Consumer &consumer)
                         it = consumer.m_toSync.erase(it);
                         continue;
                     }
-                    
+
                     an = autoneg_mode_map[an_str];
                     if (an != p.m_autoneg)
                     {
@@ -2914,7 +2920,7 @@ void PortsOrch::doPortTask(Consumer &consumer)
                             it++;
                             continue;
                         }
- 
+
                         SWSS_LOG_NOTICE("Set port %s speed from %u to %u", alias.c_str(), p.m_speed, speed);
                         p.m_speed = speed;
                         m_portList[alias] = p;
@@ -2955,7 +2961,7 @@ void PortsOrch::doPortTask(Consumer &consumer)
                         auto ori_adv_speeds = swss::join(',', p.m_adv_speeds.begin(), p.m_adv_speeds.end());
                         if (!setPortAdvSpeeds(p.m_port_id, adv_speeds))
                         {
-                            
+
                             SWSS_LOG_ERROR("Failed to set port %s advertised speed from %s to %s", alias.c_str(),
                                                                                                    ori_adv_speeds.c_str(),
                                                                                                    adv_speeds_str.c_str());
@@ -3749,6 +3755,15 @@ void PortsOrch::doLagMemberTask(Consumer &consumer)
             continue;
         }
 
+        /* Fail if a port type is not a valid type for being a LAG member port.
+         * Erase invalid entry, no need to retry in this case. */
+        if (!isValidPortTypeForLagMember(port))
+        {
+            SWSS_LOG_ERROR("LAG member port has to be of type PHY or SYSTEM");
+            it = consumer.m_toSync.erase(it);
+            continue;
+        }
+
         if (table_name == CHASSIS_APP_LAG_MEMBER_TABLE_NAME)
         {
             int32_t lag_switch_id = lag.m_system_lag_info.switch_id;
@@ -3782,8 +3797,12 @@ void PortsOrch::doLagMemberTask(Consumer &consumer)
 
             if (lag.m_members.find(port_alias) == lag.m_members.end())
             {
-                /* Assert the port doesn't belong to any LAG already */
-                assert(!port.m_lag_id && !port.m_lag_member_id);
+                if (port.m_lag_member_id != SAI_NULL_OBJECT_ID)
+                {
+                    SWSS_LOG_INFO("Port %s is already a LAG member", port.m_alias.c_str());
+                    it++;
+                    continue;
+                }
 
                 if (!addLagMember(lag, port, (status == "enabled")))
                 {
@@ -5603,7 +5622,7 @@ void PortsOrch::getPortSerdesVal(const std::string& val_str,
     }
 }
 
-bool PortsOrch::getPortAdvSpeedsVal(const std::string &val_str, 
+bool PortsOrch::getPortAdvSpeedsVal(const std::string &val_str,
                                     std::vector<uint32_t> &speed_values)
 {
     SWSS_LOG_ENTER();
@@ -5617,7 +5636,7 @@ bool PortsOrch::getPortAdvSpeedsVal(const std::string &val_str,
     std::string speed_str;
     std::istringstream iss(val_str);
 
-    try 
+    try
     {
         while (std::getline(iss, speed_str, ','))
         {
@@ -5634,31 +5653,31 @@ bool PortsOrch::getPortAdvSpeedsVal(const std::string &val_str,
     return true;
 }
 
-bool PortsOrch::getPortInterfaceTypeVal(const std::string &s, 
+bool PortsOrch::getPortInterfaceTypeVal(const std::string &s,
                                         sai_port_interface_type_t &interface_type)
 {
     SWSS_LOG_ENTER();
 
     auto iter = interface_type_map_for_an.find(s);
-    if (iter != interface_type_map_for_an.end()) 
+    if (iter != interface_type_map_for_an.end())
     {
         interface_type = interface_type_map_for_an[s];
         return true;
     }
-    else 
+    else
     {
         const std::string &validInterfaceTypes = getValidInterfaceTypes();
-        SWSS_LOG_ERROR("Failed to parse interface_type value %s, valid interface type includes: %s", 
+        SWSS_LOG_ERROR("Failed to parse interface_type value %s, valid interface type includes: %s",
                        s.c_str(), validInterfaceTypes.c_str());
         return false;
     }
 }
 
-bool PortsOrch::getPortAdvInterfaceTypesVal(const std::string &val_str, 
+bool PortsOrch::getPortAdvInterfaceTypesVal(const std::string &val_str,
                                             std::vector<uint32_t> &type_values)
 {
     SWSS_LOG_ENTER();
-    if (val_str == "all") 
+    if (val_str == "all")
     {
         return true;
     }
@@ -5673,7 +5692,7 @@ bool PortsOrch::getPortAdvInterfaceTypesVal(const std::string &val_str,
         valid = getPortInterfaceTypeVal(type_str, interface_type);
         if (!valid) {
             const std::string &validInterfaceTypes = getValidInterfaceTypes();
-            SWSS_LOG_ERROR("Failed to parse adv_interface_types value %s, valid interface type includes: %s", 
+            SWSS_LOG_ERROR("Failed to parse adv_interface_types value %s, valid interface type includes: %s",
                            val_str.c_str(), validInterfaceTypes.c_str());
             return false;
         }
