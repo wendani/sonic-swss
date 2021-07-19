@@ -351,6 +351,8 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["status"] == "inactive"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 0
+        # Allow time for neighor flush to occur
+        time.sleep(1)
 
         # restore port oper status up
         self.set_port_oper_status(dvs, "Ethernet4", "up")
@@ -372,8 +374,6 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["status"] == "inactive"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 0
-        # Allow time for neighor flush to occur
-        time.sleep(1)
 
         # restore fdb entry to ethernet4
         self.create_fdb("6", "66-66-66-66-66-66", "Ethernet4")
