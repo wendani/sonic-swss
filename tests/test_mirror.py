@@ -355,7 +355,7 @@ class TestMirror(object):
         # restore port oper status up
         self.set_port_oper_status(dvs, "Ethernet4", "up")
 
-        # restore fdb entry to ethernet4
+        # restore fdb entry to ethernet 4
         self.create_fdb("6", "66-66-66-66-66-66", "Ethernet4")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
@@ -373,7 +373,7 @@ class TestMirror(object):
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 0
 
-        # restore fdb entry to ethernet4
+        # restore fdb entry to ethernet 4
         self.create_fdb("6", "66-66-66-66-66-66", "Ethernet4")
         assert self.get_mirror_session_state(session)["status"] == "active"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
@@ -385,7 +385,7 @@ class TestMirror(object):
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 0
 
-        # restore fdb entry to ethernet4
+        # restore fdb entry to ethernet 4
         self.create_fdb("6", "66-66-66-66-66-66", "Ethernet4")
         assert self.get_mirror_session_state(session)["status"] == "active"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
