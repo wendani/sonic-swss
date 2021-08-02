@@ -252,6 +252,7 @@ class TestMirror(object):
         dvs.set_interface_status("PortChannel008", "up")
         self.set_lag_oper_status(dvs, "PortChannel008", "up")
         dvs.set_interface_status("Ethernet88", "up")
+        self.dvs_lag.set_port_channel_member_status("008", "Ethernet88", "enabled")
 
         # add ip address to port channel 008
         dvs.add_ip_address("PortChannel008", "11.11.11.0/24")
@@ -433,6 +434,7 @@ class TestMirror(object):
         self.dvs_lag.create_port_channel_member("080", "Ethernet32")
         dvs.set_interface_status("PortChannel080", "up")
         dvs.set_interface_status("Ethernet32", "up")
+        self.dvs_lag.set_port_channel_member_status("080", "Ethernet32", "enabled")
 
         # add ip address to port channel 080; create neighbor to port channel 080
         dvs.add_ip_address("PortChannel080", "200.0.0.0/31")
@@ -544,6 +546,7 @@ class TestMirror(object):
         dvs.set_interface_status("PortChannel008", "up")
         self.set_lag_oper_status(dvs, "PortChannel008", "up")
         dvs.set_interface_status("Ethernet88", "up")
+        self.dvs_lag.set_port_channel_member_status("008", "Ethernet88", "enabled")
 
         # add ip address to port channel 008
         dvs.add_ip_address("PortChannel008", "11.11.11.0/24")
