@@ -630,6 +630,7 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet88"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 1
+
         (status, fvs) = tbl.get(tbl.getKeys()[0])
         assert status == True
         for fv in fvs:
@@ -644,6 +645,7 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet92"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 1
+
         (status, fvs) = tbl.get(tbl.getKeys()[0])
         assert status == True
         for fv in fvs:
@@ -659,6 +661,7 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet92"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 1
+
         (status, fvs) = tbl.get(tbl.getKeys()[0])
         assert status == True
         for fv in fvs:
@@ -673,6 +676,7 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet88"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 1
+
         (status, fvs) = tbl.get(tbl.getKeys()[0])
         assert status == True
         for fv in fvs:
