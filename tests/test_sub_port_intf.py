@@ -1541,20 +1541,50 @@ class TestSubPortIntf(object):
             self.dvs_mirror.verify_session_status(session_name, INACTIVE)
             self.asic_db.wait_for_n_keys(ASIC_MIRROR_SESSION_TABLE, 0)
 
-            # Restore lag member that activates mirror session
+            # Test lag member add with oper status down in the first place
             self.add_lag_members(parent_port, self.LAG_MEMBERS_UNDER_TEST[1:2])
             lag_member_cnt += 1
             self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, lag_member_cnt)
+            self.set_lag_member_status(parent_port, self.LAG_MEMBERS_UNDER_TEST[1], DISABLED)
+            time.sleep(2)
+            self.dvs_mirror.verify_session_status(session_name, INACTIVE)
+            self.asic_db.wait_for_n_keys(ASIC_MIRROR_SESSION_TABLE, 0)
+
+            # Test lag member oper status up that activates mirror session
             self.set_lag_member_status(parent_port, self.LAG_MEMBERS_UNDER_TEST[1], ENABLED)
             fv_dict_asic_db["SAI_MIRROR_SESSION_ATTR_MONITOR_PORT"] = dvs.asicdb.portnamemap[self.LAG_MEMBERS_UNDER_TEST[1]]
             fv_dict_state_db[MONITOR_PORT] = self.LAG_MEMBERS_UNDER_TEST[1]
             self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
 
-            # Add lag member
+            # Test lag member oper status down that deactivates mirror session
+            self.set_lag_member_status(parent_port, self.LAG_MEMBERS_UNDER_TEST[1], DISABLED)
+            self.dvs_mirror.verify_session_status(session_name, INACTIVE)
+            self.asic_db.wait_for_n_keys(ASIC_MIRROR_SESSION_TABLE, 0)
+
+            # Add lag member with oper status up that activates mirror session
             self.add_lag_members(parent_port, [phy_port])
             lag_member_cnt += 1
             self.asic_db.wait_for_n_keys(ASIC_LAG_MEMBER_TABLE, lag_member_cnt)
             self.set_lag_member_status(parent_port, phy_port, ENABLED)
+            fv_dict_asic_db["SAI_MIRROR_SESSION_ATTR_MONITOR_PORT"] = phy_port_oid
+            fv_dict_state_db[MONITOR_PORT] = phy_port
+            self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
+
+            # Restore lag member oper status up
+            self.set_lag_member_status(parent_port, self.LAG_MEMBERS_UNDER_TEST[1], ENABLED)
+            time.sleep(2)
+            # Monitor port stays unchanged
+            self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
+
+            # Test lag member oper status down that triggers monitor port update
+            self.set_lag_member_status(parent_port, phy_port, DISABLED)
+            fv_dict_asic_db["SAI_MIRROR_SESSION_ATTR_MONITOR_PORT"] = dvs.asicdb.portnamemap[self.LAG_MEMBERS_UNDER_TEST[1]]
+            fv_dict_state_db[MONITOR_PORT] = self.LAG_MEMBERS_UNDER_TEST[1]
+            self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
+
+            # Restore lag member oper status up
+            self.set_lag_member_status(parent_port, phy_port, ENABLED)
+            time.sleep(2)
             # Monitor port stays unchanged
             self.dvs_mirror.verify_session(dvs, session_name, fv_dict_asic_db, fv_dict_state_db)
 
