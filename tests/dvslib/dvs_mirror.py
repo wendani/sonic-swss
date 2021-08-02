@@ -55,6 +55,11 @@ class DVSMirror(object):
         if expected:
             self.state_db.wait_for_field_match("MIRROR_SESSION_TABLE", name, {"status": status})
 
+    def verify_session_next_hop_ip(self, name, next_hop, expected=1):
+        self.state_db.wait_for_n_keys("MIRROR_SESSION_TABLE", expected)
+        if expected:
+            self.state_db.wait_for_field_match("MIRROR_SESSION_TABLE", name, {"next_hop_ip": next_hop})
+
     def verify_port_mirror_config(self, dvs, ports, direction, session_oid="null"):
         fvs = dvs.counters_db.get_entry("COUNTERS_PORT_NAME_MAP", "")
         fvs = dict(fvs)
