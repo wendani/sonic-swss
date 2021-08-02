@@ -665,10 +665,26 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
                             session.neighborInfo.port.m_alias.c_str());
                     return false;
                 }
-                else
+
+                if (member.m_type == Port::PHY)
                 {
                     // Update monitor port
                     session.neighborInfo.portId = member.m_port_id;
+                }
+                else if (member.m_type == Port::LAG)
+                {
+                    Port p;
+                    if (!selectEnabledLagMember(member, p))
+                    {
+                        session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+                        return false;
+                    }
+                    session.neighborInfo.portId = p.m_port_id;
+                }
+                else
+                {
+                    session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+                    return false;
                 }
             }
 
