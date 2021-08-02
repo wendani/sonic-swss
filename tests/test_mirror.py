@@ -601,6 +601,7 @@ class TestMirror(object):
         # add a new member to lag
         self.set_interface_status(dvs, "Ethernet92", "up")
         self.create_port_channel_member("008", "Ethernet92", status="enabled")
+        time.sleep(2)
         # monitor port stays unchanged
         assert self.get_mirror_session_state(session)["status"] == "active"
         assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet88"
@@ -630,6 +631,7 @@ class TestMirror(object):
 
         # Restore lag member oper status up
         self.create_port_channel_member("008", "Ethernet88", status="enabled")
+        time.sleep(2)
         # monitor port stays unchanged
         assert self.get_mirror_session_state(session)["status"] == "active"
         assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet92"
