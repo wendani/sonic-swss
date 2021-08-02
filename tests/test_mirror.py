@@ -688,11 +688,13 @@ class TestMirror(object):
         # add a new member to lag
         self.set_interface_status(dvs, "Ethernet92", "up")
         self.create_port_channel_member("008", "Ethernet92", status="enabled")
+        time.sleep(2)
         # monitor port stays unchanged
         assert self.get_mirror_session_state(session)["status"] == "active"
         assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet88"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 1
+
         (status, fvs) = tbl.get(tbl.getKeys()[0])
         assert status == True
         for fv in fvs:
@@ -707,6 +709,7 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet92"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 1
+
         (status, fvs) = tbl.get(tbl.getKeys()[0])
         assert status == True
         for fv in fvs:
@@ -717,11 +720,13 @@ class TestMirror(object):
 
         # Restore lag member oper status up
         self.create_port_channel_member("008", "Ethernet88", status="enabled")
+        time.sleep(2)
         # monitor port stays unchanged
         assert self.get_mirror_session_state(session)["status"] == "active"
         assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet92"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 1
+
         (status, fvs) = tbl.get(tbl.getKeys()[0])
         assert status == True
         for fv in fvs:
@@ -736,6 +741,7 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet88"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 1
+
         (status, fvs) = tbl.get(tbl.getKeys()[0])
         assert status == True
         for fv in fvs:

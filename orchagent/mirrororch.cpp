@@ -1465,10 +1465,10 @@ void MirrorOrch::updateLagMember(const LagMemberUpdate& update)
         {
             if (session.status && session.neighborInfo.portId == update.member.m_port_id)
             {
-                Port p;
-                if (selectEnabledLagMember(update.lag, p))
+                Port member;
+                if (selectEnabledLagMember(update.lag, member))
                 {
-                    session.neighborInfo.portId = p.m_port_id;
+                    session.neighborInfo.portId = member.m_port_id;
                     updateSessionDstPort(name, session);
                 }
                 else
@@ -1511,10 +1511,10 @@ void MirrorOrch::updateLagMemberStatus(const LagMemberStatusUpdate& update)
         {
             if (session.status && session.neighborInfo.portId == update.member.m_port_id)
             {
-                Port p;
-                if (selectEnabledLagMember(update.lag, p))
+                Port member;
+                if (selectEnabledLagMember(update.lag, member))
                 {
-                    session.neighborInfo.portId = p.m_port_id;
+                    session.neighborInfo.portId = member.m_port_id;
                     updateSessionDstPort(name, session);
                 }
                 else
