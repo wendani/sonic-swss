@@ -574,6 +574,7 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
             !m_neighOrch->getNeighborEntry(session.nexthopInfo.nexthop,
                 neighbor, session.neighborInfo.mac)))
     {
+        session.neighborInfo.mac = MacAddress();
         return false;
     }
 
