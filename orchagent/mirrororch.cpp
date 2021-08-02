@@ -1519,12 +1519,34 @@ void MirrorOrch::updateVlanMember(const VlanMemberUpdate& update)
         // Check the following three conditions:
         // 1) mirror session is pointing to a VLAN
         // 2) the VLAN matches the update VLAN
-        // 3) the monitor port matches the update VLAN member
         if (session.neighborInfo.port.m_type != Port::VLAN ||
-                session.neighborInfo.port != update.vlan ||
-                session.neighborInfo.portId != update.member.m_port_id)
+                session.neighborInfo.port != update.vlan)
         {
             continue;
+        }
+        // 3) If update VLAN member is of type physical port, the monitor port matches the update VLAN member.
+        //    If update VLAN member is of type LAG, monitor port is a member of the update LAG.
+        if (update.member.m_type == Port::Port)
+        {
+            if (session.neighborInfo.portId != update.member.m_port_id)
+            {
+                continue;
+            }
+        }
+        else if (update.member.m_type == Port::LAG)
+        {
+            Port p;
+            if (m_portsOrch->getPort(session.neighborInfo.portId, p))
+            {
+                if (p.m_lag_id != update.member.m_lag_id)
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                SWSS_LOG_ERROR("Failed to get Port object for port oid: 0x%" PRIx64, session.neighborInfo.portId);
+            }
         }
 
         // Deactivate session. Wait for FDB event to activate session
