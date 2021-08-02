@@ -1345,24 +1345,62 @@ void MirrorOrch::updateFdb(const FdbUpdate& update)
             if (session.status)
             {
                 // Update port if changed
-                if (session.neighborInfo.portId != update.port.m_port_id)
+                if (update.port.m_type == Port::PHY)
                 {
-                    session.neighborInfo.portId = update.port.m_port_id;
-                    updateSessionDstPort(name, session);
+                    if (session.neighborInfo.portId != update.port.m_port_id)
+                    {
+                        session.neighborInfo.portId = update.port.m_port_id;
+                        updateSessionDstPort(name, session);
+                    }
+                }
+                else if (update.port.m_type == Port::LAG)
+                {
+                    Port p;
+                    if (!m_portsOrch->getPort(session.neighborInfo.portId, p))
+                    {
+                        SWSS_LOG_ERROR("Failed to get Port object for port oid: 0x%" PRIx64, session.neighborInfo.portId);
+                        p.m_lag_id = SAI_NULL_OBJECT_ID;
+                    }
+
+                    if (p.m_lag_id != update.port.m_lag_id)
+                    {
+                        if (selectEnabledLagMember(update.port, p))
+                        {
+                            session.neighborInfo.portId = p.m_port_id;
+                            updateSessionDstPort(name, session);
+                        }
+                        else
+                        {
+                            session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+                            deactivateSession(name, session);
+                        }
+                    }
                 }
             }
             else
             {
                 // Activate session
-                session.neighborInfo.portId = update.port.m_port_id;
-                activateSession(name, session);
+                if (update.port.m_type == Port::PHY)
+                {
+                    session.neighborInfo.portId = update.port.m_port_id;
+                    activateSession(name, session);
+                }
+                else if (update.port.m_type == Port::LAG)
+                {
+                    Port p;
+                    if (selectEnabledLagMember(update.port, p))
+                    {
+                        session.neighborInfo.portId = p.m_port_id;
+                        activateSession(name, session);
+                    }
+                }
             }
         }
         // Remove the monitor port
         else
         {
-            deactivateSession(name, session);
             session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+            deactivateSession(name, session);
         }
     }
 }
