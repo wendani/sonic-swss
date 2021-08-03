@@ -554,7 +554,7 @@ class TestMirror(object):
         assert len(tbl.getKeys()) == 1
 
         # Test neighbor mac change
-        self.add_neighbor("PortChannel008", "11.11.11.11", "02:04:06:08:10:12")
+        self.add_neighbor("PortChannel008", dst_ip, "02:04:06:08:10:12")
         assert self.get_mirror_session_state(session)["status"] == "active"
         assert self.get_mirror_session_state(session)["dst_mac"] == "02:04:06:08:10:12"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
@@ -569,7 +569,7 @@ class TestMirror(object):
                 assert fv[1] == "02:04:06:08:10:12"
 
         # restore original neighbor mac
-        self.add_neighbor("PortChannel008", "11.11.11.11", "88:88:88:88:88:88")
+        self.add_neighbor("PortChannel008", dst_ip, "88:88:88:88:88:88")
         assert self.get_mirror_session_state(session)["status"] == "active"
         assert self.get_mirror_session_state(session)["dst_mac"] == "88:88:88:88:88:88"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
@@ -584,13 +584,13 @@ class TestMirror(object):
                 assert fv[1] == "88:88:88:88:88:88"
 
         # Test neighbor mac removal that deactivates session
-        self.remove_neighbor("PortChannel008", "11.11.11.11")
+        self.remove_neighbor("PortChannel008", dst_ip)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 0
 
         # Test neighbor mac add that activates session
-        self.add_neighbor("PortChannel008", "11.11.11.11", "88:88:88:88:88:88")
+        self.add_neighbor("PortChannel008", dst_ip, "88:88:88:88:88:88")
         assert self.get_mirror_session_state(session)["status"] == "active"
         assert self.get_mirror_session_state(session)["dst_mac"] == "88:88:88:88:88:88"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
@@ -607,20 +607,20 @@ class TestMirror(object):
         marker = dvs.add_log_marker()
         # remove mirror session
         self.remove_mirror_session(session)
-        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP 11.11.11.11", 1)
+        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
 
         # Test mirror session creation with lag member (monitor port) status disabled
         self.create_port_channel_member("008", "Ethernet88", status="disabled")
         marker = dvs.add_log_marker()
         # create mirror session
-        self.create_mirror_session(session, "10.10.10.10", "11.11.11.11", "0x6558", "8", "100", "0")
+        self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 0
-        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP 11.11.11.11", 1)
+        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # Test neighbor mac change with lag member (monitor port) status disabled
-        self.add_neighbor("PortChannel008", "11.11.11.11", "02:04:06:08:10:12")
+        self.add_neighbor("PortChannel008", dst_ip, "02:04:06:08:10:12")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 0
@@ -641,7 +641,7 @@ class TestMirror(object):
                 assert fv[1] == "02:04:06:08:10:12"
 
         # restore original neighbor mac
-        self.add_neighbor("PortChannel008", "11.11.11.11", "88:88:88:88:88:88")
+        self.add_neighbor("PortChannel008", dst_ip, "88:88:88:88:88:88")
         assert self.get_mirror_session_state(session)["status"] == "active"
         assert self.get_mirror_session_state(session)["dst_mac"] == "88:88:88:88:88:88"
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
