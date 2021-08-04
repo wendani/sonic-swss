@@ -673,13 +673,13 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
                 }
                 else if (member.m_type == Port::LAG)
                 {
-                    Port p;
-                    if (!selectEnabledLagMember(member, p))
+                    Port lmp;
+                    if (!selectEnabledLagMember(member, lmp))
                     {
                         session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
                         return false;
                     }
-                    session.neighborInfo.portId = p.m_port_id;
+                    session.neighborInfo.portId = lmp.m_port_id;
                 }
                 else
                 {
@@ -1355,18 +1355,18 @@ void MirrorOrch::updateFdb(const FdbUpdate& update)
                 }
                 else if (update.port.m_type == Port::LAG)
                 {
-                    Port p;
-                    if (!m_portsOrch->getPort(session.neighborInfo.portId, p))
+                    Port lmp;
+                    if (!m_portsOrch->getPort(session.neighborInfo.portId, lmp))
                     {
                         SWSS_LOG_ERROR("Failed to get Port object for port oid: 0x%" PRIx64, session.neighborInfo.portId);
-                        p.m_lag_id = SAI_NULL_OBJECT_ID;
+                        lmp.m_lag_id = SAI_NULL_OBJECT_ID;
                     }
 
-                    if (p.m_lag_id != update.port.m_lag_id)
+                    if (lmp.m_lag_id != update.port.m_lag_id)
                     {
-                        if (selectEnabledLagMember(update.port, p))
+                        if (selectEnabledLagMember(update.port, lmp))
                         {
-                            session.neighborInfo.portId = p.m_port_id;
+                            session.neighborInfo.portId = lmp.m_port_id;
                             updateSessionDstPort(name, session);
                         }
                         else
@@ -1387,10 +1387,10 @@ void MirrorOrch::updateFdb(const FdbUpdate& update)
                 }
                 else if (update.port.m_type == Port::LAG)
                 {
-                    Port p;
-                    if (selectEnabledLagMember(update.port, p))
+                    Port lmp;
+                    if (selectEnabledLagMember(update.port, lmp))
                     {
-                        session.neighborInfo.portId = p.m_port_id;
+                        session.neighborInfo.portId = lmp.m_port_id;
                         activateSession(name, session);
                     }
                 }
@@ -1573,10 +1573,10 @@ void MirrorOrch::updateVlanMember(const VlanMemberUpdate& update)
         }
         else if (update.member.m_type == Port::LAG)
         {
-            Port p;
-            if (m_portsOrch->getPort(session.neighborInfo.portId, p))
+            Port lmp;
+            if (m_portsOrch->getPort(session.neighborInfo.portId, lmp))
             {
-                if (p.m_lag_id != update.member.m_lag_id)
+                if (lmp.m_lag_id != update.member.m_lag_id)
                 {
                     continue;
                 }
