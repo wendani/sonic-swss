@@ -599,7 +599,7 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
     if (p.m_type == Port::VLAN)
     {
         SWSS_LOG_NOTICE("Get mirror session destination IP neighbor VLAN %d",
-                port.m_vlan_info.vlan_id);
+                p.m_vlan_info.vlan_id);
 
         // Recover the VLAN member monitor port picked before warm reboot
         // since the FDB entries are not yet learned on the hardware
@@ -1584,7 +1584,7 @@ void MirrorOrch::updateVlanMember(const VlanMemberUpdate& update)
         }
         // 3) If update VLAN member is of type physical port, the monitor port matches the update VLAN member.
         //    If update VLAN member is of type LAG, monitor port is a member of the update LAG.
-        if (update.member.m_type == Port::Port)
+        if (update.member.m_type == Port::PHY)
         {
             if (session.neighborInfo.portId != update.member.m_port_id)
             {
