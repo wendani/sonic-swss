@@ -635,14 +635,14 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
             }
             else
             {
-                Port member;
-                if (!selectEnabledLagMember(p, member))
+                Port lmp;
+                if (!selectEnabledLagMember(p, lmp))
                 {
                     session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
                     return false;
                 }
 
-                session.neighborInfo.portId = member.m_port_id;
+                session.neighborInfo.portId = lmp.m_port_id;
             }
 
             return true;
@@ -1465,10 +1465,10 @@ void MirrorOrch::updateLagMember(const LagMemberUpdate& update)
         {
             if (session.status && session.neighborInfo.portId == update.member.m_port_id)
             {
-                Port member;
-                if (selectEnabledLagMember(update.lag, member))
+                Port lmp;
+                if (selectEnabledLagMember(update.lag, lmp))
                 {
-                    session.neighborInfo.portId = member.m_port_id;
+                    session.neighborInfo.portId = lmp.m_port_id;
                     updateSessionDstPort(name, session);
                 }
                 else
@@ -1529,10 +1529,10 @@ void MirrorOrch::updateLagMemberStatus(const LagMemberStatusUpdate& update)
         {
             if (session.status && session.neighborInfo.portId == update.member.m_port_id)
             {
-                Port member;
-                if (selectEnabledLagMember(update.lag, member))
+                Port lmp;
+                if (selectEnabledLagMember(update.lag, lmp))
                 {
-                    session.neighborInfo.portId = member.m_port_id;
+                    session.neighborInfo.portId = lmp.m_port_id;
                     updateSessionDstPort(name, session);
                 }
                 else
