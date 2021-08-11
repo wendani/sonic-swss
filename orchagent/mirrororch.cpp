@@ -1520,11 +1520,29 @@ void MirrorOrch::updateLagMemberStatus(const LagMemberStatusUpdate& update)
         const auto &name = it->first;
         auto &session = it->second;
 
+        Port p = session.neighborInfo.port;
+        if (p.m_type == Port::VLAN)
+        {
+            if (!m_fdbOrch->getPort(session.neighborInfo.mac,
+                        p.m_vlan_info.vlan_id, p))
+            {
+                SWSS_LOG_NOTICE("Waiting to get FDB entry MAC %s under VLAN %s",
+                        session.neighborInfo.mac.to_string().c_str(),
+                        p.m_alias.c_str());
+
+                session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+                if (session.status)
+                {
+                    deactivateSession(name, session);
+                }
+                continue;
+            }
+        }
+
         // Pre-check:
         // Neighbor's local counterpart is LAG
         // Local LAG counterpart matches the update LAG
-        if (session.neighborInfo.port.m_type != Port::LAG ||
-                session.neighborInfo.port != update.lag)
+        if (p.m_type != Port::LAG || p != update.lag)
         {
             continue;
         }
