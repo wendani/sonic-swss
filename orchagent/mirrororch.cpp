@@ -1464,11 +1464,29 @@ void MirrorOrch::updateLagMember(const LagMemberUpdate& update)
             }
         }
 
+        Port p = session.neighborInfo.port;
+        if (p.m_type == Port::VLAN)
+        {
+            if (!m_fdbOrch->getPort(session.neighborInfo.mac,
+                        p.m_vlan_info.vlan_id, p))
+            {
+                SWSS_LOG_NOTICE("Waiting to get FDB entry MAC %s under VLAN %s",
+                        session.neighborInfo.mac.to_string().c_str(),
+                        p.m_alias.c_str());
+
+                session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+                if (session.status)
+                {
+                    deactivateSession(name, session);
+                }
+                continue;
+            }
+        }
+
         // Check the following two conditions:
         // 1) the neighbor is LAG
         // 2) the neighbor LAG matches the update LAG
-        if (session.neighborInfo.port.m_type != Port::LAG ||
-                session.neighborInfo.port != update.lag)
+        if (p.m_type != Port::LAG || p != update.lag)
         {
             continue;
         }
