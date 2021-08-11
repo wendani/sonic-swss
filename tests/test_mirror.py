@@ -6,6 +6,12 @@ import time
 from swsscommon import swsscommon
 from distutils.version import StrictVersion
 
+APPL_ROUTE_TABLE_NAME = "ROUTE_TABLE"
+
+ACTIVE = "active"
+INACTIVE = "inactive"
+NEXTHOP = "nexthop"
+IFNAME = "ifname"
 
 class TestMirror(object):
     def setup_db(self, dvs):
@@ -13,6 +19,15 @@ class TestMirror(object):
         self.adb = swsscommon.DBConnector(1, dvs.redis_sock, 0)
         self.cdb = swsscommon.DBConnector(4, dvs.redis_sock, 0)
         self.sdb = swsscommon.DBConnector(6, dvs.redis_sock, 0)
+
+    def set_port_oper_status(self, dvs, port_name, status):
+        if port_name.startswith("Ethernet"):
+            srv_idx = int(port_name[len("Ethernet"):]) // 4
+            dvs.servers[srv_idx].runcmd("ip link set dev eth0 " + status)
+        elif port_name.startswith("PortChannel"):
+            dvs.runcmd("bash -c 'echo " + ("1" if status == "up" else "0") + \
+                    " > /sys/class/net/" + port_name + "/carrier'")
+        time.sleep(1)
 
     def set_interface_status(self, dvs, interface, admin_status):
         if interface.startswith("PortChannel"):
@@ -26,11 +41,13 @@ class TestMirror(object):
         tbl.set(interface, fvs)
         time.sleep(1)
 
-        # when using FRR, route cannot be inserted if the neighbor is not
-        # connected. thus it is mandatory to force the interface up manually
         if interface.startswith("PortChannel"):
-            dvs.runcmd("bash -c 'echo " + ("1" if admin_status == "up" else "0") +\
-                    " > /sys/class/net/" + interface + "/carrier'")
+            # when using FRR, route cannot be inserted if the neighbor is not
+            # connected. thus it is mandatory to force the interface up manually
+            self.set_port_oper_status(dvs, interface, admin_status)
+        elif interface.startswith("Ethernet"):
+            self.set_port_oper_status(dvs, interface, "down")
+            self.set_port_oper_status(dvs, interface, "up")
 
     def add_ip_address(self, interface, ip):
         if interface.startswith("PortChannel"):
@@ -60,7 +77,7 @@ class TestMirror(object):
     def add_neighbor(self, interface, ip, mac):
         tbl = swsscommon.ProducerStateTable(self.pdb, "NEIGH_TABLE")
         fvs = swsscommon.FieldValuePairs([("neigh", mac),
-                                          ("family", "IPv4")])
+                                          ("family", "IPv4" if "." in ip else "IPv6")])
         tbl.set(interface + ":" + ip, fvs)
         time.sleep(1)
 
@@ -73,8 +90,21 @@ class TestMirror(object):
         dvs.runcmd("ip route add " + prefix + " via " + nexthop)
         time.sleep(1)
 
+    def add_route_appl_db(self, dvs, prefix, nexthops, ifnames):
+        fvs = swsscommon.FieldValuePairs([(NEXTHOP, ",".join(nexthops)),
+                                          (IFNAME, ",".join(ifnames))])
+
+        tbl = swsscommon.ProducerStateTable(self.pdb, APPL_ROUTE_TABLE_NAME)
+        tbl.set(prefix, fvs)
+        time.sleep(1)
+
     def remove_route(self, dvs, prefix):
         dvs.runcmd("ip route del " + prefix)
+        time.sleep(1)
+
+    def remove_route_appl_db(self, dvs, prefix):
+        tbl = swsscommon.ProducerStateTable(self.pdb, APPL_ROUTE_TABLE_NAME)
+        tbl._del(prefix)
         time.sleep(1)
 
     def create_mirror_session(self, name, src, dst, gre, dscp, ttl, queue):
@@ -107,7 +137,7 @@ class TestMirror(object):
         (ec, out) = dvs.runcmd(['sh', '-c', "awk \'/%s/,ENDFILE {print;}\' /var/log/syslog | grep \'%s\' | wc -l" % (marker, log)])
         assert out.strip() == str(expected_cnt)
 
-    def test_MirrorAddRemove(self, dvs, testlog):
+    def _test_MirrorAddRemove(self, dvs, testlog, v6_encap=False):
         """
         This test covers the basic mirror session creation and removal operations
         Operation flow:
@@ -119,34 +149,37 @@ class TestMirror(object):
            The session becomes inactive again till the end
         4. Remove miror session
         """
-        self.setup_db(dvs)
-
         session = "TEST_SESSION"
+        src_ip = "1.1.1.1" if v6_encap == False else "fc00::1:1:1:1"
+        dst_ip = "2.2.2.2" if v6_encap == False else "fc00::2:2:2:2"
+        intf_addr = "10.0.0.0/31" if v6_encap == False else "fc00::/126"
+        nhop_ip = "10.0.0.1" if v6_encap == False else "fc00::1"
 
         marker = dvs.add_log_marker()
         # create mirror session
-        self.create_mirror_session(session, "1.1.1.1", "2.2.2.2", "0x6558", "8", "100", "0")
+        self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
-        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP 2.2.2.2", 1)
+        assert self.get_mirror_session_state(session)["next_hop_ip"] == ("0.0.0.0@" if v6_encap == False else "::@")
+        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # bring up Ethernet16
         self.set_interface_status(dvs, "Ethernet16", "up")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # add IP address to Ethernet16
-        self.add_ip_address("Ethernet16", "10.0.0.0/31")
+        self.add_ip_address("Ethernet16", intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # add neighbor to Ethernet16
-        self.add_neighbor("Ethernet16", "10.0.0.1", "02:04:06:08:10:12")
+        self.add_neighbor("Ethernet16", nhop_ip, "02:04:06:08:10:12")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
-        # add route to mirror destination via 10.0.0.1
-        self.add_route(dvs, "2.2.2.2", "10.0.0.1")
+        # add route to mirror destination via next hop ip
+        self.add_route(dvs, dst_ip, nhop_ip)
         assert self.get_mirror_session_state(session)["status"] == "active"
         assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet16"
         assert self.get_mirror_session_state(session)["dst_mac"] == "02:04:06:08:10:12"
-        assert self.get_mirror_session_state(session)["route_prefix"] == "2.2.2.2/32"
+        assert self.get_mirror_session_state(session)["route_prefix"] == "{}/{}".format(dst_ip, 32 if v6_encap == False else 128)
 
         # check asic database
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
@@ -164,15 +197,15 @@ class TestMirror(object):
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_ERSPAN_ENCAPSULATION_TYPE":
                 assert fv[1] == "SAI_ERSPAN_ENCAPSULATION_TYPE_MIRROR_L3_GRE_TUNNEL"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION":
-                assert fv[1] == "4"
+                assert fv[1] == "4" if v6_encap == False else "6"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_TOS":
                 assert fv[1] == "32"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_TTL":
                 assert fv[1] == "100"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_SRC_IP_ADDRESS":
-                assert fv[1] == "1.1.1.1"
+                assert fv[1] == src_ip
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_IP_ADDRESS":
-                assert fv[1] == "2.2.2.2"
+                assert fv[1] == dst_ip
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_SRC_MAC_ADDRESS":
                 assert fv[1] == dvs.runcmd("bash -c \"ip link show eth0 | grep ether | awk '{print $2}'\"")[1].strip().upper()
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
@@ -183,15 +216,15 @@ class TestMirror(object):
                 assert False
 
         # remove route
-        self.remove_route(dvs, "2.2.2.2")
+        self.remove_route(dvs, dst_ip)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove neighbor
-        self.remove_neighbor("Ethernet16", "10.0.0.1")
+        self.remove_neighbor("Ethernet16", nhop_ip)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove IP address
-        self.remove_ip_address("Ethernet16", "10.0.0.0/31")
+        self.remove_ip_address("Ethernet16", intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # bring down Ethernet16
@@ -201,7 +234,13 @@ class TestMirror(object):
         marker = dvs.add_log_marker()
         # remove mirror session
         self.remove_mirror_session(session)
-        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP 2.2.2.2", 1)
+        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
+
+    def test_MirrorAddRemove(self, dvs, testlog):
+        self.setup_db(dvs)
+
+        self._test_MirrorAddRemove(dvs, testlog)
+        self._test_MirrorAddRemove(dvs, testlog, v6_encap=True)
 
     def create_vlan(self, dvs, vlan):
         #dvs.runcmd("ip link del Bridge")
@@ -239,11 +278,13 @@ class TestMirror(object):
         tbl._del("Vlan" + vlan + ":" + mac)
         time.sleep(1)
 
+    def flush_fdb(self, op, data):
+        ntf = swsscommon.NotificationProducer(self.adb, "FLUSHFDBREQUEST")
+        fvs = swsscommon.FieldValuePairs()
+        ntf.send(op, data, fvs)
+        time.sleep(1)
 
-    # Ignore testcase in Debian Jessie
-    # TODO: Remove this skip if Jessie support is no longer needed
-    @pytest.mark.skipif(StrictVersion(distro.linux_distribution()[1]) <= StrictVersion('8.9'), reason="Debian 8.9 or before has no support")
-    def test_MirrorToVlanAddRemove(self, dvs, testlog):
+    def _test_MirrorToVlanAddRemove(self, dvs, testlog, v6_encap=False):
         """
         This test covers basic mirror session creation and removal operation
         with destination port sits in a VLAN
@@ -254,15 +295,18 @@ class TestMirror(object):
         3. Remove FDB; remove neighbor; remove IP; remove VLAN
         4. Remove mirror session
         """
-        self.setup_db(dvs)
-
         session = "TEST_SESSION"
+        src_ip = "5.5.5.5" if v6_encap == False else "fc00::5:5:5:5"
+        # dst ip in directly connected vlan subnet
+        dst_ip = "6.6.6.6" if v6_encap == False else "fc00::6:6:6:6"
+        intf_addr = "6.6.6.0/24" if v6_encap == False else "fc00::6:6:6:0/112"
 
         marker = dvs.add_log_marker()
         # create mirror session
-        self.create_mirror_session(session, "5.5.5.5", "6.6.6.6", "0x6558", "8", "100", "0")
+        self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
-        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP 6.6.6.6", 1)
+        assert self.get_mirror_session_state(session)["next_hop_ip"] == ("0.0.0.0@" if v6_encap == False else "::@")
+        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # create vlan; create vlan member
         self.create_vlan(dvs, "6")
@@ -273,11 +317,11 @@ class TestMirror(object):
         self.set_interface_status(dvs, "Ethernet4", "up")
 
         # add ip address to vlan 6
-        self.add_ip_address("Vlan6", "6.6.6.0/24")
+        self.add_ip_address("Vlan6", intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # create neighbor to vlan 6
-        self.add_neighbor("Vlan6", "6.6.6.6", "66:66:66:66:66:66")
+        self.add_neighbor("Vlan6", dst_ip, "66:66:66:66:66:66")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # create fdb entry to ethernet4
@@ -300,15 +344,15 @@ class TestMirror(object):
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_ERSPAN_ENCAPSULATION_TYPE":
                 assert fv[1] == "SAI_ERSPAN_ENCAPSULATION_TYPE_MIRROR_L3_GRE_TUNNEL"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION":
-                assert fv[1] == "4"
+                assert fv[1] == "4" if v6_encap == False else "6"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_TOS":
                 assert fv[1] == "32"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_TTL":
                 assert fv[1] == "100"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_SRC_IP_ADDRESS":
-                assert fv[1] == "5.5.5.5"
+                assert fv[1] == src_ip
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_IP_ADDRESS":
-                assert fv[1] == "6.6.6.6"
+                assert fv[1] == dst_ip
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_SRC_MAC_ADDRESS":
                 assert fv[1] == dvs.runcmd("bash -c \"ip link show eth0 | grep ether | awk '{print $2}'\"")[1].strip().upper()
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
@@ -328,16 +372,66 @@ class TestMirror(object):
             else:
                 assert False
 
+        # test port oper status down that triggers fdb flush on port, which further triggers neighbor flush
+        self.set_port_oper_status(dvs, "Ethernet4", "down")
+        assert self.get_mirror_session_state(session)["status"] == "inactive"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+        # Allow time for neighor flush to occur
+        time.sleep(1)
+
+        # restore port oper status up
+        self.set_port_oper_status(dvs, "Ethernet4", "up")
+
+        # restore fdb entry to ethernet 4
+        self.create_fdb("6", "66-66-66-66-66-66", "Ethernet4")
+        assert self.get_mirror_session_state(session)["status"] == "inactive"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+
+        # restore neighbor to vlan 6
+        self.add_neighbor("Vlan6", "6.6.6.6", "66:66:66:66:66:66")
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        # test fdb flush all from appl db
+        self.flush_fdb("ALL", "ALL")
+        assert self.get_mirror_session_state(session)["status"] == "inactive"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+
+        # restore fdb entry to ethernet 4
+        self.create_fdb("6", "66-66-66-66-66-66", "Ethernet4")
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        # test fdb flush port from appl db
+        self.flush_fdb("PORT", "Ethernet4")
+        assert self.get_mirror_session_state(session)["status"] == "inactive"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+
+        # restore fdb entry to ethernet 4
+        self.create_fdb("6", "66-66-66-66-66-66", "Ethernet4")
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        # test fdb flush vlan from appl db, the corresponding flush event from asic db not yet handled
+        # test fdb flush {vlan, port} from appl db, the corresponding flush event from asic db not yet handled
+
         # remove fdb entry
         self.remove_fdb("6", "66-66-66-66-66-66")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove neighbor
-        self.remove_neighbor("Vlan6", "6.6.6.6")
+        self.remove_neighbor("Vlan6", dst_ip)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove ip address
-        self.remove_ip_address("Vlan6", "6.6.6.0/24")
+        self.remove_ip_address("Vlan6", intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # bring down vlan and member
@@ -351,7 +445,16 @@ class TestMirror(object):
         marker = dvs.add_log_marker()
         # remove mirror session
         self.remove_mirror_session(session)
-        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP 6.6.6.6", 1)
+        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
+
+    # Ignore testcase in Debian Jessie
+    # TODO: Remove this skip if Jessie support is no longer needed
+    @pytest.mark.skipif(StrictVersion(distro.linux_distribution()[1]) <= StrictVersion('8.9'), reason="Debian 8.9 or before has no support")
+    def test_MirrorToVlanAddRemove(self, dvs, testlog):
+        self.setup_db(dvs)
+
+        self._test_MirrorToVlanAddRemove(dvs, testlog)
+        self._test_MirrorToVlanAddRemove(dvs, testlog, v6_encap=True)
 
     def create_port_channel(self, dvs, channel):
         tbl = swsscommon.ProducerStateTable(self.pdb, "LAG_TABLE")
@@ -364,16 +467,17 @@ class TestMirror(object):
         time.sleep(1)
 
     def remove_port_channel(self, dvs, channel):
+        tbl = swsscommon.Table(self.cdb, "PORTCHANNEL")
+        tbl._del("PortChannel" + channel)
         tbl = swsscommon.ProducerStateTable(self.pdb, "LAG_TABLE")
         tbl._del("PortChannel" + channel)
-        dvs.runcmd("ip link del PortChannel" + channel)
         tbl = swsscommon.Table(self.sdb, "LAG_TABLE")
         tbl._del("PortChannel" + channel)
         time.sleep(1)
 
-    def create_port_channel_member(self, channel, interface):
+    def create_port_channel_member(self, channel, interface, status="enabled"):
         tbl = swsscommon.ProducerStateTable(self.pdb, "LAG_MEMBER_TABLE")
-        fvs = swsscommon.FieldValuePairs([("status", "enabled")])
+        fvs = swsscommon.FieldValuePairs([("status", status)])
         tbl.set("PortChannel" + channel + ":" + interface, fvs)
         time.sleep(1)
 
@@ -382,8 +486,7 @@ class TestMirror(object):
         tbl._del("PortChannel" + channel + ":" + interface)
         time.sleep(1)
 
-
-    def test_MirrorToLagAddRemove(self, dvs, testlog):
+    def _test_MirrorToLagAddRemove(self, dvs, testlog, v6_encap=False):
         """
         This test covers basic mirror session creation and removal operations
         with destination port sits in a LAG
@@ -395,15 +498,18 @@ class TestMirror(object):
         4. Remove mirror session
 
         """
-        self.setup_db(dvs)
-
         session = "TEST_SESSION"
+        src_ip = "10.10.10.10" if v6_encap == False else "fc00::10:10:10:10"
+        dst_ip = "11.11.11.11" if v6_encap == False else "fc00::11:11:11:11"
+        # dst ip in directly connected subnet
+        intf_addr = "11.11.11.0/24" if v6_encap == False else "fc00::11:11:11:0/112"
 
         marker = dvs.add_log_marker()
         # create mirror session
-        self.create_mirror_session(session, "10.10.10.10", "11.11.11.11", "0x6558", "8", "100", "0")
+        self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
-        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP 11.11.11.11", 1)
+        assert self.get_mirror_session_state(session)["next_hop_ip"] == ("0.0.0.0@" if v6_encap == False else "::@")
+        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
 
         # create port channel; create port channel member
         self.create_port_channel(dvs, "008")
@@ -414,11 +520,11 @@ class TestMirror(object):
         self.set_interface_status(dvs, "Ethernet88", "up")
 
         # add ip address to port channel 008
-        self.add_ip_address("PortChannel008", "11.11.11.0/24")
+        self.add_ip_address("PortChannel008", intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # create neighbor to port channel 008
-        self.add_neighbor("PortChannel008", "11.11.11.11", "88:88:88:88:88:88")
+        self.add_neighbor("PortChannel008", dst_ip, "88:88:88:88:88:88")
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # check asic database
@@ -432,13 +538,227 @@ class TestMirror(object):
                 assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet88"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
                 assert fv[1] == "88:88:88:88:88:88"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION":
+                assert fv[1] == "4" if v6_encap == False else "6"
 
-        # remove neighbor
-        self.remove_neighbor("PortChannel008", "11.11.11.11")
+        # Oper down lag
+        self.set_lag_oper_status(dvs, "PortChannel008", "down")
+        assert self.get_mirror_session_status(session) == INACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+
+        # Oper up lag
+        self.set_lag_oper_status(dvs, "PortChannel008", "up")
+        assert self.get_mirror_session_status(session) == ACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        # Test neighbor mac change
+        self.add_neighbor("PortChannel008", dst_ip, "02:04:06:08:10:12")
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        assert self.get_mirror_session_state(session)["dst_mac"] == "02:04:06:08:10:12"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        (status, fvs) = tbl.get(tbl.getKeys()[0])
+        assert status == True
+        for fv in fvs:
+            if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
+                assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet88"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+                assert fv[1] == "02:04:06:08:10:12"
+
+        # restore original neighbor mac
+        self.add_neighbor("PortChannel008", dst_ip, "88:88:88:88:88:88")
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        assert self.get_mirror_session_state(session)["dst_mac"] == "88:88:88:88:88:88"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        (status, fvs) = tbl.get(tbl.getKeys()[0])
+        assert status == True
+        for fv in fvs:
+            if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
+                assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet88"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+                assert fv[1] == "88:88:88:88:88:88"
+
+        # Test neighbor mac removal that deactivates session
+        self.remove_neighbor("PortChannel008", dst_ip)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+
+        # Test neighbor mac add that activates session
+        self.add_neighbor("PortChannel008", dst_ip, "88:88:88:88:88:88")
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        assert self.get_mirror_session_state(session)["dst_mac"] == "88:88:88:88:88:88"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        (status, fvs) = tbl.get(tbl.getKeys()[0])
+        assert status == True
+        for fv in fvs:
+            if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
+                assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet88"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+                assert fv[1] == "88:88:88:88:88:88"
+
+        marker = dvs.add_log_marker()
+        # remove mirror session
+        self.remove_mirror_session(session)
+        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
+
+        # Test mirror session creation with lag member (monitor port) status disabled
+        self.create_port_channel_member("008", "Ethernet88", status="disabled")
+        marker = dvs.add_log_marker()
+        # create mirror session
+        self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
+        assert self.get_mirror_session_state(session)["status"] == "inactive"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+        self.check_syslog(dvs, marker, "Attached next hop observer .* for destination IP {}".format(dst_ip), 1)
+
+        # Test neighbor mac change with lag member (monitor port) status disabled
+        self.add_neighbor("PortChannel008", dst_ip, "02:04:06:08:10:12")
+        assert self.get_mirror_session_state(session)["status"] == "inactive"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+
+        # set lag member oper status up to activate session
+        self.create_port_channel_member("008", "Ethernet88", status="enabled")
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        assert self.get_mirror_session_state(session)["dst_mac"] == "02:04:06:08:10:12"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        (status, fvs) = tbl.get(tbl.getKeys()[0])
+        assert status == True
+        for fv in fvs:
+            if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
+                assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet88"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+                assert fv[1] == "02:04:06:08:10:12"
+
+        # restore original neighbor mac
+        self.add_neighbor("PortChannel008", dst_ip, "88:88:88:88:88:88")
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        assert self.get_mirror_session_state(session)["dst_mac"] == "88:88:88:88:88:88"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        (status, fvs) = tbl.get(tbl.getKeys()[0])
+        assert status == True
+        for fv in fvs:
+            if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
+                assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet88"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+                assert fv[1] == "88:88:88:88:88:88"
+
+        # Test lag member removal that deactivates session
+        self.remove_port_channel_member("008", "Ethernet88")
+        assert self.get_mirror_session_state(session)["status"] == "inactive"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+
+        # Test lag member creation with oper status down in the first place
+        self.create_port_channel_member("008", "Ethernet88", status="disabled")
+        assert self.get_mirror_session_state(session)["status"] == "inactive"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+
+        # set lag member oper status up to activate session
+        self.create_port_channel_member("008", "Ethernet88", status="enabled")
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        # Test lag member oper status down that deactivates session
+        self.create_port_channel_member("008", "Ethernet88", status="disabled")
+        assert self.get_mirror_session_state(session)["status"] == "inactive"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+
+        # Test lag member oper status up that activates session
+        self.create_port_channel_member("008", "Ethernet88", status="enabled")
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        # add a new member to lag
+        self.set_interface_status(dvs, "Ethernet92", "up")
+        self.create_port_channel_member("008", "Ethernet92", status="enabled")
+        time.sleep(2)
+        # monitor port stays unchanged
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet88"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        (status, fvs) = tbl.get(tbl.getKeys()[0])
+        assert status == True
+        for fv in fvs:
+            if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
+                assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet88"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+                assert fv[1] == "88:88:88:88:88:88"
+
+        # Test lag member oper status down that triggers monitor port update
+        self.create_port_channel_member("008", "Ethernet88", status="disabled")
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet92"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        (status, fvs) = tbl.get(tbl.getKeys()[0])
+        assert status == True
+        for fv in fvs:
+            if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
+                assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet92"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+                assert fv[1] == "88:88:88:88:88:88"
+
+        # Restore lag member oper status up
+        self.create_port_channel_member("008", "Ethernet88", status="enabled")
+        time.sleep(2)
+        # monitor port stays unchanged
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet92"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        (status, fvs) = tbl.get(tbl.getKeys()[0])
+        assert status == True
+        for fv in fvs:
+            if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
+                assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet92"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+                assert fv[1] == "88:88:88:88:88:88"
+
+        # Test lag member removal that triggers monitor port update
+        self.remove_port_channel_member("008", "Ethernet92")
+        assert self.get_mirror_session_state(session)["status"] == "active"
+        assert self.get_mirror_session_state(session)["monitor_port"] == "Ethernet88"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        (status, fvs) = tbl.get(tbl.getKeys()[0])
+        assert status == True
+        for fv in fvs:
+            if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
+                assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet88"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+                assert fv[1] == "88:88:88:88:88:88"
+
+        # clean up
+        # remove neighbor
+        self.remove_neighbor("PortChannel008", dst_ip)
+        assert self.get_mirror_session_state(session)["status"] == "inactive"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
 
         # remove ip address
-        self.remove_ip_address("PortChannel008", "11.11.11.0/24")
+        self.remove_ip_address("PortChannel008", intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # bring down port channel and port channel member
@@ -452,13 +772,15 @@ class TestMirror(object):
         marker = dvs.add_log_marker()
         # remove mirror session
         self.remove_mirror_session(session)
-        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP 11.11.11.11", 1)
+        self.check_syslog(dvs, marker, "Detached next hop observer for destination IP {}".format(dst_ip), 1)
 
+    def test_MirrorToLagAddRemove(self, dvs, testlog):
+        self.setup_db(dvs)
 
-    # Ignore testcase in Debian Jessie
-    # TODO: Remove this skip if Jessie support is no longer needed
-    @pytest.mark.skipif(StrictVersion(distro.linux_distribution()[1]) <= StrictVersion('8.9'), reason="Debian 8.9 or before has no support")
-    def test_MirrorDestMoveVlan(self, dvs, testlog):
+        self._test_MirrorToLagAddRemove(dvs, testlog)
+        self._test_MirrorToLagAddRemove(dvs, testlog, v6_encap=True)
+
+    def _test_MirrorDestMoveVlan(self, dvs, testlog, v6_encap=False):
         """
         This test tests mirror session destination move from non-VLAN to VLAN
         and back to non-VLAN port
@@ -471,19 +793,25 @@ class TestMirror(object):
         7. Disable non-VLAN monitor port
         8. Remove mirror session
         """
-        self.setup_db(dvs)
-
         session = "TEST_SESSION"
+        src_ip = "7.7.7.7" if v6_encap == False else "fc00::7:7:7:7"
+        dst_ip = "8.8.8.8" if v6_encap == False else "fc00::8:8:8:8"
+        port_intf_addr = "80.0.0.0/31" if v6_encap == False else "fc00::80:0:0:0/126"
+        port_nhop_ip = "80.0.0.1" if v6_encap == False else "fc00::80:0:0:1"
+        port_ip_prefix = "8.8.0.0/16" if v6_encap == False else "fc00::8:8:0:0/96"
+        # dst ip moves to directly connected vlan subnet
+        vlan_intf_addr = "8.8.8.0/24" if v6_encap == False else "fc00::8:8:8:0/112"
 
         # create mirror session
-        self.create_mirror_session(session, "7.7.7.7", "8.8.8.8", "0x6558", "8", "100", "0")
+        self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
+        assert self.get_mirror_session_state(session)["next_hop_ip"] == ("0.0.0.0@" if v6_encap == False else "::@")
 
         # bring up port; add ip; add neighbor; add route
         self.set_interface_status(dvs, "Ethernet32", "up")
-        self.add_ip_address("Ethernet32", "80.0.0.0/31")
-        self.add_neighbor("Ethernet32", "80.0.0.1", "02:04:06:08:10:12")
-        self.add_route(dvs, "8.8.0.0/16", "80.0.0.1")
+        self.add_ip_address("Ethernet32", port_intf_addr)
+        self.add_neighbor("Ethernet32", port_nhop_ip, "02:04:06:08:10:12")
+        self.add_route(dvs, port_ip_prefix, port_nhop_ip)
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # check monitor port
@@ -496,6 +824,8 @@ class TestMirror(object):
                 assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet32"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_VLAN_HEADER_VALID":
                 assert fv[1] == "false"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION":
+                assert fv[1] == "4" if v6_encap == False else "6"
 
         # mirror session move round 1
         # create vlan; create vlan member; bring up vlan and member
@@ -506,11 +836,13 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # add ip address to vlan 9
-        self.add_ip_address("Vlan9", "8.8.8.0/24")
+        self.add_ip_address("Vlan9", vlan_intf_addr)
+        time.sleep(2)
+        # inactive due to no neighbor mac or fdb entry
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # create neighbor to vlan 9
-        self.add_neighbor("Vlan9", "8.8.8.8", "88:88:88:88:88:88")
+        self.add_neighbor("Vlan9", dst_ip, "88:88:88:88:88:88")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # create fdb entry to ethernet48
@@ -535,6 +867,8 @@ class TestMirror(object):
                 assert fv[1] == "0"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_VLAN_CFI":
                 assert fv[1] == "0"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION":
+                assert fv[1] == "4" if v6_encap == False else "6"
 
         # mirror session move round 2
         # remove fdb entry
@@ -542,11 +876,11 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove neighbor
-        self.remove_neighbor("Vlan9", "8.8.8.8")
+        self.remove_neighbor("Vlan9", dst_ip)
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove ip address
-        self.remove_ip_address("Vlan9", "8.8.8.0/24")
+        self.remove_ip_address("Vlan9", vlan_intf_addr)
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # check monitor port
@@ -559,6 +893,8 @@ class TestMirror(object):
                 assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet32"
             elif fv[0] == "SAI_MIRROR_SESSION_ATTR_VLAN_HEADER_VALID":
                 assert fv[1] == "false"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION":
+                assert fv[1] == "4" if v6_encap == False else "6"
 
         # bring down vlan and member; remove vlan member; remove vlan
         self.set_interface_status(dvs, "Ethernet48", "down")
@@ -567,16 +903,24 @@ class TestMirror(object):
         self.remove_vlan("9")
 
         # remove route; remove neighbor; remove ip; bring down port
-        self.remove_route(dvs, "8.8.8.0/24")
-        self.remove_neighbor("Ethernet32", "80.0.0.1")
-        self.remove_ip_address("Ethernet32", "80.0.0.0/31")
+        self.remove_route(dvs, vlan_intf_addr)
+        self.remove_neighbor("Ethernet32", port_nhop_ip)
+        self.remove_ip_address("Ethernet32", port_intf_addr)
         self.set_interface_status(dvs, "Ethernet32", "down")
 
         # remove mirror session
         self.remove_mirror_session(session)
 
+    # Ignore testcase in Debian Jessie
+    # TODO: Remove this skip if Jessie support is no longer needed
+    @pytest.mark.skipif(StrictVersion(distro.linux_distribution()[1]) <= StrictVersion('8.9'), reason="Debian 8.9 or before has no support")
+    def test_MirrorDestMoveVlan(self, dvs, testlog):
+        self.setup_db(dvs)
 
-    def test_MirrorDestMoveLag(self, dvs, testlog):
+        self._test_MirrorDestMoveVlan(dvs, testlog)
+        self._test_MirrorDestMoveVlan(dvs, testlog, v6_encap=True)
+
+    def _test_MirrorDestMoveLag(self, dvs, testlog, v6_encap=False):
         """
         This test tests mirror session destination move from non-LAG to LAG
         and back to non-LAG port
@@ -589,19 +933,26 @@ class TestMirror(object):
         7. Disable non-LAG monitor port
         8. Remove mirror session
         """
-        self.setup_db(dvs)
-
         session = "TEST_SESSION"
+        src_ip = "12.12.12.12" if v6_encap == False else "fc00::12:12:12:12"
+        dst_ip = "13.13.13.13" if v6_encap == False else "fc00::13:13:13:13"
+        port_intf_addr = "100.0.0.0/31" if v6_encap == False else "fc00::100:0:0:0/126"
+        port_nhop_ip = "100.0.0.1" if v6_encap == False else "fc00::100:0:0:1"
+        port_ip_prefix = "13.13.0.0/16" if v6_encap == False else "fc00::13:13:0:0/96"
+        lag_intf_addr = "200.0.0.0/31" if v6_encap == False else "fc00::200:0:0:0/126"
+        lag_nhop_ip = "200.0.0.1" if v6_encap == False else "fc00::200:0:0:1"
+        lag_ip_prefix = "13.13.13.0/24" if v6_encap == False else "fc00::13:13:13:0/112"
 
         # create mirror session
-        self.create_mirror_session(session, "12.12.12.12", "13.13.13.13", "0x6558", "8", "100", "0")
+        self.create_mirror_session(session, src_ip, dst_ip, "0x6558", "8", "100", "0")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
+        assert self.get_mirror_session_state(session)["next_hop_ip"] == ("0.0.0.0@" if v6_encap == False else "::@")
 
         # bring up port; add ip; add neighbor; add route
         self.set_interface_status(dvs, "Ethernet64", "up")
-        self.add_ip_address("Ethernet64", "100.0.0.0/31")
-        self.add_neighbor("Ethernet64", "100.0.0.1", "02:04:06:08:10:12")
-        self.add_route(dvs, "13.13.0.0/16", "100.0.0.1")
+        self.add_ip_address("Ethernet64", port_intf_addr)
+        self.add_neighbor("Ethernet64", port_nhop_ip, "02:04:06:08:10:12")
+        self.add_route(dvs, port_ip_prefix, port_nhop_ip)
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # check monitor port
@@ -612,8 +963,10 @@ class TestMirror(object):
         for fv in fvs:
             if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
                 assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet64"
-            if fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
                 assert fv[1] == "02:04:06:08:10:12"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION":
+                assert fv[1] == "4" if v6_encap == False else "6"
 
         # mirror session move round 1
         # create port channel; create port channel member; bring up
@@ -623,12 +976,12 @@ class TestMirror(object):
         self.set_interface_status(dvs, "Ethernet32", "up")
 
         # add ip address to port channel 080; create neighbor to port channel 080
-        self.add_ip_address("PortChannel080", "200.0.0.0/31")
-        self.add_neighbor("PortChannel080", "200.0.0.1", "12:10:08:06:04:02")
+        self.add_ip_address("PortChannel080", lag_intf_addr)
+        self.add_neighbor("PortChannel080", lag_nhop_ip, "12:10:08:06:04:02")
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # add route
-        self.add_route(dvs, "13.13.13.0/24", "200.0.0.1")
+        self.add_route(dvs, lag_ip_prefix, lag_nhop_ip)
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # check monitor port
@@ -639,8 +992,10 @@ class TestMirror(object):
         for fv in fvs:
             if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
                 assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet32"
-            if fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
                 assert fv[1] == "12:10:08:06:04:02"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION":
+                assert fv[1] == "4" if v6_encap == False else "6"
 
         # mirror session move round 2
         # remove port channel member
@@ -660,15 +1015,16 @@ class TestMirror(object):
         for fv in fvs:
             if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
                 assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet32"
-            if fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
                 assert fv[1] == "12:10:08:06:04:02"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION":
+                assert fv[1] == "4" if v6_encap == False else "6"
 
         # mirror session move round 4
         # remove route
-        self.remove_route(dvs, "13.13.13.0/24")
+        self.remove_route(dvs, lag_ip_prefix)
         assert self.get_mirror_session_state(session)["status"] == "active"
 
-        port_oid = ""
         # check monitor port
         tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
         assert len(tbl.getKeys()) == 1
@@ -677,12 +1033,14 @@ class TestMirror(object):
         for fv in fvs:
             if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
                 assert dvs.asicdb.portoidmap[fv[1]] == "Ethernet64"
-            if fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
                 assert fv[1] == "02:04:06:08:10:12"
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION":
+                assert fv[1] == "4" if v6_encap == False else "6"
 
         # remove neighbor; remove ip address to port channel 080
-        self.remove_neighbor("PortChannel080", "200.0.0.1")
-        self.remove_ip_address("PortChannel080", "200.0.0.0/31")
+        self.remove_neighbor("PortChannel080", lag_nhop_ip)
+        self.remove_ip_address("PortChannel080", lag_intf_addr)
 
         # bring down; remove port channel member; remove port channel
         self.set_interface_status(dvs, "Ethernet32", "down")
@@ -692,15 +1050,20 @@ class TestMirror(object):
         assert self.get_mirror_session_state(session)["status"] == "active"
 
         # remove route; remove neighbor; remove ip; bring down port
-        self.remove_route(dvs, "13.13.0.0/16")
-        self.remove_neighbor("Ethernet64", "100.0.0.1")
-        self.remove_ip_address("Ethernet64", "100.0.0.0/31")
+        self.remove_route(dvs, port_ip_prefix)
+        self.remove_neighbor("Ethernet64", port_nhop_ip)
+        self.remove_ip_address("Ethernet64", port_intf_addr)
         self.set_interface_status(dvs, "Ethernet64", "down")
         assert self.get_mirror_session_state(session)["status"] == "inactive"
 
         # remove mirror session
         self.remove_mirror_session(session)
 
+    def test_MirrorDestMoveLag(self, dvs, testlog):
+        self.setup_db(dvs)
+
+        self._test_MirrorDestMoveLag(dvs, testlog)
+        self._test_MirrorDestMoveLag(dvs, testlog, v6_encap=True)
 
     def create_acl_table(self, table, interfaces):
         tbl = swsscommon.Table(self.cdb, "ACL_TABLE")
@@ -909,6 +1272,120 @@ class TestMirror(object):
 
         self._test_AclBindMirror(dvs, testlog)
         self._test_AclBindMirror(dvs, testlog, create_seq_test=True)
+
+    def _test_MirrorToPortDestDirectSubnetSessionStatus(self, dvs, testlog, v6_encap=False):
+        session = "TEST_SESSION"
+        src_ip = "1.1.1.1" if v6_encap == False else "fc00::1:1:1:1"
+        dst_ip = "2.2.2.2" if v6_encap == False else "fc00::2:2:2:2"
+        gre_type= "0x6558"
+        dscp = "8"
+        ttl = "100"
+        queue = "0"
+
+        PORT_UNDER_TEST = "Ethernet16"
+        PORT_ADDR_UNDER_TEST = "2.2.2.1/30" if v6_encap == False else "fc00::2:2:2:1/126"
+        DIRECT_SUBNET_UNDER_TEST = "2.2.2.0/30" if v6_encap == False else "fc00::2:2:2:0/126"
+
+        # Create mirror session
+        self.create_mirror_session(session, src_ip, dst_ip, gre_type, dscp, ttl, queue)
+        assert self.get_mirror_session_status(session) == INACTIVE
+        assert self.get_mirror_session_state(session)["next_hop_ip"] == ("0.0.0.0@" if v6_encap == False else "::@")
+
+        self.set_interface_status(dvs, PORT_UNDER_TEST, "up")
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        self.add_ip_address(PORT_UNDER_TEST, PORT_ADDR_UNDER_TEST)
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        self.add_neighbor(PORT_UNDER_TEST, dst_ip, "02:04:06:08:10:12")
+        assert self.get_mirror_session_status(session) == ACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        # Mimic host interface oper status down that causes frr to withdraw
+        # directly connected subnet prefix
+        self.remove_route_appl_db(dvs, DIRECT_SUBNET_UNDER_TEST)
+        assert self.get_mirror_session_status(session) == INACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+
+        # Mimic host interface oper status up
+        self.add_route_appl_db(dvs, DIRECT_SUBNET_UNDER_TEST, ["0.0.0.0" if v6_encap == False else "::"], [PORT_UNDER_TEST])
+        assert self.get_mirror_session_status(session) == ACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        # Test neighbor mac change
+        self.add_neighbor(PORT_UNDER_TEST, dst_ip, "88:88:88:88:88:88")
+        assert self.get_mirror_session_status(session) == ACTIVE
+        assert self.get_mirror_session_state(session)["dst_mac"] == "88:88:88:88:88:88"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        (status, fvs) = tbl.get(tbl.getKeys()[0])
+        assert status == True
+        for fv in fvs:
+            if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
+                assert dvs.asicdb.portoidmap[fv[1]] == PORT_UNDER_TEST
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+                assert fv[1] == "88:88:88:88:88:88"
+
+        # restore original neighbor mac
+        self.add_neighbor(PORT_UNDER_TEST, dst_ip, "02:04:06:08:10:12")
+        assert self.get_mirror_session_status(session) == ACTIVE
+        assert self.get_mirror_session_state(session)["dst_mac"] == "02:04:06:08:10:12"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        (status, fvs) = tbl.get(tbl.getKeys()[0])
+        assert status == True
+        for fv in fvs:
+            if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
+                assert dvs.asicdb.portoidmap[fv[1]] == PORT_UNDER_TEST
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+                assert fv[1] == "02:04:06:08:10:12"
+
+        # Test neighbor mac removal that deactivates session
+        self.remove_neighbor(PORT_UNDER_TEST, dst_ip)
+        assert self.get_mirror_session_state(session)["status"] == "inactive"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+
+        # Test neighbor mac add that activates session
+        self.add_neighbor(PORT_UNDER_TEST, dst_ip, "02:04:06:08:10:12")
+        assert self.get_mirror_session_status(session) == ACTIVE
+        assert self.get_mirror_session_state(session)["dst_mac"] == "02:04:06:08:10:12"
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 1
+
+        (status, fvs) = tbl.get(tbl.getKeys()[0])
+        assert status == True
+        for fv in fvs:
+            if fv[0] == "SAI_MIRROR_SESSION_ATTR_MONITOR_PORT":
+                assert dvs.asicdb.portoidmap[fv[1]] == PORT_UNDER_TEST
+            elif fv[0] == "SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS":
+                assert fv[1] == "02:04:06:08:10:12"
+
+        # Clean up
+        self.remove_neighbor(PORT_UNDER_TEST, dst_ip)
+        assert self.get_mirror_session_status(session) == INACTIVE
+        tbl = swsscommon.Table(self.adb, "ASIC_STATE:SAI_OBJECT_TYPE_MIRROR_SESSION")
+        assert len(tbl.getKeys()) == 0
+
+        self.remove_ip_address(PORT_UNDER_TEST, PORT_ADDR_UNDER_TEST)
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        self.set_interface_status(dvs, PORT_UNDER_TEST, "down")
+        assert self.get_mirror_session_status(session) == INACTIVE
+
+        # Remove mirror session
+        self.remove_mirror_session(session)
+
+    def test_MirrorToPortDestDirectSubnetSessionStatus(self, dvs, testlog):
+        self.setup_db(dvs)
+
+        self._test_MirrorToPortDestDirectSubnetSessionStatus(dvs, testlog)
+        self._test_MirrorToPortDestDirectSubnetSessionStatus(dvs, testlog, v6_encap=True)
 
 
 # Add Dummy always-pass test at end as workaroud

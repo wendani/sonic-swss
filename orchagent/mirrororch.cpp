@@ -34,7 +34,8 @@
 
 #define MIRROR_SESSION_DEFAULT_VLAN_PRI 0
 #define MIRROR_SESSION_DEFAULT_VLAN_CFI 0
-#define MIRROR_SESSION_DEFAULT_IP_HDR_VER 4
+#define MIRROR_SESSION_IP_HDR_VER_4     4
+#define MIRROR_SESSION_IP_HDR_VER_6     6
 #define MIRROR_SESSION_DSCP_SHIFT       2
 #define MIRROR_SESSION_DSCP_MIN         0
 #define MIRROR_SESSION_DSCP_MAX         63
@@ -53,7 +54,7 @@ MirrorEntry::MirrorEntry(const string& platform) :
         dscp(8),
         ttl(255),
         queue(0),
-        sessionId(0),
+        sessionId(SAI_NULL_OBJECT_ID),
         refCount(0)
 {
     if (platform == MLNX_PLATFORM_SUBSTRING)
@@ -68,6 +69,11 @@ MirrorEntry::MirrorEntry(const string& platform) :
     string alias = "";
     nexthopInfo.prefix = IpPrefix("0.0.0.0/0");
     nexthopInfo.nexthop = NextHopKey("0.0.0.0", alias);
+
+    // neighborInfo
+    // mac and port data members have default constructors
+    // for proper initialization
+    neighborInfo.portId = SAI_NULL_OBJECT_ID;
 }
 
 MirrorOrch::MirrorOrch(TableConnector stateDbConnector, TableConnector confDbConnector,
@@ -78,7 +84,9 @@ MirrorOrch::MirrorOrch(TableConnector stateDbConnector, TableConnector confDbCon
         m_neighOrch(neighOrch),
         m_fdbOrch(fdbOrch),
         m_policerOrch(policerOrch),
-        m_mirrorTable(stateDbConnector.first, stateDbConnector.second)
+        m_mirrorTable(stateDbConnector.first, stateDbConnector.second),
+        m_applDb(make_shared<DBConnector>("APPL_DB", 0)),
+        m_applLagMemberTable(make_shared<Table>(m_applDb.get(), APP_LAG_MEMBER_TABLE_NAME))
 {
     m_portsOrch->attach(this);
     m_neighOrch->attach(this);
@@ -162,6 +170,12 @@ void MirrorOrch::update(SubjectType type, void *cntx)
     {
         LagMemberUpdate *update = static_cast<LagMemberUpdate *>(cntx);
         updateLagMember(*update);
+        break;
+    }
+    case SUBJECT_TYPE_LAG_MEMBER_STATUS_CHANGE:
+    {
+        LagMemberStatusUpdate *update = static_cast<LagMemberStatusUpdate *>(cntx);
+        updateLagMemberStatus(*update);
         break;
     }
     case SUBJECT_TYPE_VLAN_MEMBER_CHANGE:
@@ -343,20 +357,10 @@ task_process_status MirrorOrch::createEntry(const string& key, const vector<Fiel
             if (fvField(i) == MIRROR_SESSION_SRC_IP)
             {
                 entry.srcIp = fvValue(i);
-                if (!entry.srcIp.isV4())
-                {
-                    SWSS_LOG_ERROR("Unsupported version of sessions %s source IP address", key.c_str());
-                    return task_process_status::task_invalid_entry;
-                }
             }
             else if (fvField(i) == MIRROR_SESSION_DST_IP)
             {
                 entry.dstIp = fvValue(i);
-                if (!entry.dstIp.isV4())
-                {
-                    SWSS_LOG_ERROR("Unsupported version of sessions %s destination IP address", key.c_str());
-                    return task_process_status::task_invalid_entry;
-                }
             }
             else if (fvField(i) == MIRROR_SESSION_GRE_TYPE)
             {
@@ -547,8 +551,8 @@ void MirrorOrch::setSessionState(const string& name, const MirrorEntry& session,
 
     if (attr.empty() || attr == MIRROR_SESSION_NEXT_HOP_IP)
     {
-     value = session.nexthopInfo.nexthop.to_string();
-     fvVector.emplace_back(MIRROR_SESSION_NEXT_HOP_IP, value);
+        value = session.nexthopInfo.nexthop.to_string();
+        fvVector.emplace_back(MIRROR_SESSION_NEXT_HOP_IP, value);
     }
 
     m_mirrorTable.set(name, fvVector);
@@ -570,32 +574,84 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
     // 2) If session has next hop, and the next hop's neighbor information is
     //    retrieved successfully, then continue.
     // 3) Otherwise, return false.
-    if (!m_neighOrch->getNeighborEntry(session.dstIp,
-                session.neighborInfo.neighbor, session.neighborInfo.mac) &&
+    NeighborEntry neighbor;
+    if ((session.nexthopInfo.nexthop.alias.empty() ||
+            !m_neighOrch->getNeighborEntry(session.dstIp,
+                neighbor, session.neighborInfo.mac)) &&
             (session.nexthopInfo.nexthop.ip_address.isZero() ||
             !m_neighOrch->getNeighborEntry(session.nexthopInfo.nexthop,
-                session.neighborInfo.neighbor, session.neighborInfo.mac)))
+                neighbor, session.neighborInfo.mac)))
     {
+        session.neighborInfo.mac = MacAddress();
         return false;
     }
 
-    SWSS_LOG_NOTICE("Mirror session %s neighbor is %s",
-            name.c_str(), session.neighborInfo.neighbor.alias.c_str());
+    SWSS_LOG_NOTICE("Mirror session %s neighbor %s connected to local router interface %s",
+            name.c_str(), neighbor.ip_address.to_string().c_str(), neighbor.alias.c_str());
 
     // Get mirror session monitor port information
-    m_portsOrch->getPort(session.neighborInfo.neighbor.alias,
+    m_portsOrch->getPort(neighbor.alias,
             session.neighborInfo.port);
 
-    switch (session.neighborInfo.port.m_type)
+    Port p = session.neighborInfo.port;
+    if (p.m_type == Port::SUBPORT)
+    {
+        if (!m_portsOrch->getPort(p.m_parent_port_id, p))
+        {
+            SWSS_LOG_ERROR("Neighbor %s connected to local sub interface %s whose parent port does not exist",
+                    neighbor.ip_address.to_string().c_str(), neighbor.alias.c_str());
+            return false;
+        }
+
+        assert(p.m_type != Port::VLAN);
+    }
+    else if (p.m_type == Port::VLAN)
+    {
+        SWSS_LOG_NOTICE("Get mirror session destination IP neighbor VLAN %d",
+                p.m_vlan_info.vlan_id);
+
+        // Recover the VLAN member monitor port picked before warm reboot
+        // since the FDB entries are not yet learned on the hardware
+        if (m_recoverySessionMap.find(name) != m_recoverySessionMap.end())
+        {
+            string alias = tokenize(m_recoverySessionMap[name],
+                    state_db_key_delimiter, 1)[0];
+            Port monp;
+            m_portsOrch->getPort(alias, monp);
+
+            SWSS_LOG_NOTICE("Recover mirror session %s with VLAN member monitor port %s",
+                    name.c_str(), alias.c_str());
+            session.neighborInfo.portId = monp.m_port_id;
+
+            return true;
+        }
+
+        if (!m_fdbOrch->getPort(session.neighborInfo.mac,
+                    p.m_vlan_info.vlan_id, p))
+        {
+            SWSS_LOG_NOTICE("Waiting to get FDB entry MAC %s under VLAN %s",
+                    session.neighborInfo.mac.to_string().c_str(),
+                    p.m_alias.c_str());
+
+            session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+            if (session.status)
+            {
+                deactivateSession(name, session);
+            }
+            return false;
+        }
+    }
+
+    switch (p.m_type)
     {
         case Port::PHY:
         {
-            session.neighborInfo.portId = session.neighborInfo.port.m_port_id;
+            session.neighborInfo.portId = p.m_port_id;
             return true;
         }
         case Port::LAG:
         {
-            if (session.neighborInfo.port.m_members.empty())
+            if (p.m_members.empty())
             {
                 return false;
             }
@@ -606,59 +662,23 @@ bool MirrorOrch::getNeighborInfo(const string& name, MirrorEntry& session)
             {
                 string alias = tokenize(m_recoverySessionMap[name],
                         state_db_key_delimiter, 1)[0];
-                Port member;
-                m_portsOrch->getPort(alias, member);
+                Port monp;
+                m_portsOrch->getPort(alias, monp);
 
-                SWSS_LOG_NOTICE("Recover mirror session %s with LAG member port %s",
+                SWSS_LOG_NOTICE("Recover mirror session %s with LAG member monitor port %s",
                         name.c_str(), alias.c_str());
-                session.neighborInfo.portId = member.m_port_id;
+                session.neighborInfo.portId = monp.m_port_id;
             }
             else
             {
-                // Get the first member of the LAG
-                Port member;
-                string first_member_alias = *session.neighborInfo.port.m_members.begin();
-                m_portsOrch->getPort(first_member_alias, member);
-
-                session.neighborInfo.portId = member.m_port_id;
-            }
-
-            return true;
-        }
-        case Port::VLAN:
-        {
-            SWSS_LOG_NOTICE("Get mirror session destination IP neighbor VLAN %d",
-                    session.neighborInfo.port.m_vlan_info.vlan_id);
-
-            // Recover the VLAN member monitor port picked before warm reboot
-            // since the FDB entries are not yet learned on the hardware
-            if (m_recoverySessionMap.find(name) != m_recoverySessionMap.end())
-            {
-                string alias = tokenize(m_recoverySessionMap[name],
-                        state_db_key_delimiter, 1)[0];
-                Port member;
-                m_portsOrch->getPort(alias, member);
-
-                SWSS_LOG_NOTICE("Recover mirror session %s with VLAN member port %s",
-                        name.c_str(), alias.c_str());
-                session.neighborInfo.portId = member.m_port_id;
-            }
-            else
-            {
-                Port member;
-                if (!m_fdbOrch->getPort(session.neighborInfo.mac,
-                            session.neighborInfo.port.m_vlan_info.vlan_id, member))
+                Port lmp;
+                if (!selectEnabledLagMember(p, lmp))
                 {
-                    SWSS_LOG_NOTICE("Waiting to get FDB entry MAC %s under VLAN %s",
-                            session.neighborInfo.mac.to_string().c_str(),
-                            session.neighborInfo.port.m_alias.c_str());
+                    session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
                     return false;
                 }
-                else
-                {
-                    // Update monitor port
-                    session.neighborInfo.portId = member.m_port_id;
-                }
+
+                session.neighborInfo.portId = lmp.m_port_id;
             }
 
             return true;
@@ -687,10 +707,21 @@ bool MirrorOrch::updateSession(const string& name, MirrorEntry& session)
         // Update corresponding attributes
         if (session.status)
         {
-            if (old_session.neighborInfo.port.m_type !=
-                    session.neighborInfo.port.m_type &&
-                (old_session.neighborInfo.port.m_type == Port::VLAN ||
-                 session.neighborInfo.port.m_type == Port::VLAN))
+            // Update from non-vlan, non-subport to vlan or subport, and vice versa,
+            // Or update among vlan or subport, but to a different vlan id
+            if (((old_session.neighborInfo.port.m_type != Port::VLAN
+                            && old_session.neighborInfo.port.m_type != Port::SUBPORT)
+                        && (session.neighborInfo.port.m_type == Port::VLAN
+                            || session.neighborInfo.port.m_type == Port::SUBPORT))
+                    || ((old_session.neighborInfo.port.m_type == Port::VLAN
+                            || old_session.neighborInfo.port.m_type == Port::SUBPORT)
+                        && (session.neighborInfo.port.m_type != Port::VLAN
+                            && session.neighborInfo.port.m_type != Port::SUBPORT))
+                    || ((old_session.neighborInfo.port.m_type == Port::VLAN
+                            || old_session.neighborInfo.port.m_type == Port::SUBPORT)
+                        && (session.neighborInfo.port.m_type == Port::VLAN
+                            || session.neighborInfo.port.m_type == Port::SUBPORT)
+                        && old_session.neighborInfo.port.m_vlan_info.vlan_id != session.neighborInfo.port.m_vlan_info.vlan_id))
             {
                 ret &= updateSessionType(name, session);
             }
@@ -884,8 +915,9 @@ bool MirrorOrch::activateSession(const string& name, MirrorEntry& session)
         attr.value.s32 = SAI_MIRROR_SESSION_TYPE_ENHANCED_REMOTE;
         attrs.push_back(attr);
 
-        // Add the VLAN header when the packet is sent out from a VLAN
-        if (session.neighborInfo.port.m_type == Port::VLAN)
+        // Add the VLAN header when the packet is sent out from a VLAN or a sub port interface
+        if (session.neighborInfo.port.m_type == Port::VLAN
+                || session.neighborInfo.port.m_type == Port::SUBPORT)
         {
             attr.id = SAI_MIRROR_SESSION_ATTR_VLAN_HEADER_VALID;
             attr.value.booldata = true;
@@ -913,7 +945,7 @@ bool MirrorOrch::activateSession(const string& name, MirrorEntry& session)
         attrs.push_back(attr);
 
         attr.id = SAI_MIRROR_SESSION_ATTR_IPHDR_VERSION;
-        attr.value.u8 = MIRROR_SESSION_DEFAULT_IP_HDR_VER;
+        attr.value.u8 = session.dstIp.isV4() ? MIRROR_SESSION_IP_HDR_VER_4 : MIRROR_SESSION_IP_HDR_VER_6;
         attrs.push_back(attr);
 
         // TOS value format is the following:
@@ -1119,7 +1151,8 @@ bool MirrorOrch::updateSessionType(const string& name, MirrorEntry& session)
     sai_attribute_t attr;
     vector<sai_attribute_t> attrs;
 
-    if (session.neighborInfo.port.m_type == Port::VLAN)
+    if (session.neighborInfo.port.m_type == Port::VLAN
+            || session.neighborInfo.port.m_type == Port::SUBPORT)
     {
         attr.id = SAI_MIRROR_SESSION_ATTR_VLAN_HEADER_VALID;
         attr.value.booldata = true;
@@ -1156,7 +1189,7 @@ bool MirrorOrch::updateSessionType(const string& name, MirrorEntry& session)
 
         if (status != SAI_STATUS_SUCCESS)
         {
-            SWSS_LOG_ERROR("Failed to update mirror session %s VLAN to %s, rv:%d",
+            SWSS_LOG_ERROR("Failed to update mirror session %s VLAN ID to %s, rv:%d",
                     name.c_str(), session.neighborInfo.port.m_alias.c_str(), status);
             task_process_status handle_status =  handleSaiSetStatus(SAI_API_MIRROR, status);
             if (handle_status != task_success)
@@ -1166,7 +1199,7 @@ bool MirrorOrch::updateSessionType(const string& name, MirrorEntry& session)
         }
     }
 
-    SWSS_LOG_NOTICE("Update mirror session %s VLAN to %s",
+    SWSS_LOG_NOTICE("Update mirror session %s VLAN ID to %s",
             name.c_str(), session.neighborInfo.port.m_alias.c_str());
 
     setSessionState(name, session, MIRROR_SESSION_VLAN_ID);
@@ -1243,7 +1276,7 @@ void MirrorOrch::updateNextHop(const NextHopUpdate& update)
         else
         {
             string alias = "";
-            session.nexthopInfo.nexthop = NextHopKey("0.0.0.0", alias);
+            session.nexthopInfo.nexthop = session.dstIp.isV4() ? NextHopKey("0.0.0.0", alias) : NextHopKey("::", alias);
         }
 
         // Update State DB Nexthop
@@ -1270,9 +1303,10 @@ void MirrorOrch::updateNeighbor(const NeighborUpdate& update)
         auto& session = it->second;
 
         // Check if the session's destination IP matches the neighbor's update IP
-        // or if the session's next hop IP matches the neighbor's update IP
+        // (destination IP in directly connected subnet),
+        // or if the session's next hop matches the neighbor's update entry
         if (session.dstIp != update.entry.ip_address &&
-                session.nexthopInfo.nexthop.ip_address != update.entry.ip_address)
+                session.nexthopInfo.nexthop != update.entry)
         {
             continue;
         }
@@ -1317,26 +1351,94 @@ void MirrorOrch::updateFdb(const FdbUpdate& update)
             if (session.status)
             {
                 // Update port if changed
-                if (session.neighborInfo.portId != update.port.m_port_id)
+                if (update.port.m_type == Port::PHY)
                 {
-                    session.neighborInfo.portId = update.port.m_port_id;
-                    updateSessionDstPort(name, session);
+                    if (session.neighborInfo.portId != update.port.m_port_id)
+                    {
+                        session.neighborInfo.portId = update.port.m_port_id;
+                        updateSessionDstPort(name, session);
+                    }
+                }
+                else if (update.port.m_type == Port::LAG)
+                {
+                    Port lmp;
+                    if (!m_portsOrch->getPort(session.neighborInfo.portId, lmp))
+                    {
+                        SWSS_LOG_ERROR("Failed to get Port object for port oid: 0x%" PRIx64, session.neighborInfo.portId);
+                        lmp.m_lag_id = SAI_NULL_OBJECT_ID;
+                    }
+
+                    if (lmp.m_lag_id != update.port.m_lag_id)
+                    {
+                        if (selectEnabledLagMember(update.port, lmp))
+                        {
+                            session.neighborInfo.portId = lmp.m_port_id;
+                            updateSessionDstPort(name, session);
+                        }
+                        else
+                        {
+                            session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+                            deactivateSession(name, session);
+                        }
+                    }
                 }
             }
             else
             {
                 // Activate session
-                session.neighborInfo.portId = update.port.m_port_id;
-                activateSession(name, session);
+                if (update.port.m_type == Port::PHY)
+                {
+                    session.neighborInfo.portId = update.port.m_port_id;
+                    activateSession(name, session);
+                }
+                else if (update.port.m_type == Port::LAG)
+                {
+                    Port lmp;
+                    if (selectEnabledLagMember(update.port, lmp))
+                    {
+                        session.neighborInfo.portId = lmp.m_port_id;
+                        activateSession(name, session);
+                    }
+                }
             }
         }
         // Remove the monitor port
         else
         {
-            deactivateSession(name, session);
             session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+            deactivateSession(name, session);
         }
     }
+}
+
+bool MirrorOrch::selectEnabledLagMember(const Port &lag, Port &port)
+{
+    // Select a LAG member of enabled status using first-fit strategy
+    for (const auto &member : lag.m_members)
+    {
+        // Get member oper status
+        string status;
+        string key = lag.m_alias + m_applLagMemberTable->getTableNameSeparator() + member;
+        if (!m_applLagMemberTable->hget(key, "status", status))
+        {
+            continue;
+        }
+
+        if (status == "enabled")
+        {
+            Port p;
+            if (m_portsOrch->getPort(member, p))
+            {
+                port = p;
+                return true;
+            }
+
+            SWSS_LOG_ERROR("Failed to get Port object for lag %s member %s",
+                           lag.m_alias.c_str(),
+                           member.c_str());
+        }
+    }
+    return false;
 }
 
 void MirrorOrch::updateLagMember(const LagMemberUpdate& update)
@@ -1368,52 +1470,146 @@ void MirrorOrch::updateLagMember(const LagMemberUpdate& update)
             }
         }
 
+        Port p = session.neighborInfo.port;
+        if (p.m_type == Port::SUBPORT)
+        {
+            if (!m_portsOrch->getPort(p.m_parent_port_id, p))
+            {
+                SWSS_LOG_ERROR("Parent lag of local sub interface %s does not exist",
+                        p.m_alias.c_str());
+
+                session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+                if (session.status)
+                {
+                    deactivateSession(name, session);
+                }
+                continue;
+            }
+
+            assert(p.m_type != Port::VLAN);
+        }
+        else if (p.m_type == Port::VLAN)
+        {
+            if (!m_fdbOrch->getPort(session.neighborInfo.mac,
+                        p.m_vlan_info.vlan_id, p))
+            {
+                SWSS_LOG_NOTICE("Waiting to get FDB entry MAC %s under VLAN %s",
+                        session.neighborInfo.mac.to_string().c_str(),
+                        p.m_alias.c_str());
+
+                session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+                if (session.status)
+                {
+                    deactivateSession(name, session);
+                }
+                continue;
+            }
+        }
+
         // Check the following two conditions:
         // 1) the neighbor is LAG
         // 2) the neighbor LAG matches the update LAG
-        if (session.neighborInfo.port.m_type != Port::LAG ||
-                session.neighborInfo.port != update.lag)
+        if (p.m_type != Port::LAG || p != update.lag)
         {
             continue;
         }
 
-        if (update.add)
+        if (!update.add)
         {
-            // Activate mirror session if it was deactivated due to the reason
-            // that previously there was no member in the LAG. If the mirror
-            // session is already activated, no further action is needed.
+            if (session.status && session.neighborInfo.portId == update.member.m_port_id)
+            {
+                Port lmp;
+                if (selectEnabledLagMember(update.lag, lmp))
+                {
+                    session.neighborInfo.portId = lmp.m_port_id;
+                    updateSessionDstPort(name, session);
+                }
+                else
+                {
+                    session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+                    deactivateSession(name, session);
+                }
+            }
+        }
+    }
+}
+
+void MirrorOrch::updateLagMemberStatus(const LagMemberStatusUpdate& update)
+{
+    SWSS_LOG_ENTER();
+
+    for (auto it = m_syncdMirrors.begin(); it != m_syncdMirrors.end(); it++)
+    {
+        const auto &name = it->first;
+        auto &session = it->second;
+
+        Port p = session.neighborInfo.port;
+        if (p.m_type == Port::SUBPORT)
+        {
+            if (!m_portsOrch->getPort(p.m_parent_port_id, p))
+            {
+                SWSS_LOG_ERROR("Parent lag of local sub interface %s does not exist",
+                        p.m_alias.c_str());
+
+                session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+                if (session.status)
+                {
+                    deactivateSession(name, session);
+                }
+                continue;
+            }
+
+            assert(p.m_type != Port::VLAN);
+        }
+        else if (p.m_type == Port::VLAN)
+        {
+            if (!m_fdbOrch->getPort(session.neighborInfo.mac,
+                        p.m_vlan_info.vlan_id, p))
+            {
+                SWSS_LOG_NOTICE("Waiting to get FDB entry MAC %s under VLAN %s",
+                        session.neighborInfo.mac.to_string().c_str(),
+                        p.m_alias.c_str());
+
+                session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
+                if (session.status)
+                {
+                    deactivateSession(name, session);
+                }
+                continue;
+            }
+        }
+
+        // Pre-check:
+        // Neighbor's local counterpart is LAG
+        // Local LAG counterpart matches the update LAG
+        if (p.m_type != Port::LAG || p != update.lag)
+        {
+            continue;
+        }
+
+        if (update.enabled)
+        {
             if (!session.status)
             {
-                assert(!update.lag.m_members.empty());
-                const string& member_name = *update.lag.m_members.begin();
-                Port member;
-                m_portsOrch->getPort(member_name, member);
-
-                session.neighborInfo.portId = member.m_port_id;
+                session.neighborInfo.portId = update.member.m_port_id;
                 activateSession(name, session);
             }
         }
         else
         {
-            // If LAG is empty, deactivate session
-            if (update.lag.m_members.empty())
+            if (session.status && session.neighborInfo.portId == update.member.m_port_id)
             {
-                if (session.status)
+                Port lmp;
+                if (selectEnabledLagMember(update.lag, lmp))
                 {
+                    session.neighborInfo.portId = lmp.m_port_id;
+                    updateSessionDstPort(name, session);
+                }
+                else
+                {
+                    session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
                     deactivateSession(name, session);
                 }
-                session.neighborInfo.portId = SAI_OBJECT_TYPE_NULL;
-            }
-            // Switch to a new member of the LAG
-            else
-            {
-                const string& member_name = *update.lag.m_members.begin();
-                Port member;
-                m_portsOrch->getPort(member_name, member);
-
-                session.neighborInfo.portId = member.m_port_id;
-                // The destination MAC remains the same
-                updateSessionDstPort(name, session);
             }
         }
     }
@@ -1437,16 +1633,38 @@ void MirrorOrch::updateVlanMember(const VlanMemberUpdate& update)
         // Check the following three conditions:
         // 1) mirror session is pointing to a VLAN
         // 2) the VLAN matches the update VLAN
-        // 3) the monitor port matches the update VLAN member
         if (session.neighborInfo.port.m_type != Port::VLAN ||
-                session.neighborInfo.port != update.vlan ||
-                session.neighborInfo.portId != update.member.m_port_id)
+                session.neighborInfo.port != update.vlan)
         {
             continue;
         }
+        // 3) If update VLAN member is of type physical port, the monitor port matches the update VLAN member.
+        //    If update VLAN member is of type LAG, monitor port is a member of the update LAG.
+        if (update.member.m_type == Port::PHY)
+        {
+            if (session.neighborInfo.portId != update.member.m_port_id)
+            {
+                continue;
+            }
+        }
+        else if (update.member.m_type == Port::LAG)
+        {
+            Port lmp;
+            if (m_portsOrch->getPort(session.neighborInfo.portId, lmp))
+            {
+                if (lmp.m_lag_id != update.member.m_lag_id)
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                SWSS_LOG_ERROR("Failed to get Port object for port oid: 0x%" PRIx64, session.neighborInfo.portId);
+            }
+        }
 
         // Deactivate session. Wait for FDB event to activate session
-        session.neighborInfo.portId = SAI_OBJECT_TYPE_NULL;
+        session.neighborInfo.portId = SAI_NULL_OBJECT_ID;
         deactivateSession(name, session);
     }
 }
